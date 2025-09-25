@@ -5,7 +5,7 @@ from ppci.lang.c import COptions
 import io
 
 # Read the C source
-with open('ppci/test_cos.c', 'r') as f:
+with open('test_cos.c', 'r') as f:
     source = f.read()
 
 # Compile to IR

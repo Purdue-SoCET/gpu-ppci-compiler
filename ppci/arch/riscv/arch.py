@@ -264,7 +264,13 @@ class RiscvArch(Architecture):
         arg_locs = self.determine_arg_locations(arg_types)
         stack_size = 0
         # Setup parameters:
-        for arg_loc, arg2 in zip(arg_locs, args):
+        sin_imm_val = 0
+        original_args = [(a[0], a[1]) for a in args]  # Deep copy
+        if label == 'sin' and len(original_args) > 1:
+            sin_arg = original_args[1][1]
+            if isinstance(sin_arg, ir.Const):
+                sin_imm_val = sin_arg.value
+        for idx, (arg_loc, arg2) in enumerate(zip(arg_locs, args)):
             arg = arg2[1]
             if isinstance(arg_loc, (RiscvRegister, RiscvFRegister)):
                 yield self.move(arg_loc, arg)
@@ -303,6 +309,13 @@ class RiscvArch(Architecture):
             # Custom instruction for cos
             from .instructions import Customcos
             yield Customcos(R10, R12, R13)
+        elif label == 'sin':
+            # Custom instruction for sin
+            from .instructions import Customsin
+            # Load the immediate into a register
+            if sin_imm_val != 0:
+                yield instructions.Li(R13, sin_imm_val)
+            yield Customsin(R10, R12, R13)
         else:
             yield self.branch(LR, label)
 

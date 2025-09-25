@@ -975,6 +975,23 @@ class Binop(LocalValue):
         )
 
 
+class Sin(LocalValue):
+    """Sin operation: rd = sin(rs1, imm)"""
+
+    rs1 = value_use("rs1")
+
+    def __init__(self, rs1, imm, name, ty):
+        super().__init__(name, ty)
+        if rs1.ty is not ty:
+            raise TypeError(f"Sin type mismatch {rs1.ty} != {ty}")
+
+        self.rs1 = rs1
+        self.imm = imm  # imm is int
+
+    def __str__(self):
+        return f"{self.ty} {self.name} = sin {self.rs1.name}, {self.imm}"
+
+
 def add(a, b, name, ty):
     """Substract b from a"""
     return Binop(a, "+", b, name, ty)

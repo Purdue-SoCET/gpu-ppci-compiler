@@ -218,6 +218,23 @@ class Customcos(RiscvInstruction):
         return tokens[0].encode()
 
 
+class Customsin(RiscvInstruction):
+    rd = Operand("rd", RiscvRegister, write=True)
+    rs1 = Operand("rs1", RiscvRegister, read=True)
+    rs2 = Operand("rs2", RiscvRegister, read=True)
+    syntax = Syntax(["customsin", " ", rd, ",", " ", rs1, ",", " ", rs2])
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b0000000  # opcode
+        tokens[0][7:12] = self.rd.num
+        tokens[0][12:15] = 0b111  # funct3
+        tokens[0][15:20] = self.rs1.num
+        tokens[0][20:25] = self.rs2.num
+        tokens[0][25:32] = 0b0000000  # funct7
+        return tokens[0].encode()
+
+
 def make_si(mnemonic, code, func):
     rd = Operand("rd", RiscvRegister, write=True)
     rs1 = Operand("rs1", RiscvRegister, read=True)
@@ -1512,6 +1529,14 @@ def pattern_cos_call(context, tree):
     rs2 = tree.arguments[1]
     rd = tree.result
     context.emit(Customcos(rd, rs1, rs2))
+
+
+@isa.pattern("stm", "CALL", size=4, condition=lambda t: hasattr(t, 'callee') and t.callee == 'sin')
+def pattern_sin_call(context, tree):
+    rs1 = tree.arguments[0]
+    rs2 = tree.arguments[1]
+    rd = tree.result
+    context.emit(Customsin(rd, rs1, rs2))
 
 
 def round_up(s):
