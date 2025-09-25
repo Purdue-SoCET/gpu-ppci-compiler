@@ -7,6 +7,10 @@ from ..registers import Register, RegisterClass
 class RiscvRegister(Register):
     bitsize = 32
 
+    @classmethod
+    def from_num(cls, num):
+        return num2regmap[num]
+
     def __repr__(self):
         if self.is_colored:
             return get_register(self.color).name

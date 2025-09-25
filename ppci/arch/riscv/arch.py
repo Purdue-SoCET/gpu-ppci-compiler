@@ -299,7 +299,12 @@ class RiscvArch(Architecture):
         }
         yield RegisterUseDef(uses=arg_regs)
 
-        yield self.branch(LR, label)
+        if label == 'cos':
+            # Custom instruction for cos
+            from .instructions import Customcos
+            yield Customcos(R10, R12, R13)
+        else:
+            yield self.branch(LR, label)
 
         if rv:
             retval_loc = self.determine_rv_location(rv[0])

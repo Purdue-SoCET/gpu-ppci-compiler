@@ -201,6 +201,23 @@ Orr = make_regregreg("or", 0b0000000, 0b110)
 Andr = make_regregreg("and", 0b0000000, 0b111)
 
 
+class Customcos(RiscvInstruction):
+    rd = Operand("rd", RiscvRegister, write=True)
+    rs1 = Operand("rs1", RiscvRegister, read=True)
+    rs2 = Operand("rs2", RiscvRegister, read=True)
+    syntax = Syntax(["customcos", " ", rd, ",", " ", rs1, ",", " ", rs2])
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b0000001  # opcode
+        tokens[0][7:12] = self.rd.num
+        tokens[0][12:15] = 0b000  # funct3
+        tokens[0][15:20] = self.rs1.num
+        tokens[0][20:25] = self.rs2.num
+        tokens[0][25:32] = 0b1110000  # funct7
+        return tokens[0].encode()
+
+
 def make_si(mnemonic, code, func):
     rd = Operand("rd", RiscvRegister, write=True)
     rs1 = Operand("rs1", RiscvRegister, read=True)
@@ -1487,6 +1504,14 @@ def pattern_cjmpf(context, tree, c0, c1):
     call_internal2(context, Bop, c0, c1, clobbers=context.arch.caller_save)
     context.emit(Bne(R10, R0, yes_label.name, jumps=[yes_label, jmp_ins]))
     context.emit(jmp_ins)
+
+
+@isa.pattern("stm", "CALL", size=4, condition=lambda t: hasattr(t, 'callee') and t.callee == 'cos')
+def pattern_cos_call(context, tree):
+    rs1 = tree.arguments[0]
+    rs2 = tree.arguments[1]
+    rd = tree.result
+    context.emit(Customcos(rd, rs1, rs2))
 
 
 def round_up(s):
