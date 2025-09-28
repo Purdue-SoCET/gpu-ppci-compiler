@@ -1,3 +1,7 @@
+Needed by graphics thats not already listed
+mul (only have mad, fma, not a stand alone mul)
+
+
 === Arithmetic / Math / Logic ===
 abs
 add
