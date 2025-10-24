@@ -91,6 +91,15 @@ def make_i(mnemonic, opcode):
     fprel = False
     tokens = [TwigIToken]
     syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", imm, " ", pred, ",", " ", pstart, ",", " ", pend])
+    patterns = {
+        "opcode": opcode,
+        "rd": rd,
+        "rs1": rs1,
+        "imm": imm,
+        "pred": pred,
+        "pstart": pstart,
+        "pend": pend
+    }
     members = {
         "syntax": syntax,
         "fprel": fprel,
@@ -101,6 +110,7 @@ def make_i(mnemonic, opcode):
         "pstart": pstart,
         "pend": pend,
         "tokens": tokens,
+        "patterns": patterns,
         "opcode": opcode
     }
     return type(mnemonic + "_ins", (TwigIInstruction,), members)
