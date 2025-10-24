@@ -10,7 +10,7 @@ from ..data_instructions import DByte, DZero, data_isa
 from ..generic_instructions import Label, RegisterUseDef
 from ..stack import FramePointerLocation, StackLocation
 from . import instructions
-from .asm_printer import RiscvAsmPrinter
+from .asm_printer import TwigAsmPrinter
 from .instructions import (
     Addi,
     Align,
@@ -26,13 +26,6 @@ from .instructions import (
     isa,
 )
 from .registers import (
-    F10,
-    F12,
-    F13,
-    F14,
-    F15,
-    F16,
-    F17,
     FP,
     LR,
     PC,
@@ -58,26 +51,13 @@ from .registers import (
     R27,
     SP,
     Register,
-    RiscvFRegister,
-    RiscvRegister,
+    TwigRegister,
+    TwigPredRegister,
     gdb_registers,
-    register_classes_hwfp,
+    predregisters,
+    # register_classes_hwfp,
     register_classes_swfp,
 )
-from .rvc_instructions import (
-    CAddi4spn,
-    CAddi16sp,
-    CBl,
-    CBlr,
-    CJr,
-    CLwsp,
-    CMovr,
-    CSwsp,
-    rvcisa,
-)
-from .rvf_instructions import movf, rvfisa
-from .rvfx_instructions import rvfxisa
-
 
 def isinsrange(bits, val) -> bool:
     msb = 1 << (bits - 1)
@@ -85,7 +65,7 @@ def isinsrange(bits, val) -> bool:
     return bool(val <= (msb - 1) and (val >= ll))
 
 
-class RiscvAssembler(BaseAssembler):
+class TwigAssembler(BaseAssembler):
     def __init__(self):
         super().__init__()
         self.lit_pool = []
@@ -109,40 +89,24 @@ class RiscvAssembler(BaseAssembler):
         return label_name
 
 
-class RiscvArch(Architecture):
-    name = "riscv"
-    option_names = ("rvc", "rvf", "rvfx")
+class TwigArch(Architecture):
+    name = "Twig"
 
     def __init__(self, options=None):
-        super().__init__(options=options)
-        if self.has_option("rvc"):
-            self.isa = isa + rvcisa + data_isa
-            self.store = CSwsp
-            self.load = CLwsp
-            self.regclass = register_classes_swfp
-        elif self.has_option("rvfx"):
-            self.isa = isa + rvfxisa + data_isa
-            self.store = Sw
-            self.load = Lw
-            self.regclass = register_classes_swfp
-        elif self.has_option("rvf"):
-            self.isa = isa + rvfisa + data_isa
-            self.store = Sw
-            self.load = Lw
-            self.regclass = register_classes_hwfp
-        else:
-            self.isa = isa + data_isa
-            self.store = Sw
-            self.load = Lw
-            self.regclass = register_classes_swfp
+        super().__init__()
+
+        self.isa = isa + data_isa
+        self.store = Sw
+        self.load = Lw
+        self.regclass = register_classes_swfp
         self.fp_location = FramePointerLocation.TOP
         self.isa.sectinst = Section
         self.isa.dbinst = DByte
         self.isa.dsinst = DZero
         self.gdb_registers = gdb_registers
         self.gdb_pc = PC
-        self.asm_printer = RiscvAsmPrinter()
-        self.assembler = RiscvAssembler()
+        self.asm_printer = TwigAsmPrinter()
+        self.assembler = TwigAssembler()
         self.assembler.gen_asm_parser(self.isa)
 
         self.info = ArchInfo(
@@ -177,20 +141,14 @@ class RiscvArch(Architecture):
             R26,
             R27,
         )
-        self.caller_save = (R10, R11, R12, R13, R14, R15, R16, R17)
+        self.caller_save = (R10, R11, R12, R13, R14, R15, R16, R17) + tuple(predregisters)
         # (LR, FP, R9, R18, R19, R20, R21 ,R22, R23 ,R24, R25, R26, R27)
 
     def branch(self, reg, lab):
-        if self.has_option("rvc"):
-            if isinstance(lab, RiscvRegister):
-                return CBlr(reg, lab, 0, clobbers=self.caller_save)
-            else:
-                return CBl(reg, lab, clobbers=self.caller_save)
+        if isinstance(lab, TwigRegister):
+            return Blr(reg, lab, 0, clobbers=self.caller_save)
         else:
-            if isinstance(lab, RiscvRegister):
-                return Blr(reg, lab, 0, clobbers=self.caller_save)
-            else:
-                return Bl(reg, lab, clobbers=self.caller_save)
+            return Bl(reg, lab, clobbers=self.caller_save)
 
     def get_runtime(self):
         """Implement compiler runtime functions"""
@@ -230,19 +188,9 @@ class RiscvArch(Architecture):
 
     def move(self, dst, src):
         """Generate a move from src to dst"""
-        if self.has_option("rvc"):
-            return CMovr(dst, src, ismove=True)
-        else:
-            if (
-                isinstance(dst, RiscvFRegister)
-                and isinstance(src, RiscvFRegister)
-                and self.has_option("rvf")
-            ):
-                return movf(dst, src)
-            else:
-                return Movr(dst, src, ismove=True)
+        return Movr(dst, src, ismove=True)
 
-    def gen_riscv_memcpy(self, dst, src, tmp, size):
+    def gen_Twig_memcpy(self, dst, src, tmp, size):
         # Called before register allocation
         # Major crappy memcpy, can be improved!
         for idx in range(size):
@@ -266,16 +214,16 @@ class RiscvArch(Architecture):
         # Setup parameters:
         for arg_loc, arg2 in zip(arg_locs, args):
             arg = arg2[1]
-            if isinstance(arg_loc, (RiscvRegister, RiscvFRegister)):
+            if isinstance(arg_loc, (TwigRegister)):
                 yield self.move(arg_loc, arg)
             elif isinstance(arg_loc, StackLocation):
                 stack_size += arg_loc.size
-                if isinstance(arg, RiscvRegister):
+                if isinstance(arg, TwigRegister):
                     yield Sw(arg, arg_loc.offset, SP)
                 elif isinstance(arg, StackLocation):
-                    p1 = frame.new_reg(RiscvRegister)
-                    p2 = frame.new_reg(RiscvRegister)
-                    v3 = frame.new_reg(RiscvRegister)
+                    p1 = frame.new_reg(TwigRegister)
+                    p2 = frame.new_reg(TwigRegister)
+                    v3 = frame.new_reg(TwigRegister)
 
                     # Destination location:
                     # Remember that the LR and FP are pushed in between
@@ -287,7 +235,7 @@ class RiscvArch(Architecture):
                         self.fp,
                         arg.offset + round_up(frame.stacksize + 8) - 8,
                     )
-                    yield from self.gen_riscv_memcpy(p1, p2, v3, arg.size)
+                    yield from self.gen_Twig_memcpy(p1, p2, v3, arg.size)
             else:  # pragma: no cover
                 raise NotImplementedError("Parameters in memory not impl")
 
@@ -320,7 +268,7 @@ class RiscvArch(Architecture):
             if isinstance(arg_loc, Register):
                 yield self.move(arg, arg_loc)
             elif isinstance(arg_loc, StackLocation):
-                if isinstance(arg, RiscvRegister):
+                if isinstance(arg, TwigRegister):
                     Code = Lw(arg, arg_loc.offset, FP)
                     Code.fprel = True
                     yield Code
@@ -332,7 +280,7 @@ class RiscvArch(Architecture):
     def gen_function_exit(self, rv):
         live_out = set()
         if rv:
-            retval_loc = self.determine_rv_location(rv[0])
+            retval_loc = self.determine_twig_location(rv[0])
             yield self.move(retval_loc, rv[1])
             live_out.add(retval_loc)
         yield RegisterUseDef(uses=live_out)
@@ -346,7 +294,6 @@ class RiscvArch(Architecture):
         """
         locations = []
         regs = [R12, R13, R14, R15, R16, R17]
-        fregs = [F12, F13, F14, F15, F16, F17]
 
         offset = 0
         for a in arg_types:
@@ -354,28 +301,17 @@ class RiscvArch(Architecture):
                 r = StackLocation(offset, a.size)
                 offset += a.size
             else:
-                if a in [ir.f32, ir.f64] and self.has_option("rvf"):
-                    if fregs:
-                        r = fregs.pop(0)
-                    else:
-                        arg_size = self.info.get_size(a)
-                        r = StackLocation(offset, a.size)
-                        offset += arg_size
+                if regs:
+                    r = regs.pop(0)
                 else:
-                    if regs:
-                        r = regs.pop(0)
-                    else:
-                        arg_size = self.info.get_size(a)
-                        r = StackLocation(offset, arg_size)
-                        offset += arg_size
+                    arg_size = self.info.get_size(a)
+                    r = StackLocation(offset, arg_size)
+                    offset += arg_size
             locations.append(r)
         return locations
 
-    def determine_rv_location(self, ret_type):
-        if ret_type in [ir.f32, ir.f64] and self.has_option("rvf"):
-            rv = F10
-        else:
-            rv = R10
+    def determine_twig_location(self, ret_type):
+        rv = R10
         return rv
 
     def gen_prologue(self, frame):
@@ -383,49 +319,31 @@ class RiscvArch(Architecture):
         # Label indication function:
         yield Label(frame.name)
         ssize = round_up(frame.stacksize + 8)
-        if self.has_option("rvc") and isinsrange(10, -ssize):
-            yield CAddi16sp(-ssize)  # Reserve stack space
-        else:
-            yield Addi(SP, SP, -ssize)  # Reserve stack space
+        yield Addi(SP, SP, -ssize)  # Reserve stack space
 
-        if self.has_option("rvc"):
-            yield CSwsp(LR, 4)
-            yield CSwsp(FP, 0)
-        else:
-            yield Sw(LR, 4, SP)
-            yield Sw(FP, 0, SP)
+        yield Sw(LR, 4, SP)
+        yield Sw(FP, 0, SP)
 
-        if self.has_option("rvc"):
-            yield CAddi4spn(FP, 8)  # Setup frame pointer
-        else:
-            yield Addi(FP, SP, 8)  # Setup frame pointer
+
+        yield Addi(FP, SP, 8)  # Setup frame pointer
         # yield Addi(FP, SP, 8)  # Setup frame pointer
 
         saved_registers = self.get_callee_saved(frame)
         rsize = 4 * len(saved_registers)
         rsize = round_up(rsize)
 
-        if self.has_option("rvc") and isinsrange(10, rsize):
-            yield CAddi16sp(-rsize)  # Reserve stack space
-        else:
-            yield Addi(SP, SP, -rsize)  # Reserve stack space
+        yield Addi(SP, SP, -rsize)  # Reserve stack space
 
         i = 0
         for register in saved_registers:
             i -= 4
-            if self.has_option("rvc"):
-                yield CSwsp(register, i + rsize)
-            else:
-                yield Sw(register, i + rsize, SP)
+            yield Sw(register, i + rsize, SP)
 
         # Allocate space for outgoing calls:
         extras = max(frame.out_calls) if frame.out_calls else 0
         if extras:
             ssize = round_up(extras)
-            if self.has_option("rvc") and isinsrange(10, ssize):
-                yield CAddi16sp(-ssize)  # Reserve stack space
-            else:
-                yield Addi(SP, SP, -ssize)  # Reserve stack space
+            yield Addi(SP, SP, -ssize)  # Reserve stack space
 
     def litpool(self, frame):
         """Generate instruction for the current literals"""
@@ -460,10 +378,7 @@ class RiscvArch(Architecture):
         extras = max(frame.out_calls) if frame.out_calls else 0
         if extras:
             ssize = round_up(extras)
-            if self.has_option("rvc") and isinsrange(10, ssize):
-                yield CAddi16sp(ssize)  # Reserve stack space
-            else:
-                yield Addi(SP, SP, ssize)  # Reserve stack space
+            yield Addi(SP, SP, ssize)  # Reserve stack space
 
         # Callee saved registers:
         saved_registers = self.get_callee_saved(frame)
@@ -473,34 +388,20 @@ class RiscvArch(Architecture):
         i = 0
         for register in saved_registers:
             i -= 4
-            if self.has_option("rvc"):
-                yield CLwsp(register, i + rsize)
-            else:
-                yield Lw(register, i + rsize, SP)
+            yield Lw(register, i + rsize, SP)
 
-        if self.has_option("rvc") and isinsrange(10, rsize):
-            yield CAddi16sp(rsize)  # Reserve stack space
-        else:
-            yield Addi(SP, SP, rsize)  # Reserve stack space
+        yield Addi(SP, SP, rsize)  # Reserve stack space
 
-        if self.has_option("rvc"):
-            yield CLwsp(LR, 4)
-            yield CLwsp(FP, 0)
-        else:
-            yield Lw(LR, 4, SP)
-            yield Lw(FP, 0, SP)
+        yield Lw(LR, 4, SP)
+        yield Lw(FP, 0, SP)
 
         ssize = round_up(frame.stacksize + 8)
-        if self.has_option("rvc") and isinsrange(10, ssize):
-            yield CAddi16sp(ssize)  # Free stack space
-        else:
-            yield Addi(SP, SP, ssize)  # Free stack space
+
+        yield Addi(SP, SP, ssize)  # Free stack space
 
         # Return
-        if self.has_option("rvc"):
-            yield CJr(LR)
-        else:
-            yield Blr(R0, LR, 0)
+
+        yield Blr(R0, LR, 0)
 
         # Add final literal pool:
         yield from self.litpool(frame)
