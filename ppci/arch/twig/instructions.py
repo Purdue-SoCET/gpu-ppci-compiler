@@ -125,3 +125,52 @@ Srai = make_i("addi", 0b0011111)
 
 #lw, lh, lb, are different "I Type"
 #jalr should not be Itype, should be P type
+
+#btype instructions
+class TwigBInstruction(Instruction):
+    tokens = [TwigBToken]
+    isa = isa
+
+    #TODO: remove functionality for relocation from arch
+    #def relocations(self):
+
+def make_b(mnemonic, opcode):
+    rd = Operand("rd", TwigPredRegister, write=True)
+    rs1 = Operand("rs1", TwigRegister, read=True)
+    rs2 = Operand("rs2", TwigRegister, read=True)
+    pred  = Operand("pred", TwigPredRegister, read=True)
+    pstart = Operand("pstart", int, read=True)
+    pend = Operand("pend", int, read=True)
+    fprel = False
+    syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", rs2, " ", pred, ",", " ", pstart, ",", " ", pend])
+    tokens = [TwigBToken]
+    patterns = {
+        "opcode": opcode,
+        "rd": rd,
+        "rs1": rs1,
+        "rs2": rs2,
+        "pred": pred,
+        "pstart": pstart,
+        "pend": pend
+    }
+    members = {
+        "syntax": syntax,
+        "fprel": fprel,
+        "rd": rd,
+        "rs1": rs1,
+        "rs2": rs2,
+        "pred": pred,
+        "pstart": pstart,
+        "pend": pend,
+        "patterns": patterns,
+        "tokens": tokens,
+        "opcode": opcode,
+    }
+    return type(mnemonic + "_ins", (TwigBInstruction,), members)
+
+Beq = make_b("beq", 0b1000000)
+Bne = make_b("bne", 0b1000001)
+Bge = make_b("bge", 0b1000010)
+Bgeu = make_b("bgeu", 0b1000011)
+Blt = make_b("blt", 0b1000100)
+Bltu = make_b("bltu", 0b1000101)
