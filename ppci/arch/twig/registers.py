@@ -11,6 +11,10 @@ class TwigRegister(Register):
     def from_num(cls, num):
         return num2regmap[num]
 
+    @classmethod
+    def all_registers(cls):
+        return registers
+
     def __repr__(self):
         if self.is_colored:
             return get_register(self.color).name
@@ -27,6 +31,9 @@ class TwigPredRegister(Register):
     @classmethod
     def from_num(cls, num):
         return num2regmap[num]
+    @classmethod
+    def all_registers(cls):
+        return predregisters
 
 
 def get_register(n):
@@ -108,38 +115,38 @@ R63 = TwigRegister("x63", num=63, aka=("s43",))
 
 PC = TwigProgramCounterRegister("PC", num=64)
 
-P0 = TwigRegister("p0", num=65, aka=("p0",))
-P1 = TwigRegister("p1", num=66, aka=("p1",))
-P2 = TwigRegister("p2", num=67, aka=("p2",))
-P3 = TwigRegister("p3", num=68, aka=("p3",))
-P4 = TwigRegister("p4", num=69, aka=("p4",))
-P5 = TwigRegister("p5", num=70, aka=("p5",))
-P6 = TwigRegister("p6", num=71, aka=("p6",))
-P7 = TwigRegister("p7", num=72, aka=("p7",))
-P8 = TwigRegister("p8", num=73, aka=("p8"))
-P9 = TwigRegister("p9", num=74, aka=("p9",))
-P10 = TwigRegister("p10", num=75, aka=("p10",))
-P11 = TwigRegister("p11", num=76, aka=("p11",))
-P12 = TwigRegister("p12", num=77, aka=("p12",))
-P13 = TwigRegister("p13", num=78, aka=("p13",))
-P14 = TwigRegister("p14", num=79, aka=("p14",))
-P15 = TwigRegister("p15", num=80, aka=("p15",))
-P16 = TwigRegister("p16", num=81, aka=("p16",))
-P17 = TwigRegister("p17", num=82, aka=("p17",))
-P18 = TwigRegister("p18", num=83, aka=("p18",))
-P19 = TwigRegister("p19", num=84, aka=("p19",))
-P20 = TwigRegister("p20", num=85, aka=("p20",))
-P21 = TwigRegister("p21", num=86, aka=("p21",))
-P22 = TwigRegister("p22", num=87, aka=("p22",))
-P23 = TwigRegister("p23", num=88, aka=("p23",))
-P24 = TwigRegister("p24", num=89, aka=("p24",))
-P25 = TwigRegister("p25", num=90, aka=("p25",))
-P26 = TwigRegister("p26", num=91, aka=("p26",))
-P27 = TwigRegister("p27", num=92, aka=("p27",))
-P28 = TwigRegister("p28", num=93, aka=("p28",))
-P29 = TwigRegister("p29", num=94, aka=("p29",))
-P30 = TwigRegister("p30", num=95, aka=("p30",))
-P31 = TwigRegister("p31", num=96, aka=("p31",))
+P0 = TwigPredRegister("p0", num=65, aka=("p0",))
+P1 = TwigPredRegister("p1", num=66, aka=("p1",))
+P2 = TwigPredRegister("p2", num=67, aka=("p2",))
+P3 = TwigPredRegister("p3", num=68, aka=("p3",))
+P4 = TwigPredRegister("p4", num=69, aka=("p4",))
+P5 = TwigPredRegister("p5", num=70, aka=("p5",))
+P6 = TwigPredRegister("p6", num=71, aka=("p6",))
+P7 = TwigPredRegister("p7", num=72, aka=("p7",))
+P8 = TwigPredRegister("p8", num=73, aka=("p8",))
+P9 = TwigPredRegister("p9", num=74, aka=("p9",))
+P10 = TwigPredRegister("p10", num=75, aka=("p10",))
+P11 = TwigPredRegister("p11", num=76, aka=("p11",))
+P12 = TwigPredRegister("p12", num=77, aka=("p12",))
+P13 = TwigPredRegister("p13", num=78, aka=("p13",))
+P14 = TwigPredRegister("p14", num=79, aka=("p14",))
+P15 = TwigPredRegister("p15", num=80, aka=("p15",))
+P16 = TwigPredRegister("p16", num=81, aka=("p16",))
+P17 = TwigPredRegister("p17", num=82, aka=("p17",))
+P18 = TwigPredRegister("p18", num=83, aka=("p18",))
+P19 = TwigPredRegister("p19", num=84, aka=("p19",))
+P20 = TwigPredRegister("p20", num=85, aka=("p20",))
+P21 = TwigPredRegister("p21", num=86, aka=("p21",))
+P22 = TwigPredRegister("p22", num=87, aka=("p22",))
+P23 = TwigPredRegister("p23", num=88, aka=("p23",))
+P24 = TwigPredRegister("p24", num=89, aka=("p24",))
+P25 = TwigPredRegister("p25", num=90, aka=("p25",))
+P26 = TwigPredRegister("p26", num=91, aka=("p26",))
+P27 = TwigPredRegister("p27", num=92, aka=("p27",))
+P28 = TwigPredRegister("p28", num=93, aka=("p28",))
+P29 = TwigPredRegister("p29", num=94, aka=("p29",))
+P30 = TwigPredRegister("p30", num=95, aka=("p30",))
+P31 = TwigPredRegister("p31", num=96, aka=("p31",))
 
 
 registers = [
