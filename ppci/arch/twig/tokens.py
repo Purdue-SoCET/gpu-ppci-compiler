@@ -99,7 +99,18 @@ class TwigJToken(Token):
 
     opcode = bit_range(0,7)
     rd = bit_range(7,13)
-    imm12 = bit_range(13,25)
+    imm17 = bit_range(13,30)
+    pstart = bit(30)
+    pend = bit(31)
+
+class TwigJrToken(Token):
+    class Info:
+        size = 32
+
+    opcode = bit_range(0,7)
+    rd = bit_range(7,13)
+    rs1 = bit_range(13,19)
+    imm11 = bit_range(19,30)
     pstart = bit(30)
     pend = bit(31)
 

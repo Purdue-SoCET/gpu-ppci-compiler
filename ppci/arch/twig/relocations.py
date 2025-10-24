@@ -2,10 +2,9 @@ from ...utils.bitfun import BitView, wrap_negative
 from ..encoding import Relocation
 from .tokens import TwigIToken, TwigSToken, TwigJToken
 
-#this is normally for btype in risc-v
-#since our btype doesn't jump, we can use it for 'jal' 6imm jump
-class BImm6Relocation(Relocation):
-    name = "b_imm6"
+#our btype doesn't jump, we can use it for 'jal' 17imm and jalr?
+class JImm17Relocation(Relocation):
+    name = "j_imm17"
     token = TwigJToken
     field = "imm"
 
@@ -13,7 +12,7 @@ class BImm6Relocation(Relocation):
         assert sym_value % 2 == 0
         assert reloc_value % 2 == 0
         offset = (sym_value - reloc_value) // 2
-        return wrap_negative(offset, 6)
+        return wrap_negative(offset, 17)
 
     def apply(self, sym_value, data, reloc_value):
         """Apply this relocation type given some parameters.

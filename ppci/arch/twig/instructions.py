@@ -4,8 +4,11 @@ from .tokens import *
 from .registers import (
     TwigRegister, TwigPredRegister
 )
+from .relocations import *
 
 isa = Isa()
+
+isa.register_relocation(JImm17Relocation)
 
 class TwigRInstruction(Instruction):
     tokens = [TwigRToken]
@@ -123,9 +126,6 @@ Sltiu = make_i("addi", 0b0011000)
 Srli = make_i("addi", 0b0011110)
 Srai = make_i("addi", 0b0011111)
 
-#lw, lh, lb, are different "I Type"
-#jalr should not be Itype, should be P type
-
 #loads
 def make_load(mnemonic, opcode):
     rd = Operand("rd", TwigRegister, write=True)
@@ -206,6 +206,47 @@ def make_store(mnemonic, opcode):
 Sw = make_store("sw", 0b0110000)
 Sh = make_store("sh", 0b0110001)
 Sb = make_store("sb", 0b0110010)
+
+class TwigJInstruction(Instruction):
+    tokens = [TwigJToken]
+    isa = isa
+
+#jal
+class Bl(TwigJInstruction):
+    target = Operand("target", str)
+    rd = Operand("rd", TwigRegister, write=True)
+    syntax = Syntax(["jal", " ", rd, ",", " ", target])
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b1100000 #jal opcode
+        tokens[0][7:13] = self.rd.num
+        tokens[0][30] = 0b0 #start of new packet
+        tokens[0][31] = 0b1 # end of curr packet
+        return tokens[0].encode()
+
+    def relocations(self):
+        return [JImm17Relocation]
+
+class TwigJrInstruction(Instruction):
+    tokens = [TwigJrToken]
+    isa = isa
+
+#jalr
+class Blr(TwigJInstruction):
+    target = Operand("target", str)
+    rd = Operand("rd", TwigRegister, write=True)
+    rs1 = Operand("rs1", TwigRegister, read=True)
+    offset = Operand("offset", int)
+    syntax = Syntax(["jalr", " ", rd, ",", rs1, ",", " ", offset])
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b0100011 #jalr opcode
+        tokens[0][7:13] = self.rd.num
+        tokens[0][13:19] = self.rs1.num
+        tokens[0][30] = 0b0 #start of new packet
+        tokens[0][31] = 0b1 #end of new packet
+        return tokens[0].encode()
 
 
 #btype instructions
