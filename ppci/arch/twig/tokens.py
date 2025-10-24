@@ -118,7 +118,7 @@ class TwigHToken(Token):
     class Info:
         size = 32
 
-    opcode = bit_range(6,0)
-    pred = bit_range(29,25)
+    opcode = bit_range(0,7)
+    pred = bit_range(25, 30)
     pstart = bit(30)
     pend = bit(31)

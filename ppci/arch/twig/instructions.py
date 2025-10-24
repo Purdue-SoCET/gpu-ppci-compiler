@@ -159,7 +159,7 @@ def make_load(mnemonic, opcode):
         "pend": pend,
         "opcode": opcode
     }
-    return type(mnemonic.title(), (TwigIInstruction), members)
+    return type(mnemonic.title(), (TwigIInstruction,), members)
 
 Lw = make_load("lw", 0b01000000)
 Lh = make_load("lw", 0b01000001)
@@ -201,7 +201,7 @@ def make_store(mnemonic, opcode):
         "pend": pend,
         "opcode": opcode
     }
-    return type(mnemonic.title(), (TwigSInstruction), members)
+    return type(mnemonic.title(), (TwigSInstruction,), members)
 
 Sw = make_store("sw", 0b0110000)
 Sh = make_store("sh", 0b0110001)

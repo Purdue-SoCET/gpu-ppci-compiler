@@ -52,7 +52,7 @@ from .instructions import (
     Blt,
     Bltu,
     #htype,
-    halt,
+    Halt,
     #isa
     isa,
 )
@@ -194,7 +194,7 @@ class TwigAssembler(BaseAssembler):
 
 
 class TwigArch(Architecture):
-    name = "Twig"
+    name = "twig"
 
     def __init__(self, options=None):
         super().__init__()
