@@ -84,18 +84,18 @@ class TwigIInstruction(Instruction):
 def make_i(mnemonic, opcode):
     rd = Operand("rd", TwigRegister, write=True)
     rs1 = Operand("rs1", TwigRegister, read=True)
-    imm = Operand("offset", int)
+    offset = Operand("offset", int)
     pred = Operand("pred", TwigPredRegister, read=True)
     pstart = Operand("pstart", int, read=True)
     pend = Operand("pend", int, read=True)
     fprel = False
     tokens = [TwigIToken]
-    syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", imm, " ", pred, ",", " ", pstart, ",", " ", pend])
+    syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", offset, " ", pred, ",", " ", pstart, ",", " ", pend])
     patterns = {
         "opcode": opcode,
         "rd": rd,
         "rs1": rs1,
-        "imm": imm,
+        "imm": offset,
         "pred": pred,
         "pstart": pstart,
         "pend": pend
@@ -105,7 +105,7 @@ def make_i(mnemonic, opcode):
         "fprel": fprel,
         "rd": rd,
         "rs1": rs1,
-        "imm": imm,
+        "offset": offset,
         "pred": pred,
         "pstart": pstart,
         "pend": pend,
@@ -125,6 +125,88 @@ Srai = make_i("addi", 0b0011111)
 
 #lw, lh, lb, are different "I Type"
 #jalr should not be Itype, should be P type
+
+#loads
+def make_load(mnemonic, opcode):
+    rd = Operand("rd", TwigRegister, write=True)
+    offset = Operand("offset", int)
+    rs1 = Operand("rs1", TwigRegister, read=True)
+    pred = Operand("pred", TwigPredRegister, read=True)
+    pstart = Operand("pstart", int, read=True)
+    pend = Operand("pend", int, read=True)
+    fprel = False
+    syntax = Syntax([mnemonic, " ", rd, ",", " ", offset, "(", rs1, ")", ",", " ", pred, ",", " ", pstart, ",", " ", pend])
+    tokens = [TwigIToken]
+    patterns = {
+        "opcode": opcode,
+        "rd": rd,
+        "rs1": rs1,
+        "imm": offset,
+        "pred": pred,
+        "pstart": pstart,
+        "pend": pend
+    }
+    members = {
+        "syntax": syntax,
+        "tokens": tokens,
+        "patterns": patterns,
+        "fprel": fprel,
+        "offset": offset,
+        "rd": rd,
+        "rs1": rs1,
+        "pred": pred,
+        "pstart": pstart,
+        "pend": pend,
+        "opcode": opcode
+    }
+    return type(mnemonic.title(), (TwigIInstruction), members)
+
+Lw = make_load("lw", 0b01000000)
+Lh = make_load("lw", 0b01000001)
+Lb = make_load("lw", 0b01000010)
+
+class TwigSInstruction(Instruction):
+    tokens = [TwigSToken]
+    isa = isa
+
+def make_store(mnemonic, opcode):
+    rs1 = Operand("rs1", TwigRegister, read=True)
+    offset = Operand("offset", int)
+    rs2 = Operand("rs2", TwigRegister, read=True)
+    pred = Operand("pred", TwigPredRegister, read=True)
+    pstart = Operand("pstart", int, read=True)
+    pend = Operand("pend", int, read=True)
+    fprel = False
+    syntax = Syntax([mnemonic, " ", rs2, ",", " ", offset, "(", rs1, ")", ",", " ", pred, ",", " ", pstart, ",", " ", pend])
+    tokens = [TwigSToken]
+    patterns = {
+        "opcode": opcode,
+        "rs2": rs2,
+        "rs1": rs1,
+        "imm": offset,
+        "pred": pred,
+        "pstart": pstart,
+        "pend": pend
+    }
+    members = {
+        "syntax": syntax,
+        "tokens": tokens,
+        "patterns": patterns,
+        "fprel": fprel,
+        "offset": offset,
+        "rs2": rs2,
+        "rs1": rs1,
+        "pred": pred,
+        "pstart": pstart,
+        "pend": pend,
+        "opcode": opcode
+    }
+    return type(mnemonic.title(), (TwigSInstruction), members)
+
+Sw = make_store("sw", 0b0110000)
+Sh = make_store("sh", 0b0110001)
+Sb = make_store("sb", 0b0110010)
+
 
 #btype instructions
 class TwigBInstruction(Instruction):
