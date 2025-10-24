@@ -113,12 +113,12 @@ class TwigPToken(Token):
     pstart = bit(30)
     pend = bit(31)
 
-#do we need halt token?
-# class TwigHaltToken(Token):
-#     class Info:
-#         size = 32
+#using halt token as nop token
+class TwigHToken(Token):
+    class Info:
+        size = 32
 
-#     opcode = bit_range(6,0)
-#     pred = bit_range(29,25)
-#     pstart = bit(30)
-#     pend = bit(31)
+    opcode = bit_range(6,0)
+    pred = bit_range(29,25)
+    pstart = bit(30)
+    pend = bit(31)

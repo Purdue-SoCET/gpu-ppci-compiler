@@ -51,6 +51,8 @@ from .instructions import (
     Bgeu,
     Blt,
     Bltu,
+    #htype,
+    halt,
     #isa
     isa,
 )

@@ -256,3 +256,34 @@ Bge = make_b("bge", 0b1000010)
 Bgeu = make_b("bgeu", 0b1000011)
 Blt = make_b("blt", 0b1000100)
 Bltu = make_b("bltu", 0b1000101)
+
+
+#h type (halt)
+class TwigHInstruction:
+    tokens = [TwigHToken]
+    isa = isa
+
+def make_nop(mnemonic, opcode):
+    pred  = Operand("pred", TwigPredRegister, read=True)
+    pstart = Operand("pstart", int, read=True)
+    pend = Operand("pend", int, read=True)
+    syntax = Syntax([mnemonic, ",", " ", pred, ",", " ", pstart, ",", " ", pend])
+    tokens = [TwigHToken]
+    patterns = {
+        "opcode": opcode,
+        "pred": pred,
+        "pstart": pstart,
+        "pend": pend
+    }
+    members = {
+        "syntax": syntax,
+        "patterns": patterns,
+        "tokens": tokens,
+        "opcode": opcode,
+        "pred": pred,
+        "pstart": pstart,
+        "pend": pend
+    }
+    return type(mnemonic + "_ins", (TwigHInstruction,), members)
+
+Halt = make_nop("halt", 0b1111111)
