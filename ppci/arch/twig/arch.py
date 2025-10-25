@@ -51,6 +51,9 @@ from .instructions import (
     Bgeu,
     Blt,
     Bltu,
+    #jump
+    Bl,
+    Blr,
     #htype,
     Halt,
     #isa
@@ -222,8 +225,8 @@ class TwigArch(Architecture):
                 ir.u16: TypeInfo(2, 2),
                 ir.i32: TypeInfo(4, 4),
                 ir.u32: TypeInfo(4, 4),
-                ir.f32: TypeInfo(4, 4),
-                ir.f64: TypeInfo(4, 4),
+                # ir.f32: TypeInfo(4, 4),
+                # ir.f64: TypeInfo(4, 4),
                 "int": ir.i32,
                 "long": ir.i32,
                 "ptr": ir.u32,
@@ -234,7 +237,7 @@ class TwigArch(Architecture):
 
         self._arg_regs = [R12, R13, R14, R15, R16, R17]
         self._ret_reg = R10
-        #all should be callee saved?
+        #all should be callee saved? - besides predicate
         self.callee_save = (
             R9,
             R18,
@@ -248,7 +251,7 @@ class TwigArch(Architecture):
             R26,
             R27,
         )
-        self.caller_save = (R10, R11, R12, R13, R14, R15, R16, R17) + tuple(predregisters)
+        self.caller_save = (R10, R11, R12, R13, R14, R15, R16, R17) #+ tuple(predregisters)
 
     # def branch(self, reg, lab):
     #     if isinstance(lab, TwigRegister):

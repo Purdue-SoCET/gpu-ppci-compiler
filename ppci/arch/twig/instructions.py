@@ -18,28 +18,29 @@ def make_r(mnemonic, opcode):
     rd = Operand("rd", TwigRegister, write=True)
     rs1 = Operand("rs1", TwigRegister, read=True)
     rs2 = Operand("rs2", TwigRegister, read=True)
-    pred = Operand("pred", TwigPredRegister, read=True)
-    pstart = Operand("pstart", int, read=True)
-    pend = Operand("pend", int, read=True)
-    syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", rs2, " ", pred, ",", " ", pstart, ",", " ", pend])
+    # pred = Operand("pred", TwigPredRegister, read=True)
+    # pstart = Operand("pstart", int, read=True)
+    # pend = Operand("pend", int, read=True)
+    # syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", rs2, " ", pred, ",", " ", pstart, ",", " ", pend])
+    syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", rs2])
     tokens = [TwigRToken]
     patterns = {
         "opcode": opcode,
         "rd": rd,
         "rs1": rs1,
-        "rs2": rs2,
-        "pred": pred,
-        "pstart": pstart,
-        "pend": pend
+        "rs2": rs2
+        # "pred": pred,
+        # "pstart": pstart,
+        # "pend": pend
     }
     members = {
         "syntax": syntax,
         "rd": rd,
         "rs1": rs1,
         "rs2": rs2,
-        "pred": pred,
-        "pstart": pstart,
-        "pend": pend,
+        # "pred": pred,
+        # "pstart": pstart,
+        # "pend": pend,
         "patterns": patterns,
         "tokens": tokens,
         "opcode": opcode,
@@ -88,20 +89,21 @@ def make_i(mnemonic, opcode):
     rd = Operand("rd", TwigRegister, write=True)
     rs1 = Operand("rs1", TwigRegister, read=True)
     offset = Operand("offset", int)
-    pred = Operand("pred", TwigPredRegister, read=True)
-    pstart = Operand("pstart", int, read=True)
-    pend = Operand("pend", int, read=True)
+    # pred = Operand("pred", TwigPredRegister, read=True)
+    # pstart = Operand("pstart", int, read=True)
+    # pend = Operand("pend", int, read=True)
     fprel = False
     tokens = [TwigIToken]
-    syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", offset, " ", pred, ",", " ", pstart, ",", " ", pend])
+    # syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", offset, " ", pred, ",", " ", pstart, ",", " ", pend])
+    syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", offset])
     patterns = {
         "opcode": opcode,
         "rd": rd,
         "rs1": rs1,
-        "imm": offset,
-        "pred": pred,
-        "pstart": pstart,
-        "pend": pend
+        "imm": offset
+        # "pred": pred,
+        # "pstart": pstart,
+        # "pend": pend
     }
     members = {
         "syntax": syntax,
@@ -109,9 +111,9 @@ def make_i(mnemonic, opcode):
         "rd": rd,
         "rs1": rs1,
         "offset": offset,
-        "pred": pred,
-        "pstart": pstart,
-        "pend": pend,
+        # "pred": pred,
+        # "pstart": pstart,
+        # "pend": pend,
         "tokens": tokens,
         "patterns": patterns,
         "opcode": opcode
@@ -131,20 +133,21 @@ def make_load(mnemonic, opcode):
     rd = Operand("rd", TwigRegister, write=True)
     offset = Operand("offset", int)
     rs1 = Operand("rs1", TwigRegister, read=True)
-    pred = Operand("pred", TwigPredRegister, read=True)
-    pstart = Operand("pstart", int, read=True)
-    pend = Operand("pend", int, read=True)
+    # pred = Operand("pred", TwigPredRegister, read=True)
+    # pstart = Operand("pstart", int, read=True)
+    # pend = Operand("pend", int, read=True)
     fprel = False
-    syntax = Syntax([mnemonic, " ", rd, ",", " ", offset, "(", rs1, ")", ",", " ", pred, ",", " ", pstart, ",", " ", pend])
+    # syntax = Syntax([mnemonic, " ", rd, ",", " ", offset, "(", rs1, ")", ",", " ", pred, ",", " ", pstart, ",", " ", pend])
+    syntax = Syntax([mnemonic, " ", rd, ",", " ", offset, "(", rs1, ")",])
     tokens = [TwigIToken]
     patterns = {
         "opcode": opcode,
         "rd": rd,
         "rs1": rs1,
-        "imm": offset,
-        "pred": pred,
-        "pstart": pstart,
-        "pend": pend
+        "imm": offset
+        # "pred": pred,
+        # "pstart": pstart,
+        # "pend": pend
     }
     members = {
         "syntax": syntax,
@@ -154,9 +157,9 @@ def make_load(mnemonic, opcode):
         "offset": offset,
         "rd": rd,
         "rs1": rs1,
-        "pred": pred,
-        "pstart": pstart,
-        "pend": pend,
+        # "pred": pred,
+        # "pstart": pstart,
+        # "pend": pend,
         "opcode": opcode
     }
     return type(mnemonic.title(), (TwigIInstruction,), members)
@@ -173,20 +176,21 @@ def make_store(mnemonic, opcode):
     rs1 = Operand("rs1", TwigRegister, read=True)
     offset = Operand("offset", int)
     rs2 = Operand("rs2", TwigRegister, read=True)
-    pred = Operand("pred", TwigPredRegister, read=True)
-    pstart = Operand("pstart", int, read=True)
-    pend = Operand("pend", int, read=True)
+    # pred = Operand("pred", TwigPredRegister, read=True)
+    # pstart = Operand("pstart", int, read=True)
+    # pend = Operand("pend", int, read=True)
     fprel = False
-    syntax = Syntax([mnemonic, " ", rs2, ",", " ", offset, "(", rs1, ")", ",", " ", pred, ",", " ", pstart, ",", " ", pend])
+    # syntax = Syntax([mnemonic, " ", rs2, ",", " ", offset, "(", rs1, ")", ",", " ", pred, ",", " ", pstart, ",", " ", pend])
+    syntax = Syntax([mnemonic, " ", rs2, ",", " ", offset, "(", rs1, ")"])
     tokens = [TwigSToken]
     patterns = {
         "opcode": opcode,
         "rs2": rs2,
         "rs1": rs1,
-        "imm": offset,
-        "pred": pred,
-        "pstart": pstart,
-        "pend": pend
+        "imm": offset
+        # "pred": pred,
+        # "pstart": pstart,
+        # "pend": pend
     }
     members = {
         "syntax": syntax,
@@ -196,9 +200,9 @@ def make_store(mnemonic, opcode):
         "offset": offset,
         "rs2": rs2,
         "rs1": rs1,
-        "pred": pred,
-        "pstart": pstart,
-        "pend": pend,
+        # "pred": pred,
+        # "pstart": pstart,
+        # "pend": pend,
         "opcode": opcode
     }
     return type(mnemonic.title(), (TwigSInstruction,), members)
@@ -220,8 +224,8 @@ class Bl(TwigJInstruction):
         tokens = self.get_tokens()
         tokens[0][0:7] = 0b1100000 #jal opcode
         tokens[0][7:13] = self.rd.num
-        tokens[0][30] = 0b0 #start of new packet
-        tokens[0][31] = 0b1 # end of curr packet
+        # tokens[0][30] = 0b0 #start of new packet
+        # tokens[0][31] = 0b1 # end of curr packet
         return tokens[0].encode()
 
     def relocations(self):
@@ -232,7 +236,7 @@ class TwigJrInstruction(Instruction):
     isa = isa
 
 #jalr
-class Blr(TwigJInstruction):
+class Blr(TwigJrInstruction):
     target = Operand("target", str)
     rd = Operand("rd", TwigRegister, write=True)
     rs1 = Operand("rs1", TwigRegister, read=True)
@@ -244,8 +248,8 @@ class Blr(TwigJInstruction):
         tokens[0][0:7] = 0b0100011 #jalr opcode
         tokens[0][7:13] = self.rd.num
         tokens[0][13:19] = self.rs1.num
-        tokens[0][30] = 0b0 #start of new packet
-        tokens[0][31] = 0b1 #end of new packet
+        # tokens[0][30] = 0b0 #start of new packet
+        # tokens[0][31] = 0b1 #end of new packet
         return tokens[0].encode()
 
 
@@ -261,20 +265,21 @@ def make_b(mnemonic, opcode):
     rd = Operand("rd", TwigPredRegister, write=True)
     rs1 = Operand("rs1", TwigRegister, read=True)
     rs2 = Operand("rs2", TwigRegister, read=True)
-    pred  = Operand("pred", TwigPredRegister, read=True)
-    pstart = Operand("pstart", int, read=True)
-    pend = Operand("pend", int, read=True)
+    # pred  = Operand("pred", TwigPredRegister, read=True)
+    # pstart = Operand("pstart", int, read=True)
+    # pend = Operand("pend", int, read=True)
     fprel = False
-    syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", rs2, " ", pred, ",", " ", pstart, ",", " ", pend])
+    # syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", rs2, " ", pred, ",", " ", pstart, ",", " ", pend])
+    syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", rs2])
     tokens = [TwigBToken]
     patterns = {
         "opcode": opcode,
         "rd": rd,
         "rs1": rs1,
-        "rs2": rs2,
-        "pred": pred,
-        "pstart": pstart,
-        "pend": pend
+        "rs2": rs2
+        # "pred": pred,
+        # "pstart": pstart,
+        # "pend": pend
     }
     members = {
         "syntax": syntax,
@@ -282,9 +287,9 @@ def make_b(mnemonic, opcode):
         "rd": rd,
         "rs1": rs1,
         "rs2": rs2,
-        "pred": pred,
-        "pstart": pstart,
-        "pend": pend,
+        # "pred": pred,
+        # "pstart": pstart,
+        # "pend": pend,
         "patterns": patterns,
         "tokens": tokens,
         "opcode": opcode,
@@ -300,31 +305,42 @@ Bltu = make_b("bltu", 0b1000101)
 
 
 #h type (halt)
-class TwigHInstruction:
+class TwigHInstruction(Instruction):
     tokens = [TwigHToken]
     isa = isa
 
 def make_nop(mnemonic, opcode):
-    pred  = Operand("pred", TwigPredRegister, read=True)
-    pstart = Operand("pstart", int, read=True)
-    pend = Operand("pend", int, read=True)
-    syntax = Syntax([mnemonic, ",", " ", pred, ",", " ", pstart, ",", " ", pend])
+    # pred  = Operand("pred", TwigPredRegister, read=True)
+    # pstart = Operand("pstart", int, read=True)
+    # pend = Operand("pend", int, read=True)
+    # syntax = Syntax([mnemonic, ",", " ", pred, ",", " ", pstart, ",", " ", pend])
+    syntax = Syntax([mnemonic])
     tokens = [TwigHToken]
     patterns = {
-        "opcode": opcode,
-        "pred": pred,
-        "pstart": pstart,
-        "pend": pend
+        "opcode": opcode
+        # "pred": pred,
+        # "pstart": pstart,
+        # "pend": pend
     }
     members = {
         "syntax": syntax,
         "patterns": patterns,
         "tokens": tokens,
         "opcode": opcode,
-        "pred": pred,
-        "pstart": pstart,
-        "pend": pend
+        # "pred": pred,
+        # "pstart": pstart,
+        # "pend": pend
     }
     return type(mnemonic + "_ins", (TwigHInstruction,), members)
 
 Halt = make_nop("halt", 0b1111111)
+
+
+#isa.pattern stuff
+
+@isa.pattern("reg", "ADDU32(reg,reg)", size=2)
+@isa.pattern("reg", "ADDI32(reg,reg)", size=2)
+def pattern_add_i32(context, tree, c0, c1):
+    d = context.new_reg(TwigRegister)
+    context.emit(Add(d,c0,c1))
+    return d

@@ -9,9 +9,9 @@ class TwigRToken(Token):
     rd = bit_range(7,13)
     rs1 = bit_range(13,19)
     rs2 = bit_range(19,25)
-    pred = bit_range(25,30)
-    pstart = bit(30)
-    pend = bit(31)
+    # pred = bit_range(25,30)
+    # pstart = bit(30)
+    # pend = bit(31)
 
 class TwigIToken(Token):
     class Info:
@@ -21,9 +21,9 @@ class TwigIToken(Token):
     rd = bit_range(7,13)
     rs1 = bit_range(13,19)
     imm6 = bit_range(19,25)
-    pred = bit_range(25,30)
-    pstart = bit(30)
-    pend = bit(31)
+    # pred = bit_range(25,30)
+    # pstart = bit(30)
+    # pend = bit(31)
 
 class TwigFToken(Token):
     class Info:
@@ -32,9 +32,9 @@ class TwigFToken(Token):
     opcode = bit_range(0,7)
     rd = bit_range(7,13)
     rs1 = bit_range(13,19)
-    pred = bit_range(25,30)
-    pstart = bit(30)
-    pend = bit(31)
+    # pred = bit_range(25,30)
+    # pstart = bit(30)
+    # pend = bit(31)
 
 class TwigSToken(Token):
     class Info:
@@ -44,9 +44,9 @@ class TwigSToken(Token):
     imm = bit_range(7,13)
     rs1 = bit_range(13,19)
     rs2 = bit_range(19,25)
-    pred = bit_range(25,30)
-    pstart = bit(30)
-    pend = bit(31)
+    # pred = bit_range(25,30)
+    # pstart = bit(30)
+    # pend = bit(31)
 
 class TwigBToken(Token):
     class Info:
@@ -56,9 +56,9 @@ class TwigBToken(Token):
     rd = bit_range(7,13)
     rs1 = bit_range(13,19)
     rs2 = bit_range(19,25)
-    pred = bit_range(25,30)
-    pstart = bit(30)
-    pend = bit(31)
+    # pred = bit_range(25,30)
+    # pstart = bit(30)
+    # pend = bit(31)
 
 class TwigUToken(Token):
     class Info:
@@ -67,9 +67,9 @@ class TwigUToken(Token):
     opcode = bit_range(0,7)
     rd = bit_range(7,13)
     imm12 = bit_range(13,25)
-    pred = bit_range(25,30)
-    pstart = bit(30)
-    pend = bit(31)
+    # pred = bit_range(25,30)
+    # pstart = bit(30)
+    # pend = bit(31)
 
 class TwigCWToken(Token):
     class Info:
@@ -78,9 +78,9 @@ class TwigCWToken(Token):
     opcode = bit_range(0,7)
     rd = bit_concat(bit_range(19,23), bit_range(7,13))
     rs1 = bit_range(13,19)
-    pred = bit_range(25,30)
-    pstart = bit(30)
-    pend = bit(31)
+    # pred = bit_range(25,30)
+    # pstart = bit(30)
+    # pend = bit(31)
 
 class TwigCRToken(Token):
     class Info:
@@ -89,9 +89,9 @@ class TwigCRToken(Token):
     opcode = bit_range(0,7)
     rd = bit_range(7,13)
     rs1 = bit_range(13,23)
-    pred = bit_range(25,30)
-    pstart = bit(30)
-    pend = bit(31)
+    # pred = bit_range(25,30)
+    # pstart = bit(30)
+    # pend = bit(31)
 
 class TwigJToken(Token):
     class Info:
@@ -100,8 +100,8 @@ class TwigJToken(Token):
     opcode = bit_range(0,7)
     rd = bit_range(7,13)
     imm17 = bit_range(13,30)
-    pstart = bit(30)
-    pend = bit(31)
+    # pstart = bit(30)
+    # pend = bit(31)
 
 class TwigJrToken(Token):
     class Info:
@@ -111,8 +111,8 @@ class TwigJrToken(Token):
     rd = bit_range(7,13)
     rs1 = bit_range(13,19)
     imm11 = bit_range(19,30)
-    pstart = bit(30)
-    pend = bit(31)
+    # pstart = bit(30)
+    # pend = bit(31)
 
 class TwigPToken(Token):
     class Info:
@@ -121,8 +121,8 @@ class TwigPToken(Token):
     opcode = bit_range(0,7)
     rs1 = bit_range(13,19)
     rs2 = bit_range(19,25)
-    pstart = bit(30)
-    pend = bit(31)
+    # pstart = bit(30)
+    # pend = bit(31)
 
 #using halt token as nop token
 class TwigHToken(Token):
@@ -130,6 +130,6 @@ class TwigHToken(Token):
         size = 32
 
     opcode = bit_range(0,7)
-    pred = bit_range(25, 30)
-    pstart = bit(30)
-    pend = bit(31)
+    # pred = bit_range(25, 30)
+    # pstart = bit(30)
+    # pend = bit(31)
