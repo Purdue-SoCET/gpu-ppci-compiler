@@ -1,3 +1,8 @@
+# TASKS
+- Test our parsing multiple files
+- Locate where C libary and language are at
+
+# NOTES
 ppci-cc = PPCI C Compiler
 -c (flag) - compile only without linking
 *Linking is the final step in the compilation process; take all separte compiled pieces of code (object files) and combine into a runnable executable file

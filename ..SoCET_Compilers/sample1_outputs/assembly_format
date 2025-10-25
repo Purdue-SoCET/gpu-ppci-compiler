@@ -1,0 +1,28 @@
+Hex Assembly (RISC-V)
+"130101fe232211002320810013048100130101ff23269100232ac4002328",
+"d4000325440183240401330595006f0000008324c1001301010183204100",
+"032401001301010267800000"
+
+Prologue (Setup)
+130101fe = addi sp, sp, -32 // Allocate 32 bytes on stack
+23221100 = sw ra, 28(sp) // Store return address on stack
+23208100 = sw s0, 24(sp) // Store caller's frame point s0 on stack
+13048100 = addi s0, sp, 32 //  set frame pointer s0 to top of new stack
+130101ff = addi sp, sp, -16 // Allocation another 16 bytes on stack
+23269100 = sw s1, 20(sp) // Store saved register s1 on stack
+232ac400 = sw a2, 16(sp) // Store argument register a2 on stack
+2328d400 = sw a3, 12(sp) // Store argument regsiter a3 on stack
+
+Body (Work)
+03254401 = lw a0, 20(s0) // Load first number from stack into register a0
+83240401 = lw s1, 16(s0) // Load second number from stack insto s1
+33059500 = add a0, a0, s1 // core logic of a + b
+
+Epilogue (Cleanup)
+6f000000 = j 48 // Jump to cleanup code
+8324c100 = lw s1, 20(sp) // load saved register s1 from stack
+13010101 = addi sp, sp 16 // Deallocate 16 bytes on stack
+83204100 = lw ra, 28 (sp) // restore return address
+03240100 = lw s0, 24 (sp) //restore caller frame point
+13010102 = addi sp, sp, 32 // deallocate 32 bytes of stack
+67800000 = ret // return to caller function
