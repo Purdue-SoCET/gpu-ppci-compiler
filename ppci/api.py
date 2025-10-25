@@ -356,16 +356,25 @@ def cc(
         CodeObject of 20 bytes
 
     """
-    if not reporter:  # pragma: no cover
+    if not reporter:  # pragma: no cover 
         reporter = DummyReportGenerator()
+        # Checks if reporter object provided, else creates default
 
     if not coptions:
         coptions = COptions()
+        # Checks if coptions object provided, else creates default
 
     ir_module = c_to_ir(source, march, coptions=coptions, reporter=reporter)
-    reporter.message(f"{ir_module} {ir_module.stats()}")
-    reporter.dump_ir(ir_module)
+    #does frontend work of handling #include and #define
+    #reads C code and builds Abstract Syntax Tree (AST)
+    #generates AST into Intermediate Representation (IR)
+
+    reporter.message(f"{ir_module} {ir_module.stats()}") #Report for debugging
+    reporter.dump_ir(ir_module) #IR representation
+
     optimize(ir_module, level=opt_level, reporter=reporter)
+    #Optimize it based on level
+
     return ir_to_object([ir_module], march, debug=debug, reporter=reporter)
 
 

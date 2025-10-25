@@ -35,15 +35,25 @@ def c_to_ir(source: io.TextIOBase, march, coptions=None, reporter=None):
     if not coptions:  # pragma: no cover
         coptions = COptions()
 
-    from ...api import get_arch
+    from ...api import get_arch # <<== IMPORTANT FOR US
+    # Gets architecture
 
-    march = get_arch(march)
-    cbuilder = CBuilder(march.info, coptions)
+    march = get_arch(march) # Loads architecture
+    cbuilder = CBuilder(march.info, coptions) #<== IMPORTANT FOR US
+    #Given target architecture and C options
+
+
     assert isinstance(source, io.TextIOBase)
     if hasattr(source, "name"):
         filename = getattr(source, "name")
+        # Gets file name from source for error messages
     else:
         filename = None
 
     ir_module = cbuilder.build(source, filename, reporter=reporter)
+    # Performs entire frontend pipeline
+    # 1) Preprocessing; handling #include and #define
+    # 2) Parsing: Reads C code and breaks into tokens to build (AST)
+    # 3) Generates IR by walking down AST
+    # 4) Stores IR in ir_module
     return ir_module

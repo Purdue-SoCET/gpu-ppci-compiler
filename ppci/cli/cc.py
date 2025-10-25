@@ -5,12 +5,26 @@ computer architectures.
 """
 
 import argparse
+# for parsing arg flags
 
-from .. import api
-from ..lang.c import CAstPrinter, create_ast
+from .. import api 
+# imports api.py that has c_to_ir() and preprocess()
+
+from ..lang.c import CAstPrinter, create_ast #
+#CAstPrinter - prints Abstract Syntax Tree
+#create_ast - reads C code and parses into AST
+
 from ..lang.c.options import COptions, coptions_parser
+#COptions, captions_parser - helper objects that define and parse C-specific options (Ex. -std=c99)
+
 from .base import LogSetup, base_parser, get_arch_from_args, march_parser
+#LogSetup - for logging info (INFO, DEBUG)
+#base_parser, march_parser, compile_parser - "parent" parsers
+#march_parser for -machine (-m) flag
+#compile_parser for --ir and -o flags
+
 from .compile_base import compile_parser, do_compile
+#do_compiler - handles optimization and code generation
 
 parser = argparse.ArgumentParser(
     description=__doc__,
@@ -49,9 +63,9 @@ def cc(args=None):
     args = parser.parse_args(args)
     with LogSetup(args) as log_setup:
         # Compile sources:
-        march = get_arch_from_args(args)
+        march = get_arch_from_args(args) # Gets architecture here (Ex. RISCV)
         coptions = COptions()
-        coptions.process_args(args)
+        coptions.process_args(args) # Holds C Specific Flags (Ex. -std=c99)
 
         if args.E:  # Only pre process
             with open(args.output, "w") as output:
@@ -61,7 +75,7 @@ def cc(args=None):
             dependencies = []
             for filename in dependencies:
                 print(filename)
-        elif args.ast:
+        elif args.ast: # Only generates AST
             with open(args.output, "w") as output:
                 printer = CAstPrinter(file=output)
                 for src in args.sources:
@@ -71,17 +85,17 @@ def cc(args=None):
                         src, march.info, filename=filename, coptions=coptions
                     )
                     printer.print(ast)
-        else:
+        else: #Default path with -c and --ir
             ir_modules = []
 
-            for src in args.sources:
+            for src in args.sources: #Loops through all source files provided
                 # Compile and optimize in any case:
                 ir_module = api.c_to_ir(
                     src, march, coptions=coptions, reporter=log_setup.reporter
                 )
-                ir_modules.append(ir_module)
+                ir_modules.append(ir_module) #Adds new IR to list
 
-            do_compile(ir_modules, march, log_setup.reporter, log_setup.args)
+            do_compile(ir_modules, march, log_setup.reporter, log_setup.args) #Optimization and Backend
 
 
 if __name__ == "__main__":
