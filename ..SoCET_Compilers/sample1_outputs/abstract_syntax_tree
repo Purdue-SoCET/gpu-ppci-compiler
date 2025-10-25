@@ -1,0 +1,18 @@
+"Command Ran": "ppci-cc -m riscv --ast sample1.c",
+"--ast": "Stop parsing and output the C abstract syntax tree; parse->AST",
+"NOTE:": "Everyting Below is what was actually generated into a JSON file",
+
+Compilation unit with 1 declarations
+    Function storage=None typ=Function-type name=add
+        Function-type
+            Parameter [typ=Basic type int name=a]
+                Basic type int
+            Parameter [typ=Basic type int name=b]
+                Basic type int
+            Basic type int
+        Compound
+            Return
+                BinaryOperator + <Basic type int>
+                    Id a <Basic type int>
+                    Id b <Basic type int>
+                    Basic type int

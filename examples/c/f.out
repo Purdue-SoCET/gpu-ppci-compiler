@@ -1,59 +1,13 @@
-{
-  "arch": "riscv",
-  "images": [],
-  "relocations": [
-    {
-      "addend": "0x0",
-      "offset": "0x18",
-      "section": "code",
-      "symbol_id": 2,
-      "type": "b_imm20"
-    }
-  ],
-  "sections": [
-    {
-      "address": "0x0",
-      "alignment": "0x4",
-      "data": "",
-      "name": "data"
-    },
-    {
-      "address": "0x0",
-      "alignment": "0x4",
-      "data": [
-        "130101ff232211002320810013048100130101ff3305d6006f0000001301",
-        "010183204100032401001301010167800000"
-      ],
-      "name": "code"
-    }
-  ],
-  "symbols": [
-    {
-      "binding": "global",
-      "id": 0,
-      "name": "add",
-      "section": "code",
-      "size": 0,
-      "typ": "func",
-      "value": "0x0"
-    },
-    {
-      "binding": "local",
-      "id": 1,
-      "name": "add_block0",
-      "section": "code",
-      "size": 0,
-      "typ": "object",
-      "value": "0x14"
-    },
-    {
-      "binding": "local",
-      "id": 2,
-      "name": "add_epilog",
-      "section": "code",
-      "size": 0,
-      "typ": "object",
-      "value": "0x1c"
-    }
-  ]
-}
+       .section data
+       .section data
+       .section code
+       global add
+       type add func
+ add:
+       addi x2, x2, -32
+       sw x1, 4(x2)
+       sw x8, 0(x2)
+       addi x8, x2, 8
+       addi x2, x2, -16
+       sw x9, 12(x2)
+ add_block0:

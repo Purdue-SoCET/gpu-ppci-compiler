@@ -1,0 +1,65 @@
+{
+  "Command Ran": "ppci-cc -m riscv -c sample1.c",
+  "-c": "Compile, but do not link; parse->AST->IR->Optimize",
+  "NOTE:": "Everyting Below is what was actually generated into a JSON file",
+
+
+  "arch": "riscv",
+  "images": [],
+  "relocations": [
+    {
+      "addend": "0x0",
+      "offset": "0x2c",
+      "section": "code",
+      "symbol_id": 2,
+      "type": "b_imm20"
+    }
+  ],
+  "sections": [
+    {
+      "address": "0x0",
+      "alignment": "0x4",
+      "data": "",
+      "name": "data"
+    },
+    {
+      "address": "0x0",
+      "alignment": "0x4",
+      "data": [
+        "130101fe232211002320810013048100130101ff23269100232ac4002328",
+        "d4000325440183240401330595006f0000008324c1001301010183204100",
+        "032401001301010267800000"
+      ],
+      "name": "code"
+    }
+  ],
+  "symbols": [
+    {
+      "binding": "global",
+      "id": 0,
+      "name": "add",
+      "section": "code",
+      "size": 0,
+      "typ": "func",
+      "value": "0x0"
+    },
+    {
+      "binding": "local",
+      "id": 1,
+      "name": "add_block0",
+      "section": "code",
+      "size": 0,
+      "typ": "object",
+      "value": "0x18"
+    },
+    {
+      "binding": "local",
+      "id": 2,
+      "name": "add_epilog",
+      "section": "code",
+      "size": 0,
+      "typ": "object",
+      "value": "0x30"
+    }
+  ]
+}

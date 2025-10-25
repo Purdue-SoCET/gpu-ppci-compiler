@@ -1,0 +1,21 @@
+"Command Ran": "ppci-cc -m riscv --ir sample1.c",
+"--ast": "Output ppci ir-code, do not generate code; parse->AST->IR",
+"NOTE:": "Everyting Below is what was actually generated into a JSON file",
+
+module main;
+
+global function i32 add(i32 a, i32 b) {
+  add_block0: {
+    blob<4:4> alloca = alloc 4 bytes aligned at 4;
+    ptr alloca_addr = &alloca;
+    store a, alloca_addr;
+    blob<4:4> alloca_0 = alloc 4 bytes aligned at 4;
+    ptr alloca_addr_1 = &alloca_0;
+    store b, alloca_addr_1;
+    i32 tmp_load = load alloca_addr;
+    i32 tmp_load_2 = load alloca_addr_1;
+    i32 tmp = tmp_load + tmp_load_2;
+    return tmp;
+  }
+
+}
