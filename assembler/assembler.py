@@ -101,7 +101,7 @@ def assemble(input_file: str, output_file: str, opcodes: Dict[str, str]):
         STORE_TYPE = ['sb', 'sh', 'sw']
         SINGLE_SRC_TYPE = ['isqrt', 'sin', 'cos', 'itof', 'ftoi']
         I_TYPE = ['addi', 'xori', 'ori', 'slli', 'srli', 'srai', 'slti', 'sltiu']
-        BRANCH_TYPE = ['beq', 'bne', 'bge', 'bgeu', 'blt', 'bltu']
+        BRANCH_TYPE = ['beq', 'bne', 'bge', 'bgeu', 'blt', 'bltu', 'beqf', 'bnef', 'bgef', 'bltf']
         U_TYPE = ['lui', 'lmi', 'lli', 'auipc']
         JALR_TYPE = ['jalr']
         JAL_TYPE = ['jal']
