@@ -1,0 +1,107 @@
+Compilation unit with 1 declarations
+    Function storage=None typ=Function-type name=main
+        Function-type
+            Basic type int
+        Compound
+            Declaration statement
+                Variable [storage=None typ=Basic type int name=d]
+                    Basic type int
+            Declaration statement
+                Variable [storage=None typ=Basic type int name=i]
+                    Basic type int
+            Declaration statement
+                Variable [storage=None typ=Basic type int name=c]
+                    Basic type int
+            Expression statement
+                BinaryOperator = <Basic type int>
+                    Id c <Basic type int>
+                    Numeric literal 2 <Basic type int>
+                        Basic type int
+                    Basic type int
+            Expression statement
+                BinaryOperator = <Basic type int>
+                    Id d <Basic type int>
+                    BinaryOperator - <Basic type int>
+                        BinaryOperator + <Basic type int>
+                            BinaryOperator + <Basic type int>
+                                Numeric literal 20 <Basic type int>
+                                    Basic type int
+                                BinaryOperator * <Basic type int>
+                                    Id c <Basic type int>
+                                    Numeric literal 10 <Basic type int>
+                                        Basic type int
+                                    Basic type int
+                                Basic type int
+                            BinaryOperator >> <Basic type int>
+                                Id c <Basic type int>
+                                Numeric literal 2 <Basic type int>
+                                    Basic type int
+                                Basic type int
+                            Basic type int
+                        Numeric literal 123 <Basic type int>
+                            Basic type int
+                        Basic type int
+                    Basic type int
+            If
+                BinaryOperator < <Basic type int>
+                    Id d <Basic type int>
+                    Numeric literal 10 <Basic type int>
+                        Basic type int
+                    Basic type int
+                Compound
+                    While
+                        BinaryOperator < <Basic type int>
+                            Id d <Basic type int>
+                            Numeric literal 20 <Basic type int>
+                                Basic type int
+                            Basic type int
+                        Compound
+                            Expression statement
+                                BinaryOperator = <Basic type int>
+                                    Id d <Basic type int>
+                                    BinaryOperator + <Basic type int>
+                                        Id d <Basic type int>
+                                        BinaryOperator * <Basic type int>
+                                            Id c <Basic type int>
+                                            Numeric literal 4 <Basic type int>
+                                                Basic type int
+                                            Basic type int
+                                        Basic type int
+                                    Basic type int
+            If
+                BinaryOperator > <Basic type int>
+                    Id d <Basic type int>
+                    Numeric literal 20 <Basic type int>
+                        Basic type int
+                    Basic type int
+                Compound
+                    Do-while
+                        Compound
+                            Expression statement
+                                BinaryOperator += <Basic type int>
+                                    Id d <Basic type int>
+                                    Id c <Basic type int>
+                                    Basic type int
+                        BinaryOperator < <Basic type int>
+                            Id d <Basic type int>
+                            Numeric literal 100 <Basic type int>
+                                Basic type int
+                            Basic type int
+                Compound
+                    For
+                        BinaryOperator = <Basic type int>
+                            Id i <Basic type int>
+                            Numeric literal 0 <Basic type int>
+                                Basic type int
+                            Basic type int
+                        BinaryOperator < <Basic type int>
+                            Id i <Basic type int>
+                            Numeric literal 10 <Basic type int>
+                                Basic type int
+                            Basic type int
+                        UnaryOperator x++
+                            Id i <Basic type int>
+                            Basic type int
+                        Compound
+            Return
+                Id d <Basic type int>

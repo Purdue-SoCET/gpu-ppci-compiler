@@ -1,0 +1,107 @@
+module main;
+
+global function i32 main() {
+  main_block0: {
+    blob<4:4> alloca = alloc 4 bytes aligned at 4;
+    ptr alloca_addr = &alloca;
+    blob<4:4> alloca_0 = alloc 4 bytes aligned at 4;
+    ptr alloca_addr_1 = &alloca_0;
+    blob<4:4> alloca_2 = alloc 4 bytes aligned at 4;
+    ptr alloca_addr_3 = &alloca_2;
+    i32 num = 2;
+    store num, alloca_addr_3;
+    i32 num_4 = 20;
+    i32 tmp_load = load alloca_addr_3;
+    i32 num_5 = 10;
+    i32 tmp = tmp_load * num_5;
+    i32 tmp_6 = num_4 + tmp;
+    i32 tmp_load_7 = load alloca_addr_3;
+    i32 num_8 = 2;
+    i32 tmp_9 = tmp_load_7 >> num_8;
+    i32 tmp_10 = tmp_6 + tmp_9;
+    i32 num_11 = 123;
+    i32 tmp_12 = tmp_10 - num_11;
+    store tmp_12, alloca_addr;
+    i32 tmp_load_13 = load alloca_addr;
+    i32 num_14 = 10;
+    cjmp tmp_load_13 < num_14 ? main_block2 : main_block1;
+  }
+
+  main_block1: {
+    i32 tmp_load_22 = load alloca_addr;
+    i32 num_23 = 20;
+    cjmp tmp_load_22 > num_23 ? main_block7 : main_block8;
+  }
+
+  main_block2: {
+    jmp main_block3;
+  }
+
+  main_block3: {
+    i32 tmp_load_15 = load alloca_addr;
+    i32 num_16 = 20;
+    cjmp tmp_load_15 < num_16 ? main_block4 : main_block5;
+  }
+
+  main_block4: {
+    i32 tmp_load_17 = load alloca_addr;
+    i32 tmp_load_18 = load alloca_addr_3;
+    i32 num_19 = 4;
+    i32 tmp_20 = tmp_load_18 * num_19;
+    i32 tmp_21 = tmp_load_17 + tmp_20;
+    store tmp_21, alloca_addr;
+    jmp main_block3;
+  }
+
+  main_block5: {
+    jmp main_block1;
+  }
+
+  main_block6: {
+    i32 tmp_load_35 = load alloca_addr;
+    return tmp_load_35;
+  }
+
+  main_block7: {
+    jmp main_block9;
+  }
+
+  main_block8: {
+    i32 num_29 = 0;
+    store num_29, alloca_addr_1;
+    jmp main_block11;
+  }
+
+  main_block9: {
+    i32 tmp_load_24 = load alloca_addr_3;
+    i32 tmp_load_25 = load alloca_addr;
+    i32 tmp_26 = tmp_load_25 + tmp_load_24;
+    store tmp_26, alloca_addr;
+    i32 tmp_load_27 = load alloca_addr;
+    i32 num_28 = 100;
+    cjmp tmp_load_27 < num_28 ? main_block9 : main_block10;
+  }
+
+  main_block10: {
+    jmp main_block6;
+  }
+
+  main_block11: {
+    i32 tmp_load_30 = load alloca_addr_1;
+    i32 num_31 = 10;
+    cjmp tmp_load_30 < num_31 ? main_block12 : main_block13;
+  }
+
+  main_block12: {
+    i32 tmp_load_32 = load alloca_addr_1;
+    i32 num_33 = 1;
+    i32 tmp_34 = tmp_load_32 + num_33;
+    store tmp_34, alloca_addr_1;
+    jmp main_block11;
+  }
+
+  main_block13: {
+    jmp main_block6;
+  }
+
+}
