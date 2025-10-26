@@ -314,7 +314,7 @@ class TwigArch(Architecture):
     def move(self, dst, src):
         """Generate a move from src to dst"""
         #rd = rs1 + 0 i think
-        return Addi(dst, src, ismove=True)
+        return Addi(dst, src, 0, ismove=True)
 
     def gen_prologue(self, frame):
         """TODO idk, adjust sp, save lr and lp(?), save callee saves on stack"""

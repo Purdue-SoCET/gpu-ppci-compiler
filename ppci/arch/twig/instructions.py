@@ -503,3 +503,34 @@ def pattern_const(context, tree):
     context.emit(Lmi(d,middle_12))
     context.emit(Lli(d,lower_12))
     return d
+
+@isa.pattern("stm", "MOVI32(reg)", size=2)
+@isa.pattern("stm", "MOVU32(reg)", size=2)
+def pattern_mov32(context, tree, c0):
+    context.move(tree.value, c0)
+    return tree.value
+
+@isa.pattern("reg", "LDRU32(mem)", size=2)
+@isa.pattern("reg", "LDRI32(mem)", size=2)
+def pattern_ldr32_fprel(context, tree, c0):
+    d = context.new_reg(TwigRegister)
+    base_reg, offset = c0
+    Code = Lw(d, offset, base_reg)
+    Code.fprel = True
+    context.emit(Code)
+    return d
+
+
+@isa.pattern("reg", "LDRU32(reg)", size=2)
+@isa.pattern("reg", "LDRI32(reg)", size=2)
+def pattern_ldr32_reg(context, tree, c0):
+    d = context.new_reg(TwigRegister)
+    base_reg = c0
+    Code = Lw(d, 0, base_reg)
+    context.emit(Code)
+    return d
+
+@isa.pattern("reg", "REGI32", size=0)
+@isa.pattern("reg", "REGU32", size=0)
+def pattern_reg(context, tree):
+    return tree.value
