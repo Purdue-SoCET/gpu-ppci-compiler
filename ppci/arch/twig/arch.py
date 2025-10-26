@@ -225,7 +225,7 @@ class TwigArch(Architecture):
                 ir.u16: TypeInfo(2, 2),
                 ir.i32: TypeInfo(4, 4),
                 ir.u32: TypeInfo(4, 4),
-                # ir.f32: TypeInfo(4, 4),
+                # ir.f32: TypeInfo(4, 4), #TODO: 32bit ADD FLOATING SUPPORT
                 # ir.f64: TypeInfo(4, 4),
                 "int": ir.i32,
                 "long": ir.i32,
