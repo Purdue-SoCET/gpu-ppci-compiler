@@ -2,7 +2,7 @@ from ..isa import Isa
 from ..encoding import Instruction, Operand, Syntax
 from .tokens import *
 from .registers import (
-    TwigRegister, TwigPredRegister
+    TwigRegister, TwigPredRegister, R0
 )
 from .relocations import *
 
@@ -248,6 +248,7 @@ class Blr(TwigJrInstruction):
         tokens[0][0:7] = 0b0100011 #jalr opcode
         tokens[0][7:13] = self.rd.num
         tokens[0][13:19] = self.rs1.num
+        tokens[0][19:30] = self.offset
         # tokens[0][30] = 0b0 #start of new packet
         # tokens[0][31] = 0b1 #end of new packet
         return tokens[0].encode()
@@ -338,9 +339,33 @@ Halt = make_nop("halt", 0b1111111)
 
 #isa.pattern stuff
 
+#pattern to look for: return "reg", format: ADD Unsigned 32 bit with 2 children that are registers, size/cost: 2
+
+#add pattern
 @isa.pattern("reg", "ADDU32(reg,reg)", size=2)
 @isa.pattern("reg", "ADDI32(reg,reg)", size=2)
-def pattern_add_i32(context, tree, c0, c1):
+def pattern_add_i32(context, tree, c0, c1): #c0 = rs1, c1 = rs2, d = rd
     d = context.new_reg(TwigRegister)
     context.emit(Add(d,c0,c1))
     return d
+
+@isa.pattern("reg", "ADDU16(reg, reg)", size=2)
+@isa.pattern("reg", "ADDI16(reg, reg)", size=2)
+def pattern_add_i16(context, tree, c0, c1):
+    d = context.new_reg(TwigRegister)
+    context.emit(Add(d, c0, c1))
+    return d
+
+@isa.pattern("reg", "ADDI8(reg, reg)", size=2)
+@isa.pattern("reg", "ADDU8(reg, reg)", size=2)
+def pattern_add8(context, tree, c0, c1):
+    d = context.new_reg(TwigRegister)
+    context.emit(Add(d, c0, c1))
+    return d
+
+
+#jump pattern
+@isa.pattern("stm", "JMP", size=4)
+def pattern_jmp(context, tree):
+    tgt = tree.value
+    context.emit(Bl(target=tgt.name, rd=R0, jump=[tgt]))
