@@ -305,6 +305,36 @@ Blt = make_b("blt", 0b1000100)
 Bltu = make_b("bltu", 0b1000101)
 
 
+#u type
+class TwigUInstruction(Instruction):
+    tokens = [TwigUToken]
+    isa = isa
+
+def make_u(mnemonic, opcode):
+    rd = Operand("rd", TwigRegister, write=True)
+    imm = Operand("imm", int)
+    syntax = Syntax([mnemonic, ",", " ", rd, ",", " ", imm])
+    tokens = [TwigUToken]
+    patterns = {
+        "opcode": opcode,
+        "rd": rd,
+        "imm12": imm
+    }
+    members = {
+        "syntax": syntax,
+        "rd": rd,
+        "imm12": imm,
+        "patterns": patterns,
+        "tokens": tokens,
+        "opcode": opcode
+    }
+    return type(mnemonic + "_ins", (TwigUInstruction,), members)
+
+Auipc = make_u("auipc", 0b1010000)
+Lli = make_u("lli", 0b1010001)
+Lmi = make_u("lmi", 0b1010010)
+Lui = make_u("lui", 0b1010011)
+
 #h type (halt)
 class TwigHInstruction(Instruction):
     tokens = [TwigHToken]
@@ -456,3 +486,20 @@ def pattern_sbi8_reg(context, tree, c0, c1):
     base_reg = c0
     Code = Sb(c1, 0, base_reg)
     context.emit(Code)
+
+
+@isa.pattern("reg", "CONSTI32", size=4)
+@isa.pattern("reg", "CONSTU32", size=4)
+def pattern_const(context, tree):
+    d = context.new_reg(TwigRegister)
+    c0 = tree.value
+    if c0 in range(-32, 32):
+        context.emit(Addi(d, R0, c0))
+        return d
+    upper_8 = (c0 >> 24) & 0xFF
+    middle_12 = (c0 >> 12) & 0xFFF
+    lower_12 = (c0) & 0xFFF
+    context.emit(Lui(d,upper_8))
+    context.emit(Lmi(d,middle_12))
+    context.emit(Lli(d,lower_12))
+    return d
