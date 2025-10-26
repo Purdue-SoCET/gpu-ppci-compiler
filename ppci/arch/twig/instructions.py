@@ -2,7 +2,7 @@ from ..isa import Isa
 from ..encoding import Instruction, Operand, Syntax
 from .tokens import *
 from .registers import (
-    TwigRegister, TwigPredRegister, R0
+    TwigRegister, TwigPredRegister, R0, FP
 )
 from .relocations import *
 
@@ -217,8 +217,8 @@ class TwigJInstruction(Instruction):
 
 #jal
 class Bl(TwigJInstruction):
-    target = Operand("target", str)
     rd = Operand("rd", TwigRegister, write=True)
+    target = Operand("target", str)
     syntax = Syntax(["jal", " ", rd, ",", " ", target])
     def encode(self):
         tokens = self.get_tokens()
@@ -364,8 +364,95 @@ def pattern_add8(context, tree, c0, c1):
     return d
 
 
-#jump pattern
+#'j' pattern
 @isa.pattern("stm", "JMP", size=4)
 def pattern_jmp(context, tree):
     tgt = tree.value
-    context.emit(Bl(target=tgt.name, rd=R0, jump=[tgt]))
+    context.emit(Bl(R0, tgt.name, jumps=[tgt]))
+
+
+
+@isa.pattern(
+    "reg",
+    "FPRELU32",
+    size=4,
+    condition=lambda t: t.value.offset in range(-32, 32),
+)
+def pattern_fpreli32(context, tree):
+    d = context.new_reg(TwigRegister)
+    offset = tree.value.offset
+    Code = Addi(d, FP, offset)
+    Code.fprel = True
+    context.emit(Code)
+    return d
+
+
+# Memory patterns:
+@isa.pattern(
+    "mem",
+    "FPRELU32",
+    size=0,
+    condition=lambda t: t.value.offset in range(-32, 32),
+)
+def pattern_mem_fpreli32(context, tree):
+    offset = tree.value.offset
+    return FP, offset
+
+
+@isa.pattern("mem", "reg", size=10)
+def pattern_mem_reg(context, tree, c0):
+    return c0, 0
+
+#sw pattern
+@isa.pattern("stm", "STRU32(mem, reg)", size=2)
+@isa.pattern("stm", "STRI32(mem, reg)", size=2)
+@isa.pattern("stm", "STRF32(mem, reg)", size=10)
+# @isa.pattern("stm", "STRF64(mem, reg)", size=10)
+def pattern_sw32(context, tree, c0, c1):
+    base_reg, offset = c0
+    Code = Sw(c1, offset, base_reg)
+    Code.fprel = True
+    context.emit(Code)
+
+@isa.pattern("stm", "STRU32(reg, reg)", size=2)
+@isa.pattern("stm", "STRI32(reg, reg)", size=2)
+@isa.pattern("stm", "STRF32(reg, reg)", size=10)
+# @isa.pattern("stm", "STRF64(reg, reg)", size=10)
+def pattern_sw32_reg(context, tree, c0, c1):
+    base_reg = c0
+    Code = Sw(c1, 0, base_reg)
+    context.emit(Code)
+
+
+@isa.pattern("stm", "STRI16(mem, reg)", size=2)
+@isa.pattern("stm", "STRU16(mem, reg)", size=2)
+def pattern_str16_mem(context, tree, c0, c1):
+    base_reg, offset = c0
+    Code = Sh(c1, offset, base_reg)
+    Code.fprel = True
+    context.emit(Code)
+
+
+@isa.pattern("stm", "STRI16(reg, reg)", size=2)
+@isa.pattern("stm", "STRU16(reg, reg)", size=2)
+def pattern_str16_reg(context, tree, c0, c1):
+    base_reg = c0
+    Code = Sh(c1, 0, base_reg)
+    context.emit(Code)
+
+
+@isa.pattern("stm", "STRU8(mem, reg)", size=2)
+@isa.pattern("stm", "STRI8(mem, reg)", size=2)
+def pattern_sbi8_mem(context, tree, c0, c1):
+    base_reg, offset = c0
+    Code = Sb(c1, offset, base_reg)
+    Code.fprel = True
+    context.emit(Code)
+
+
+@isa.pattern("stm", "STRU8(reg, reg)", size=2)
+@isa.pattern("stm", "STRI8(reg, reg)", size=2)
+def pattern_sbi8_reg(context, tree, c0, c1):
+    base_reg = c0
+    Code = Sb(c1, 0, base_reg)
+    context.emit(Code)
