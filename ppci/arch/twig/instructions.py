@@ -323,7 +323,31 @@ def make_u(mnemonic, opcode):
     members = {
         "syntax": syntax,
         "rd": rd,
-        "imm12": imm,
+        "imm": imm,
+        "patterns": patterns,
+        "tokens": tokens,
+        "opcode": opcode
+    }
+    return type(mnemonic + "_ins", (TwigUInstruction,), members)
+
+def make_u_mod(mnemonic, opcode):
+    """
+    Creates a U-type instruction that MODIFIES rd
+    (reads and writes it).
+    """
+    rd = Operand("rd", TwigRegister, read=True, write=True)
+    imm = Operand("imm", int)
+    syntax = Syntax([mnemonic, ",", " ", rd, ",", " ", imm])
+    tokens = [TwigUToken]
+    patterns = {
+        "opcode": opcode,
+        "rd": rd,
+        "imm12": imm
+    }
+    members = {
+        "syntax": syntax,
+        "rd": rd,
+        "imm": imm,
         "patterns": patterns,
         "tokens": tokens,
         "opcode": opcode
@@ -331,8 +355,8 @@ def make_u(mnemonic, opcode):
     return type(mnemonic + "_ins", (TwigUInstruction,), members)
 
 Auipc = make_u("auipc", 0b1010000)
-Lli = make_u("lli", 0b1010001)
-Lmi = make_u("lmi", 0b1010010)
+Lli = make_u_mod("lli", 0b1010001)
+Lmi = make_u_mod("lmi", 0b1010010)
 Lui = make_u("lui", 0b1010011)
 
 #h type (halt)
@@ -500,8 +524,8 @@ def pattern_const(context, tree):
     middle_12 = (c0 >> 12) & 0xFFF
     lower_12 = (c0) & 0xFFF
     context.emit(Lui(d,upper_8))
-    context.emit(Lmi(d,middle_12))
-    context.emit(Lli(d,lower_12))
+    context.emit(Lmi(d,d,middle_12))
+    context.emit(Lli(d,d,lower_12))
     return d
 
 @isa.pattern("stm", "MOVI32(reg)", size=2)
