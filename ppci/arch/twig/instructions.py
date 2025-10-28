@@ -457,6 +457,35 @@ def pattern_mem_fpreli32(context, tree):
     return FP, offset
 
 
+@isa.pattern(
+    "reg",
+    "FPRELU32",
+    size=10
+)
+def pattern_fprel_large(context, tree):
+    """
+    Handles FPREL (stack variable) when the offset is too
+    large for a 6-bit immediate.
+
+    It loads the offset into a temp register and adds it to FP.
+    """
+    offset = tree.value.offset
+
+    t1 = context.new_reg(TwigRegister)
+    if offset in range(-32, 32):
+        context.emit(Addi(t1, R0, offset))
+    else:
+        upper_8 = (offset >> 24) & 0xFF
+        middle_12 = (offset >> 12) & 0xFFF
+        lower_12 = (offset) & 0xFFF
+        context.emit(Lui(t1, upper_8))
+        context.emit(Lmi(t1, middle_12))
+        context.emit(Lli(t1, lower_12))
+
+    d = context.new_reg(TwigRegister)
+    context.emit(Add(d, FP, t1))
+    return d
+
 @isa.pattern("mem", "reg", size=10)
 def pattern_mem_reg(context, tree, c0):
     return c0, 0
@@ -528,8 +557,8 @@ def pattern_const(context, tree):
     middle_12 = (c0 >> 12) & 0xFFF
     lower_12 = (c0) & 0xFFF
     context.emit(Lui(d,upper_8))
-    context.emit(Lmi(d,d,middle_12))
-    context.emit(Lli(d,d,lower_12))
+    context.emit(Lmi(d,middle_12))
+    context.emit(Lli(d,lower_12))
     return d
 
 @isa.pattern("stm", "MOVI32(reg)", size=2)
