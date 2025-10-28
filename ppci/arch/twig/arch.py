@@ -295,13 +295,11 @@ class TwigArch(Architecture):
     #     """
     #     return asm(io.StringIO(asm_src), self)
 
-    # do we need memcpy ? this might work might not
-    # def gen_Twig_memcpy(self, dst, src, tmp, size):
-    #     # Called before register allocation
-    #     # Major crappy memcpy, can be improved!
-    #     for idx in range(size):
-    #         yield Lb(tmp, idx, src)
-    #         yield Sb(tmp, idx, dst)
+    def gen_twig_memcpy(self, dst, src, tmp, size):
+        # Called before register allocation
+        for idx in range(size):
+            yield Lb(tmp, idx, src)
+            yield Sb(tmp, idx, dst)
 
     # def peephole(self, frame):
     #     newinstructions = []

@@ -6,6 +6,8 @@ from .registers import (
 )
 from .relocations import *
 
+import struct
+
 isa = Isa()
 
 isa.register_relocation(JImm17Relocation)
@@ -121,12 +123,14 @@ def make_i(mnemonic, opcode):
     return type(mnemonic + "_ins", (TwigIInstruction,), members)
 
 Addi = make_i("addi", 0b0010000)
-Subi = make_i("addi", 0b0010001)
-Ori = make_i("addi", 0b0010101)
-Slti = make_i("addi", 0b0010111)
-Sltiu = make_i("addi", 0b0011000)
-Srli = make_i("addi", 0b0011110)
-Srai = make_i("addi", 0b0011111)
+Subi = make_i("subi", 0b0010001)
+Xori = make_i("xori", 0b0010100)
+Ori = make_i("ori", 0b0010101)
+Slti = make_i("slti", 0b0010111)
+Sltiu = make_i("sltiu", 0b0011000)
+Slli = make_i("slli", 0b0011101)
+Srli = make_i("srli", 0b0011110)
+Srai = make_i("srai", 0b0011111)
 
 #loads
 def make_load(mnemonic, opcode):
@@ -165,8 +169,8 @@ def make_load(mnemonic, opcode):
     return type(mnemonic.title(), (TwigIInstruction,), members)
 
 Lw = make_load("lw", 0b01000000)
-Lh = make_load("lw", 0b01000001)
-Lb = make_load("lw", 0b01000010)
+Lh = make_load("lh", 0b01000001)
+Lb = make_load("lb", 0b01000010)
 
 class TwigSInstruction(Instruction):
     tokens = [TwigSToken]
@@ -558,3 +562,427 @@ def pattern_ldr32_reg(context, tree, c0):
 @isa.pattern("reg", "REGU32", size=0)
 def pattern_reg(context, tree):
     return tree.value
+
+
+@isa.pattern("stm", "MOVB(reg, reg)", size=40)
+def pattern_movb(context, tree, c0, c1):
+    # Emit memcpy
+    dst = c0
+    src = c1
+    tmp = context.new_reg(TwigRegister)
+    size = tree.value
+    for instruction in context.arch.gen_twig_memcpy(dst, src, tmp, size):
+        context.emit(instruction)
+
+@isa.pattern("reg", "U32TOU16(reg)", size=0)
+@isa.pattern("reg", "U32TOI16(reg)", size=0)
+@isa.pattern("reg", "I32TOI16(reg)", size=0)
+@isa.pattern("reg", "I32TOU16(reg)", size=0)
+@isa.pattern("reg", "U16TOU8(reg)", size=0)
+@isa.pattern("reg", "U16TOI8(reg)", size=0)
+@isa.pattern("reg", "I16TOI8(reg)", size=0)
+@isa.pattern("reg", "I16TOU8(reg)", size=0)
+@isa.pattern("reg", "F32TOF64(reg)", size=10)
+@isa.pattern("reg", "F64TOF32(reg)", size=10)
+def pattern_i32_to_i32(context, tree, c0):
+    return c0
+
+@isa.pattern("reg", "I8TOI16(reg)", size=4)
+@isa.pattern("reg", "I8TOI32(reg)", size=4)
+def pattern_i8_to_i32(context, tree, c0):
+    context.emit(Slli(c0, c0, 24))
+    context.emit(Srai(c0, c0, 24))
+    return c0
+
+
+@isa.pattern("reg", "I16TOI32(reg)", size=4)
+def pattern_i16_to_i32(context, tree, c0):
+    context.emit(Slli(c0, c0, 16))
+    context.emit(Srai(c0, c0, 16))
+    return c0
+
+@isa.pattern("reg", "I8TOU16(reg)", size=4)
+@isa.pattern("reg", "U8TOU16(reg)", size=4)
+@isa.pattern("reg", "U8TOI16(reg)", size=4)
+def pattern_8_to_16(context, tree, c0):
+    context.emit(Slli(c0, c0, 24))
+    context.emit(Srli(c0, c0, 24))
+    return c0
+
+@isa.pattern("reg", "I8TOU32(reg)", size=4)
+@isa.pattern("reg", "U8TOU32(reg)", size=4)
+@isa.pattern("reg", "U8TOI32(reg)", size=4)
+def pattern_8_to_32(context, tree, c0):
+    context.emit(Slli(c0, c0, 24))
+    context.emit(Srli(c0, c0, 24))
+    return c0
+
+
+@isa.pattern("reg", "I16TOU32(reg)", size=4)
+@isa.pattern("reg", "U16TOU32(reg)", size=4)
+@isa.pattern("reg", "U16TOI32(reg)", size=4)
+def pattern_16_to_32(context, tree, c0):
+    context.emit(Slli(c0, c0, 16))
+    context.emit(Srli(c0, c0, 16))
+    return c0
+
+@isa.pattern("reg", "I32TOI8(reg)", size=0)
+@isa.pattern("reg", "I32TOU8(reg)", size=0)
+@isa.pattern("reg", "I32TOI16(reg)", size=0)
+@isa.pattern("reg", "I32TOU16(reg)", size=0)
+@isa.pattern("reg", "U32TOU8(reg)", size=0)
+@isa.pattern("reg", "U32TOI8(reg)", size=0)
+@isa.pattern("reg", "U32TOU16(reg)", size=0)
+@isa.pattern("reg", "U32TOI16(reg)", size=0)
+def pattern_32_to_8_16(context, tree, c0):
+    # TODO: do something like sign extend or something else?
+    return c0
+
+
+@isa.pattern("reg", "CONSTF32", size=10)
+@isa.pattern("reg", "CONSTF64", size=10)
+def pattern_const_f32(context, tree):
+    float_const = struct.pack("f", tree.value)
+    (c0,) = struct.unpack("i", float_const)
+    d = context.new_reg(TwigRegister)
+    upper_8 = (c0 >> 24) & 0xFF
+    middle_12 = (c0 >> 12) & 0xFFF
+    lower_12 = (c0) & 0xFFF
+    context.emit(Lui(d,upper_8))
+    context.emit(Lmi(d,d,middle_12))
+    context.emit(Lli(d,d,lower_12))
+    return d
+
+
+
+#TODO: want to swap out for predication
+# @isa.pattern("stm", "CJMPI32(reg, reg)", size=4)
+# @isa.pattern("stm", "CJMPI16(reg, reg)", size=4)
+# @isa.pattern("stm", "CJMPI8(reg, reg)", size=4)
+# def pattern_cjmpi(context, tree, c0, c1):
+#     op, yes_label, no_label = tree.value
+#     opnames = {"<": Blt, ">": Bgt, "==": Beq, "!=": Bne, ">=": Bge, "<=": Ble}
+#     Bop = opnames[op]
+#     jmp_ins = B(no_label.name, jumps=[no_label])
+#     context.emit(Bop(c0, c1, yes_label.name, jumps=[yes_label, jmp_ins]))
+#     context.emit(jmp_ins)
+
+
+# @isa.pattern("stm", "CJMPU8(reg, reg)", size=4)
+# @isa.pattern("stm", "CJMPU16(reg, reg)", size=4)
+# @isa.pattern("stm", "CJMPU32(reg, reg)", size=4)
+# def pattern_cjmpu(context, tree, c0, c1):
+#     op, yes_label, no_label = tree.value
+#     opnames = {
+#         "<": Bltu,
+#         ">": Bgtu,
+#         "==": Beq,
+#         "!=": Bne,
+#         ">=": Bgeu,
+#         "<=": Bleu,
+#     }
+#     Bop = opnames[op]
+#     jmp_ins = B(no_label.name, jumps=[no_label])
+#     context.emit(Bop(c0, c1, yes_label.name, jumps=[yes_label, jmp_ins]))
+#     context.emit(jmp_ins)
+
+@isa.pattern(
+    "reg",
+    "ADDI32(reg, CONSTI32)",
+    size=2,
+    condition=lambda t: t[1].value < 32,
+)
+@isa.pattern(
+    "reg",
+    "ADDU32(reg, CONSTU32)",
+    size=2,
+    condition=lambda t: t[1].value < 32,
+)
+def pattern_add_i32_reg_const(context, tree, c0):
+    d = context.new_reg(TwigRegister)
+    c1 = tree.children[1].value
+    context.emit(Addi(d, c0, c1))
+    return d
+
+@isa.pattern(
+    "reg",
+    "ADDI32(CONSTI32, reg)",
+    size=2,
+    condition=lambda t: t.children[0].value < 32,
+)
+@isa.pattern(
+    "reg",
+    "ADDU32(CONSTU32, reg)",
+    size=2,
+    condition=lambda t: t.children[0].value < 323,
+)
+def pattern_add_i32_const_reg(context, tree, c0):
+    d = context.new_reg(TwigRegister)
+    c1 = tree.children[0].value
+    context.emit(Addi(d, c0, c1))
+    return d
+
+@isa.pattern("reg", "SUBI8(reg, reg)", size=2)
+@isa.pattern("reg", "SUBU8(reg, reg)", size=2)
+@isa.pattern("reg", "SUBI16(reg, reg)", size=2)
+@isa.pattern("reg", "SUBU16(reg, reg)", size=2)
+@isa.pattern("reg", "SUBI32(reg, reg)", size=2)
+@isa.pattern("reg", "SUBU32(reg, reg)", size=2)
+def pattern_sub_i32(context, tree, c0, c1):
+    d = context.new_reg(TwigRegister)
+    context.emit(Sub(d, c0, c1))
+    return d
+
+
+#for labelling different blocks i assume
+# @isa.pattern("reg", "LABEL", size=6)
+# def pattern_label1(context, tree):
+#     d = context.new_reg(RiscvRegister)
+#     ln = context.frame.add_constant(tree.value)
+#     context.emit(Adru(d, ln))
+#     context.emit(Adrl(d, d, ln))
+#     context.emit(Lw(d, 0, d))
+#     return d
+
+
+# @isa.pattern("reg", "LABEL", size=4)
+# def pattern_label2(context, tree):
+#     d = context.new_reg(RiscvRegister)
+#     ln = context.frame.add_constant(tree.value)
+#     context.emit(Labelrel(d, ln))
+#     return d
+
+@isa.pattern("reg", "NEGI8(reg)", size=2)
+@isa.pattern("reg", "NEGI16(reg)", size=2)
+@isa.pattern("reg", "NEGI32(reg)", size=2)
+@isa.pattern("reg", "NEGU32(reg)", size=2)
+def pattern_negi32(context, tree, c0):
+    context.emit(Sub(c0, R0, c0))
+    return c0
+
+@isa.pattern("reg", "INVI8(reg)", size=2)
+@isa.pattern("reg", "INVU8(reg)", size=2)
+@isa.pattern("reg", "INVU32(reg)", size=2)
+@isa.pattern("reg", "INVI32(reg)", size=2)
+def pattern_inv(context, tree, c0):
+    context.emit(Xori(c0, c0, -1))
+    return c0
+
+@isa.pattern("reg", "ANDI8(reg, reg)", size=2)
+@isa.pattern("reg", "ANDU8(reg, reg)", size=2)
+@isa.pattern("reg", "ANDI16(reg, reg)", size=2)
+@isa.pattern("reg", "ANDU16(reg, reg)", size=2)
+@isa.pattern("reg", "ANDI32(reg, reg)", size=2)
+@isa.pattern("reg", "ANDU32(reg, reg)", size=2)
+def pattern_and_i(context, tree, c0, c1):
+    d = context.new_reg(TwigRegister)
+    context.emit(And(d, c0, c1))
+    return d
+
+@isa.pattern("reg", "ORU32(reg, reg)", size=2)
+@isa.pattern("reg", "ORI32(reg, reg)", size=2)
+@isa.pattern("reg", "ORU16(reg, reg)", size=2)
+@isa.pattern("reg", "ORI16(reg, reg)", size=2)
+@isa.pattern("reg", "ORU8(reg, reg)", size=2)
+@isa.pattern("reg", "ORI8(reg, reg)", size=2)
+def pattern_or_i32(context, tree, c0, c1):
+    d = context.new_reg(TwigRegister)
+    context.emit(Or(d, c0, c1))
+    return d
+
+
+@isa.pattern(
+    "reg",
+    "ORI32(reg, CONSTI32)",
+    size=2,
+    condition=lambda t: t.children[1].value < 32,
+)
+def pattern_or_i32_reg_const(context, tree, c0):
+    d = context.new_reg(TwigRegister)
+    c1 = tree.children[1].value
+    context.emit(Ori(d, c0, c1))
+    return d
+
+@isa.pattern(
+    "reg",
+    "ORI32(CONSTI32, reg)",
+    size=2,
+    condition=lambda t: t.children[0].value < 32,
+)
+def pattern_or_i32_const_reg(context, tree, c0):
+    d = context.new_reg(TwigRegister)
+    c1 = tree.children[0].value
+    context.emit(Ori(d, c0, c1))
+    return d
+
+@isa.pattern("reg", "SHRU8(reg, reg)", size=2)
+@isa.pattern("reg", "SHRU16(reg, reg)", size=2)
+@isa.pattern("reg", "SHRU32(reg, reg)", size=2)
+def pattern_shr_u32(context, tree, c0, c1):
+    d = context.new_reg(TwigRegister)
+    context.emit(Srl(d, c0, c1))
+    return d
+
+
+@isa.pattern("reg", "SHRI8(reg, reg)", size=2)
+def pattern_shr_i8(context, tree, c0, c1):
+    d = context.new_reg(TwigRegister)
+    context.emit(Slli(c0, c0, 24))
+    context.emit(Srai(c0, c0, 24))
+    context.emit(Sra(d, c0, c1))
+    return d
+
+
+@isa.pattern("reg", "SHRI16(reg, reg)", size=2)
+def pattern_shr_i16(context, tree, c0, c1):
+    d = context.new_reg(TwigRegister)
+    context.emit(Slli(c0, c0, 16))
+    context.emit(Srai(c0, c0, 16))
+    context.emit(Sra(d, c0, c1))
+    return d
+
+
+@isa.pattern("reg", "SHRI32(reg, reg)", size=2)
+def pattern_shr_i32(context, tree, c0, c1):
+    d = context.new_reg(TwigRegister)
+    context.emit(Sra(d, c0, c1))
+    return d
+
+
+@isa.pattern(
+    "reg",
+    "SHRI32(reg, CONSTI32)",
+    size=2,
+    condition=lambda t: t.children[1].value < 32,
+)
+def pattern_shr_i32_reg_const(context, tree, c0):
+    d = context.new_reg(TwigRegister)
+    c1 = tree.children[1].value
+    context.emit(Srai(d, c0, c1))
+    return d
+
+
+@isa.pattern("reg", "SHLU8(reg, reg)", size=2)
+@isa.pattern("reg", "SHLI8(reg, reg)", size=2)
+@isa.pattern("reg", "SHLU16(reg, reg)", size=2)
+@isa.pattern("reg", "SHLI16(reg, reg)", size=2)
+@isa.pattern("reg", "SHLU32(reg, reg)", size=2)
+@isa.pattern("reg", "SHLI32(reg, reg)", size=2)
+def pattern_shl_i32(context, tree, c0, c1):
+    d = context.new_reg(TwigRegister)
+    context.emit(Sll(d, c0, c1))
+    return d
+
+@isa.pattern(
+    "reg",
+    "SHLI32(reg, CONSTI32)",
+    size=2,
+    condition=lambda t: t.children[1].value < 32,
+)
+def pattern_shl_i32_reg_const(context, tree, c0):
+    d = context.new_reg(TwigRegister)
+    c1 = tree.children[1].value
+    context.emit(Slli(d, c0, c1))
+    return d
+
+@isa.pattern("reg", "MULI8(reg, reg)", size=10)
+@isa.pattern("reg", "MULU8(reg, reg)", size=10)
+@isa.pattern("reg", "MULU16(reg, reg)", size=10)
+@isa.pattern("reg", "MULI32(reg, reg)", size=10)
+@isa.pattern("reg", "MULU32(reg, reg)", size=10)
+def pattern_mul_i32(context, tree, c0, c1):
+    d = context.new_reg(TwigRegister)
+    context.emit(Mul(d, c0, c1))
+    return d
+
+@isa.pattern("reg", "DIVI32(reg, reg)", size=10)
+def pattern_div_i32(context, tree, c0, c1):
+    d = context.new_reg(TwigRegister)
+    context.emit(Div(d, c0, c1))
+    return d
+
+#there better not be unsigned division
+@isa.pattern("reg", "DIVU16(reg, reg)", size=10)
+@isa.pattern("reg", "DIVU32(reg, reg)", size=10)
+def pattern_div_u32(context, tree, c0, c1):
+    d = context.new_reg(TwigRegister)
+    context.emit(Div(d, c0, c1))
+    return d
+
+#if there is many modulo maybe separate instruction would be good
+@isa.pattern("reg", "REMI32(reg, reg)", size=14)
+@isa.pattern("reg", "REMU32(reg, reg)", size=14)
+def pattern_rem32(context, tree, c0, c1):
+    """
+    Implements Remainder (c0 % c1) using the formula:
+    d = c0 - (c1 * (c0 / c1))
+    """
+    t1 = context.new_reg(TwigRegister)
+    context.emit(Div(t1, c0, c1))
+    t2 = context.new_reg(TwigRegister)
+    context.emit(Mul(t2, c1, t1))
+    d = context.new_reg(TwigRegister)
+    context.emit(Sub(d, c0, t2))
+    return d
+
+@isa.pattern("reg", "XORU32(reg, reg)", size=2)
+@isa.pattern("reg", "XORI32(reg, reg)", size=2)
+def pattern_xor_i32(context, tree, c0, c1):
+    d = context.new_reg(TwigRegister)
+    context.emit(Xor(d, c0, c1))
+    return d
+
+@isa.pattern(
+    "reg",
+    "XORI32(reg, CONSTI32)",
+    size=2,
+    condition=lambda t: t.children[1].value < 32,
+)
+def pattern_xor_i32_reg_const(context, tree, c0):
+    d = context.new_reg(TwigRegister)
+    c1 = tree.children[1].value
+    context.emit(Xori(d, c0, c1))
+    return d
+
+@isa.pattern(
+    "reg",
+    "XORI32(CONSTI32, reg)",
+    size=2,
+    condition=lambda t: t.children[0].value < 32,
+)
+def pattern_xor_i32_const_reg(context, tree, c0):
+    d = context.new_reg(TwigRegister)
+    c1 = tree.children[0].value
+    context.emit(Xori(d, c0, c1))
+    return d
+
+
+#idk what this is
+# def call_internal2(context, name, a, b, clobbers=()):
+#     d = context.new_reg(TwigRegister)
+#     context.move(R12, a)
+#     context.move(R13, b)
+#     context.emit(RegisterUseDef(uses=(R12, R13)))
+#     context.emit(Global(name))
+#     context.emit(Bl(LR, name, clobbers=clobbers))
+#     context.emit(RegisterUseDef(uses=(R10,)))
+#     context.move(d, R10)
+#     return d
+
+
+# def call_internal1(context, name, a, clobbers=()):
+#     d = context.new_reg(TwigRegister)
+#     context.move(R12, a)
+#     context.emit(RegisterUseDef(uses=(R12,)))
+#     context.emit(Global(name))
+#     context.emit(Bl(LR, name, clobbers=clobbers))
+#     context.emit(RegisterUseDef(uses=(R10,)))
+#     context.move(d, R10)
+#     return d
+
+
+#insert floating coverage here
+
+#legacy code grandfathered in since May 22, 2019 at 10:33 AM
+def round_up(s):
+    return s + (16 - s % 16)
