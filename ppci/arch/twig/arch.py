@@ -54,10 +54,16 @@ from .instructions import (
     #jump
     Bl,
     Blr,
+    #utype
+    Lli,
+    Lmi,
+    Lui,
     #htype,
     Halt,
     #isa
     isa,
+    Align,
+    Section
 )
 from .registers import (
     R0,
@@ -226,7 +232,6 @@ class TwigArch(Architecture):
                 ir.i32: TypeInfo(4, 4),
                 ir.u32: TypeInfo(4, 4),
                 # ir.f32: TypeInfo(4, 4), #TODO: 32bit ADD FLOATING SUPPORT
-                # ir.f64: TypeInfo(4, 4),
                 "int": ir.i32,
                 "long": ir.i32,
                 "ptr": ir.u32,
@@ -253,11 +258,11 @@ class TwigArch(Architecture):
         )
         self.caller_save = (R10, R11, R12, R13, R14, R15, R16, R17) #+ tuple(predregisters)
 
-    # def branch(self, reg, lab):
-    #     if isinstance(lab, TwigRegister):
-    #         return Blr(reg, lab, 0, clobbers=self.caller_save)
-    #     else:
-    #         return Bl(reg, lab, clobbers=self.caller_save)
+    def branch(self, reg, lab):
+        if isinstance(lab, TwigRegister):
+            return Blr(reg, lab, 0, clobbers=self.caller_save)
+        else:
+            return Bl(reg, lab, clobbers=self.caller_save)
 
     # def get_runtime(self):
     #     """Implement compiler runtime functions"""
@@ -298,16 +303,70 @@ class TwigArch(Architecture):
     def gen_twig_memcpy(self, dst, src, tmp, size):
         # Called before register allocation
         for idx in range(size):
-            yield Lb(tmp, idx, src)
-            yield Sb(tmp, idx, dst)
+            yield Lw(tmp, idx, src)
+            yield Sw(tmp, idx, dst)
 
-    # def peephole(self, frame):
-    #     newinstructions = []
-    #     for ins in frame.instructions:
-    #         if hasattr(ins, "fprel") and ins.fprel:
-    #             ins.offset += round_up(frame.stacksize + 8) - 8
-    #         newinstructions.append(ins)
-    #     return newinstructions
+    def immUsed(self, r1, r2, offset, instruction):
+        if offset in range(-32,32):
+            if instruction == "addi":
+                yield Addi(r1, r2, offset)
+            if instruction == "lw":
+                yield Lw(r1, offset, r2)
+            if instruction == "sw":
+                yield Sw(r1, offset, r2)
+        else:
+            upper_8 = (offset>>24) & 0xff
+            middle_12 = (offset>>12) & 0xfff
+            lower_12 = (offset) & 0xfff
+            yield Lui(R11, upper_8)
+            yield Lmi(R11, middle_12)
+            yield Lli(R11, lower_12)
+            if instruction == "addi":
+                yield Add(r1, r2, R11)
+            if instruction == "lw":
+                #here r2 is the address so we can add the offset to the address for the new address
+                yield Add(R11, r2, R11)
+                yield Lw(r1, 0, R11)
+            if instruction == "sw":
+                yield Add(R11, r2, R11)
+                yield Sw(r1, 0, R11)
+        return
+
+    def peephole(self, frame):
+        newinstructions = []
+        for ins in frame.instructions:
+            if hasattr(ins, "fprel") and ins.fprel:
+                ins.offset += round_up(frame.stacksize + 8) - 8
+            newinstructions.append(ins)
+        return newinstructions
+
+    def peephole(self, frame):
+        new_instructions = []
+        for ins in frame.instructions:
+            if hasattr(ins, "fprel") and ins.fprel:
+                final_offset = ins.offset + round_up(frame.stacksize + 8) - 8
+
+                if final_offset in range(-32, 32):
+                    ins.offset = final_offset
+                    new_instructions.append(ins)
+                else:
+                    upper_8 = (final_offset >> 24) & 0xFF
+                    middle_12 = (final_offset >> 12) & 0xFFF
+                    lower_12 = (final_offset) & 0xFFF
+                    new_instructions.append(Lui(R11, upper_8))
+                    new_instructions.append(Lmi(R11, middle_12))
+                    new_instructions.append(Lli(R11, lower_12))
+
+                    new_instructions.append(Add(R11, ins.rs1, R11))
+                    if isinstance(ins, Lw):
+                        new_instructions.append(Lw(ins.rd, 0, R11))
+                    elif isinstance(ins, Sw):
+                        new_instructions.append(Sw(ins.rs2, 0, R11))
+                    else:
+                        raise TypeError(f"Unhandled fprel instruction: {ins}")
+            else:
+                new_instructions.append(ins)
+        return new_instructions
 
     def move(self, dst, src):
         """Generate a move from src to dst"""
@@ -316,81 +375,121 @@ class TwigArch(Architecture):
     def gen_prologue(self, frame):
         """TODO idk, adjust sp, save lr and lp(?), save callee saves on stack"""
         yield Label(frame.name)
+        stack_size = round_up(frame.stacksize+8)
+        yield from self.immUsed(SP, SP, -stack_size, "addi")
+
+        yield Sw(LR, 4, SP)
+        yield Sw(FP,0,SP)
+
+        yield Addi(FP,SP,8)
+
+        saved_registers = self.get_callee_saved(frame)
+        rsize = 4*len(saved_registers)
+        rsize = round_up(rsize)
+
+        yield from self.immUsed(SP, SP, -rsize, "addi")
+
+        i=0
+        for register in saved_registers:
+            i-=4
+            offset = i+rsize
+            yield from self.immUsed(register, SP, offset, "sw")
+
+        extras = max(frame.out_calls) if frame.out_calls else 0
+        if extras:
+            stack_size = round_up(extras)
+            yield from self.immUsed(SP, SP, -stack_size, "addi")
+
+        return
 
     def gen_epilogue(self, frame):
         """restore callee-saves, reload LR and FP, deallocate stack"""
+        extras = max(frame.out_calls) if frame.out_calls else 0
+        if extras:
+            stack_size = round_up(extras)
+            yield from self.immUsed(SP, SP, -stack_size, "addi")
+
+        saved_registers = self.get_callee_saved(frame)
+        rsize = 4*len(saved_registers)
+        rsize = round_up(rsize)
+
+        i=0
+        for register in saved_registers:
+            i-=4
+            offset = i+rsize
+            yield from self.immUsed(register, SP, offset, "lw")
+
+        yield from self.immUsed(SP, SP, rsize, "addi")
+
+        yield Lw(LR, 4, SP)
+        yield Lw(FP, 0, SP)
+        stack_size = round_up(frame.stacksize +8)
+        yield from self.immUsed(SP, SP, stack_size, "addi")
+
+        yield Blr(R0, LR, 0)
+        # yield from self.litpool(frame)
+        yield Align(4)
         return
-        yield
 
     def gen_call(self, frame, label, args, rv):
         """Implement actual call and save / restore live registers"""
+        arg_types = [[a[0]] for a in args]
+        arg_locs = self.determine_arg_locations(arg_types)
+        stack_size = 0
+        for arg_loc, arg2 in zip(arg_locs, args):
+            arg = arg2[1]
+            if isinstance(arg_loc, (TwigRegister)):
+                yield self.move(arg_loc, arg)
+            elif isinstance(arg_loc, StackLocation):
+                stack_size += arg_loc.size
+                if isinstance(arg, TwigRegister):
+                    yield from self.immUsed(arg, SP, arg_loc.offset, "sw")
+                elif isinstance(arg, StackLocation):
+                    p1 = frame.new_reg(TwigRegister)
+                    p2 = frame.new_reg(TwigRegister)
+                    v3 = frame.new_reg(TwigRegister)
 
-        # arg_types = [a[0] for a in args]
-        # arg_locs = self.determine_arg_locations(arg_types)
-        # stack_size = 0
-        # # Setup parameters:
-        # for arg_loc, arg2 in zip(arg_locs, args):
-        #     arg = arg2[1]
-        #     if isinstance(arg_loc, (TwigRegister)):
-        #         yield self.move(arg_loc, arg)
-        #     elif isinstance(arg_loc, StackLocation):
-        #         stack_size += arg_loc.size
-        #         if isinstance(arg, TwigRegister):
-        #             yield Sw(arg, arg_loc.offset, SP)
-        #         elif isinstance(arg, StackLocation):
-        #             p1 = frame.new_reg(TwigRegister)
-        #             p2 = frame.new_reg(TwigRegister)
-        #             v3 = frame.new_reg(TwigRegister)
+                    # Destination location:
+                    # Remember that the LR and FP are pushed in between
+                    # So hence -8:
+                    yield from self.immUsed(p1, SP, arg_loc.offset, "addi")
+                    # Source location:
+                    yield from self.immUsed(p2, self.fp, arg.offset + round_up(frame.stack_size + 8) - 8)
 
-        #             # Destination location:
-        #             # Remember that the LR and FP are pushed in between
-        #             # So hence -8:
-        #             yield instructions.Addi(p1, SP, arg_loc.offset)
-        #             # Source location:
-        #             yield instructions.Addi(
-        #                 p2,
-        #                 self.fp,
-        #                 arg.offset + round_up(frame.stacksize + 8) - 8,
-        #             )
-        #             yield from self.gen_Twig_memcpy(p1, p2, v3, arg.size)
-        #     else:  # pragma: no cover
-        #         raise NotImplementedError("Parameters in memory not impl")
+                    yield from self.gen_twig_memcpy(p1, p2, v3, arg.size)
+            else:  # pragma: no cover
+                raise NotImplementedError("Parameters in memory not impl")
 
-        # # Record that certain amount of stack is required:
-        # frame.add_out_call(stack_size)
+        # Record that certain amount of stack is required:
+        frame.add_out_call(stack_size)
 
-        # arg_regs = {
-        #     arg_loc for arg_loc in arg_locs if isinstance(arg_loc, Register)
-        # }
-        # yield RegisterUseDef(uses=arg_regs)
+        arg_regs = {
+            arg_loc for arg_loc in arg_locs if isinstance(arg_loc, Register)
+        }
+        yield RegisterUseDef(uses=arg_regs)
 
-        # yield self.branch(LR, label)
+        yield self.branch(LR, label)
 
-        # if rv:
-        #     retval_loc = self.determine_rv_location(rv[0])
-        #     yield RegisterUseDef(defs=(retval_loc,))
-        #     yield self.move(rv[1], retval_loc)
-        raise NotImplementedError("Twig gen_call not implemented yet")
+        if rv:
+            retval_loc = self.determine_rv_location(rv[0])
+            yield RegisterUseDef(defs=(retval_loc,))
+            yield self.move(rv[1], retval_loc)
+
 
     def gen_function_enter(self, args):
         arg_types = [a[0] for a in args]
         arg_locs = self.determine_arg_locations(arg_types)
 
-        # arg_regs = {
-        #     arg_loc for arg_loc in arg_locs if isinstance(arg_loc, Register)
-        # }
-        # yield RegisterUseDef(defs=arg_regs)
+        arg_regs = {
+            arg_loc for arg_loc in arg_locs if isinstance(arg_loc, Register)
+        }
+        yield RegisterUseDef(defs=arg_regs)
 
-        phys_defs = {loc for loc in arg_locs if isinstance(loc, Register)}
-        if phys_defs:
-            yield RegisterUseDef(defs=phys_defs)
-
-        #alt for vreg? we don't have virtual memory
-        for loc, (_,vreg) in zip(arg_locs, args):
-            if isinstance(loc, Register):
-                yield self.move(vreg, loc)
-            elif isinstance(loc, StackLocation):
-                raise NotImplementedError("stack arguments not supported yet")
+        for arg_loc, arg2 in zip(arg_locs, args):
+            arg = arg2[1]
+            if isinstance(arg_loc, Register):
+                yield self.move(arg, arg_loc)
+            elif isinstance(arg_loc, StackLocation):
                 if isinstance(arg, TwigRegister):
                     Code = Lw(arg, arg_loc.offset, FP)
                     Code.fprel = True
@@ -398,17 +497,15 @@ class TwigArch(Architecture):
                 else:
                     pass
             else:  # pragma: no cover
-                raise NotImplementedError(f"Unsupported arg location: {type(loc)}")
+                raise NotImplementedError("Parameters in memory not impl")
 
     def gen_function_exit(self, rv):
-        # live_out = set()
-        if not rv:
-            return
-        rv_type, rv_vreg = rv
-        ret_reg = self.determine_rv_location(rv_type)
-        yield self.move(ret_reg, rv_vreg)
-        # Mark it as a live-out so the RA keeps it fixed in the return register.
-        yield RegisterUseDef(uses={ret_reg})
+        live_out = set()
+        if rv:
+            retval_loc = self.determine_rv_location(rv[0])
+            yield self.move(retval_loc, rv[1])
+            live_out.add(retval_loc)
+        yield RegisterUseDef(uses=live_out)
 
     def determine_arg_locations(self, arg_types):
         """
@@ -418,54 +515,26 @@ class TwigArch(Architecture):
         return values in R10
         """
         locations = []
-        regs = list(self._arg_regs)
+        regs = [R12, R13, R14, R15, R16, R17]
 
         offset = 0
         for a in arg_types:
-            if getattr(a, "is_blob", False):
-                raise NotImplementedError("Blob/aggregate argument not supported")
-            if regs:
-                locations.append(regs.pop(0))
+            if a.is_blob:
+                r = StackLocation(offset, a.size)
+                offset += a.size
             else:
-                size = self.info.get_size(a)
-                locations.append(StackLocation(offset, size))
-                offset += size
+                if regs:
+                    r = regs.pop(0)
+                else:
+                    arg_size = self.info.get_size(a)
+                    r = StackLocation(offset, arg_size)
+                    offset += arg_size
+            locations.append(r)
         return locations
 
     def determine_rv_location(self, ret_type):
         #return x10
         return self._ret_reg
-
-    # def gen_prologue(self, frame):
-    #     """Returns prologue instruction sequence"""
-    #     # Label indication function:
-    #     yield Label(frame.name)
-    #     ssize = round_up(frame.stacksize + 8)
-    #     yield Addi(SP, SP, -ssize)  # Reserve stack space
-
-    #     yield Sw(LR, 4, SP)
-    #     yield Sw(FP, 0, SP)
-
-
-    #     yield Addi(FP, SP, 8)  # Setup frame pointer
-    #     # yield Addi(FP, SP, 8)  # Setup frame pointer
-
-    #     saved_registers = self.get_callee_saved(frame)
-    #     rsize = 4 * len(saved_registers)
-    #     rsize = round_up(rsize)
-
-    #     yield Addi(SP, SP, -rsize)  # Reserve stack space
-
-    #     i = 0
-    #     for register in saved_registers:
-    #         i -= 4
-    #         yield Sw(register, i + rsize, SP)
-
-    #     # Allocate space for outgoing calls:
-    #     extras = max(frame.out_calls) if frame.out_calls else 0
-    #     if extras:
-    #         ssize = round_up(extras)
-    #         yield Addi(SP, SP, -ssize)  # Reserve stack space
 
     # def litpool(self, frame):
     #     """Generate instruction for the current literals"""
@@ -530,13 +599,13 @@ class TwigArch(Architecture):
     #     yield from self.litpool(frame)
     #     yield Align(4)  # Align at 4 bytes
 
-    # def get_callee_saved(self, frame):
-    #     saved_registers = []
-    #     for register in self.callee_save:
-    #         if frame.is_used(register, self.info.alias):
-    #             saved_registers.append(register)
-    #     return saved_registers
+    def get_callee_saved(self, frame):
+        saved_registers = []
+        for register in self.callee_save:
+            if frame.is_used(register, self.info.alias):
+                saved_registers.append(register)
+        return saved_registers
 
 
-# def round_up(s):
-#     return s + (16 - s % 16)
+def round_up(s):
+    return s + (16 - s % 16)

@@ -5,6 +5,14 @@ from .registers import (
     TwigRegister, TwigPredRegister, R0, FP
 )
 from .relocations import *
+from ..generic_instructions import (
+    Alignment,
+    ArtificialInstruction,
+    Global,
+    RegisterUseDef,
+    SectionInstruction
+)
+
 
 import struct
 
@@ -394,6 +402,25 @@ def make_nop(mnemonic, opcode):
 
 Halt = make_nop("halt", 0b1111111)
 
+class PseudoTwigInstruction(ArtificialInstruction):
+    isa = isa
+    pass
+
+class Align(PseudoTwigInstruction):
+    imm = Operand("imm", int)
+    syntax = Syntax([".", "align", " ", imm])
+
+    def render(self):
+        self.rep = self.syntax.render(self)
+        yield Alignment(self.imm, self.rep)
+
+class Section(PseudoTwigInstruction):
+    sec = Operand("sec", str)
+    syntax = Syntax([".", "section", " ", sec])
+
+    def render(self):
+        self.rep = self.syntax.render(self)
+        yield SectionInstruction(self.sec, self.rep)
 
 #isa.pattern stuff
 
