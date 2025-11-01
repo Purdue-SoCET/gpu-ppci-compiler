@@ -6,6 +6,9 @@
 ## 11/01/25
 - ir_diagnosis folder
 - ast_diagnosis folder
+- new_codegen_test folder
+
+- Attempted to change codegenerator.py but doesn't work
 
 Types of Compounds:
 - Return
