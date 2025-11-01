@@ -1,0 +1,51 @@
+## No Else Statements
+
+int main() {
+
+    int a = 10;
+    if(a < 5) {
+        a++;
+    }
+    else {
+
+    }
+
+    if(a > 5) {
+        a--;
+    }
+
+}
+
+Compilation unit with 1 declarations
+    Function storage=None typ=Function-type name=main
+        Function-type
+            Basic type int
+        Compound
+            Declaration statement
+                Variable [storage=None typ=Basic type int name=a]
+                    Basic type int
+                    Numeric literal 10 <Basic type int>
+                        Basic type int
+            If
+                BinaryOperator < <Basic type int>
+                    Id a <Basic type int>
+                    Numeric literal 5 <Basic type int>
+                        Basic type int
+                    Basic type int
+                Compound
+                    Expression statement
+                        UnaryOperator x++
+                            Id a <Basic type int>
+                            Basic type int
+                Compound
+            If
+                BinaryOperator > <Basic type int>
+                    Id a <Basic type int>
+                    Numeric literal 5 <Basic type int>
+                        Basic type int
+                    Basic type int
+                Compound
+                    Expression statement
+                        UnaryOperator x--
+                            Id a <Basic type int>
+                            Basic type int

@@ -2,7 +2,45 @@
 - Test our parsing multiple files
 - Locate where C libary and language are at
 
-# NOTES
+# NOTES (Week 11)
+## 11/01/25
+- ir_diagnosis folder
+- ast_diagnosis folder
+
+Types of Compounds:
+- Return
+- Declarations
+- Expressions
+- If
+- While
+- For
+- Do-while
+
+
+ppci\lang\c\codegenerator.py
+def gen_if(self, stmt: statements.If)
+
+def gen_while(self, stmt: statements.While)
+def gen_do_while(self, stmt: statements.DoWhile)
+def gen_for(self, stmt: statements.For)
+
+Things to Consider (will graphics use these and do we need to worry about it)
+- Switch
+- Case
+- Range
+- GoTo
+- Continue
+- Break
+- InLine Assembly
+
+
+
+## 10/25/25 (Week 10)
+- sample1_outputs folder
+- sample4_outputs folder
+- unit_tests
+- notes.md
+
 ppci-cc = PPCI C Compiler
 -c (flag) - compile only without linking
 *Linking is the final step in the compilation process; take all separte compiled pieces of code (object files) and combine into a runnable executable file

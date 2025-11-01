@@ -1,0 +1,34 @@
+## Basic While Loop
+
+int main() {
+
+    int a = 10;
+    while(a != 0) {
+        a--;
+    }
+    return a;
+}
+
+Compilation unit with 1 declarations
+    Function storage=None typ=Function-type name=main
+        Function-type
+            Basic type int
+        Compound
+            Declaration statement
+                Variable [storage=None typ=Basic type int name=a]
+                    Basic type int
+                    Numeric literal 10 <Basic type int>
+                        Basic type int
+            While
+                BinaryOperator != <Basic type int>
+                    Id a <Basic type int>
+                    Numeric literal 0 <Basic type int>
+                        Basic type int
+                    Basic type int
+                Compound
+                    Expression statement
+                        UnaryOperator x--
+                            Id a <Basic type int>
+                            Basic type int
+            Return
+                Id a <Basic type int>
