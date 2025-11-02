@@ -231,10 +231,11 @@ class TwigArch(Architecture):
                 ir.u16: TypeInfo(2, 2),
                 ir.i32: TypeInfo(4, 4),
                 ir.u32: TypeInfo(4, 4),
-                # ir.f32: TypeInfo(4, 4), #TODO: 32bit ADD FLOATING SUPPORT
+                ir.f32: TypeInfo(4, 4), #TODO: 32bit ADD FLOATING SUPPORT
                 "int": ir.i32,
                 "long": ir.i32,
                 "ptr": ir.u32,
+                "float": ir.f32,
                 ir.ptr: ir.u32,
             },
             register_classes=self.regclass,
