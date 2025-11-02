@@ -435,7 +435,7 @@ class TwigArch(Architecture):
     def gen_call(self, frame, label, args, rv):
         """Implement actual call and save / restore live registers"""
 
-        if label.name == 'cos':
+        if label == 'cos':
             from .instructions import Cos
 
             # 'args' is a list of tuples: [(ir.f32, vreg_for_3_0)]
@@ -448,18 +448,27 @@ class TwigArch(Architecture):
 
             # Return from this function to skip the rest of the logic
             return
-        if label.name == 'sin':
+        if label == 'sin':
             pass
 
-        if label.name == 'itof':
+        if label == 'itof':
+            from .instructions import ItoF
+            arg_vreg = args[0][1]
+            ret_vreg = rv[1]
+            yield ItoF(ret_vreg, arg_vreg)
+            return
+
+        if label == 'ftoi':
+            from .instructions import FtoI
+            arg_vreg = args[0][1]
+            ret_vreg = rv[1]
+            yield FtoI(ret_vreg, arg_vreg)
+            return
+
+        if label == 'isqrt':
             pass
 
-        if label.name == 'ftoi':
-            pass
-        if label.name == 'isqrt':
-            pass
-
-        # --- If not 'cos', proceed with a standard function call ---
+        # --- If not custom calls, proceed with a standard function call ---
         arg_types = [a[0] for a in args]
         arg_locs = self.determine_arg_locations(arg_types)
         stack_size = 0

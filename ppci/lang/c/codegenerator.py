@@ -1635,13 +1635,31 @@ class CCodeGenerator:
 
     def data_layout(self, typ: types.CType):
         """Get size and alignment of the given type."""
-        size = self.sizeof(typ)
-        alignment = self.context.alignment(typ)
+        if isinstance(typ, types.BasicType):
+            # Basic types (float, int) get their info from
+            # arch_info via the ir_type.
+            ir_typ = self.get_ir_type(typ)
+            type_info = self.context.arch_info.type_infos[ir_typ]
+            size = type_info.size
+            alignment = type_info.alignment
+        else:
+            # Complex types (structs, etc.) use the old context logic
+            size = self.context.sizeof(typ)
+            alignment = self.context.alignment(typ)
         return size, alignment
 
     def sizeof(self, typ):
         """Return the size of the given type."""
-        return self.context.sizeof(typ)
+        if isinstance(typ, types.BasicType):
+            # Basic types (float, int) get their info from
+            # arch_info via the ir_type.
+            ir_typ = self.get_ir_type(typ)
+            type_info = self.context.arch_info.type_infos[ir_typ]
+            size = type_info.size
+        else:
+            # Complex types (structs, etc.) use the old context logic
+            size = self.context.sizeof(typ)
+        return size
 
     def get_debug_type(self, typ: types.CType):
         """Get or create debug type info in the debug information"""

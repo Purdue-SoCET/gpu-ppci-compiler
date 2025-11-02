@@ -158,6 +158,30 @@ class Cos(TwigFInstruction):
         tokens[0][13:19] = self.rs1.num
         return tokens[0].encode()
 
+class ItoF(TwigFInstruction):
+    rd = Operand("rd", TwigRegister, write=True)
+    rs1 = Operand("rs1", TwigRegister, read=True)
+    syntax = Syntax(["itof", " ", rd, ",", " ", rs1])
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b0101011
+        tokens[0][7:13] = self.rd.num
+        tokens[0][13:19] = self.rs1.num
+        return tokens[0].encode()
+
+class FtoI(TwigFInstruction):
+    rd = Operand("rd", TwigRegister, write=True)
+    rs1 = Operand("rs1", TwigRegister, read=True)
+    syntax = Syntax(["ftoi", " ", rd, ",", " ", rs1])
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b0101100
+        tokens[0][7:13] = self.rd.num
+        tokens[0][13:19] = self.rs1.num
+        return tokens[0].encode()
+
 #loads
 def make_load(mnemonic, opcode):
     rd = Operand("rd", TwigRegister, write=True)
@@ -333,7 +357,10 @@ Bge = make_b("bge", 0b1000010)
 Bgeu = make_b("bgeu", 0b1000011)
 Blt = make_b("blt", 0b1000100)
 Bltu = make_b("bltu", 0b1000101)
-
+Beqf = make_b("beqf", 0b1001000)
+Bnef = make_b("bnef", 0b1001001)
+Bgef = make_b("bgef", 0b1001010)
+Bltf = make_b("bltf", 0b1001100)
 
 #u type
 class TwigUInstruction(Instruction):
@@ -466,6 +493,75 @@ def pattern_add8(context, tree, c0, c1):
     context.emit(Add(d, c0, c1))
     return d
 
+
+#f patterns
+@isa.pattern("reg", "I32TOF32(reg)", size=2)
+@isa.pattern("reg", "U32TOF32(reg)", size=2)
+def pattern_int_to_float(context, tree, c0):
+    """
+    Matches an (int -> float) or (unsigned -> float) cast.
+    'c0' is the register holding the integer.
+    Emits the 'itof' hardware instruction.
+    """
+    d = context.new_reg(TwigRegister)
+    context.emit(ItoF(d, c0))
+    return d
+
+
+@isa.pattern("reg", "F32TOI32(reg)", size=2)
+@isa.pattern("reg", "F32TOU32(reg)", size=2)
+def pattern_float_to_int(context, tree, c0):
+    """
+    Matches a (float -> int) or (float -> unsigned) cast.
+    'c0' is the register holding the float.
+    Emits the 'ftoi' hardware instruction.
+    """
+    d = context.new_reg(TwigRegister)
+    context.emit(FtoI(d, c0))
+    return d
+
+@isa.pattern("reg", "ADDF32(reg, reg)", size=2)
+def pattern_add_f32(context, tree, c0, c1):
+    d = context.new_reg(TwigRegister)
+    context.emit(Addf(d, c0, c1))
+    return d
+
+@isa.pattern("reg", "SUBF32(reg, reg)", size=2)
+def pattern_sub_f32(context, tree, c0, c1):
+    d = context.new_reg(TwigRegister)
+    context.emit(Subf(d, c0, c1))
+    return d
+
+@isa.pattern("reg", "MULF32(reg, reg)", size=4)
+def pattern_mul_f32(context, tree, c0, c1):
+    d = context.new_reg(TwigRegister)
+    context.emit(Mulf(d, c0, c1))
+    return d
+
+@isa.pattern("reg", "DIVF32(reg, reg)", size=8)
+def pattern_div_f32(context, tree, c0, c1):
+    d = context.new_reg(TwigRegister)
+    context.emit(Divf(d, c0, c1))
+    return d
+
+@isa.pattern("reg", "LDRF32(mem)", size=2)
+def pattern_ldr_f32_mem(context, tree, c0):
+    """ Matches: float x = stack_var; """
+    d = context.new_reg(TwigRegister)
+    base_reg, offset = c0
+    Code = Lw(d, offset, base_reg)
+    Code.fprel = True
+    context.emit(Code)
+    return d
+
+@isa.pattern("reg", "LDRF32(reg)", size=2)
+def pattern_ldr_f32_reg(context, tree, c0):
+    """ Matches: float x = *float_pointer; """
+    d = context.new_reg(TwigRegister)
+    base_reg = c0
+    Code = Lw(d, 0, base_reg)
+    context.emit(Code)
+    return d
 
 #'j' pattern
 @isa.pattern("stm", "JMP", size=4)
@@ -608,6 +704,7 @@ def pattern_const(context, tree):
 
 @isa.pattern("stm", "MOVI32(reg)", size=2)
 @isa.pattern("stm", "MOVU32(reg)", size=2)
+@isa.pattern("stm", "MOVF32(reg)", size=2)
 def pattern_mov32(context, tree, c0):
     context.move(tree.value, c0)
     return tree.value
@@ -634,6 +731,7 @@ def pattern_ldr32_reg(context, tree, c0):
 
 @isa.pattern("reg", "REGI32", size=0)
 @isa.pattern("reg", "REGU32", size=0)
+@isa.pattern("reg", "REGF32", size=0)
 def pattern_reg(context, tree):
     return tree.value
 
@@ -723,8 +821,8 @@ def pattern_const_f32(context, tree):
     middle_12 = (c0 >> 12) & 0xFFF
     lower_12 = (c0) & 0xFFF
     context.emit(Lui(d,upper_8))
-    context.emit(Lmi(d,d,middle_12))
-    context.emit(Lli(d,d,lower_12))
+    context.emit(Lmi(d,middle_12))
+    context.emit(Lli(d,lower_12))
     return d
 
 
