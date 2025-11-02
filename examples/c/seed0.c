@@ -1,8 +1,15 @@
 int main() {
 
-    int a = 10;
-    for(int i = 0; i < 10; i++) {
-        a += i;
+    int a = 5;
+    int b = 10;
+
+    // If
+    if(a < b)  {
+        // Compound
+        a += 10;
     }
-    return a;
+    else {
+        // Compound
+        b -= 10;
+    }
 }

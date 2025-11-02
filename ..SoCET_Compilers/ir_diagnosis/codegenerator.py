@@ -9,7 +9,7 @@ phase.
 
 import logging
 
-from ... import ir, irutils
+from ... import ir, irutils 
 from ...binutils import debuginfo
 from ...common import CompilerError
 from ...utils.bitfun import bits_to_bytes, value_to_bits
