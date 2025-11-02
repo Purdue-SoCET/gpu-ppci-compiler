@@ -433,7 +433,33 @@ class TwigArch(Architecture):
 
     def gen_call(self, frame, label, args, rv):
         """Implement actual call and save / restore live registers"""
-        arg_types = [[a[0]] for a in args]
+
+        if label.name == 'cos':
+            from .instructions import Cos
+
+            # 'args' is a list of tuples: [(ir.f32, vreg_for_3_0)]
+            # 'rv' is a tuple: (ir.f32, vreg_for_rd)
+            arg_vreg = args[0][1]  # Get the virtual register for the argument
+            ret_vreg = rv[1]       # Get the virtual register for the return value
+
+            # Emit the single 'cos rd, rs1' hardware instruction
+            yield Cos(ret_vreg, arg_vreg)
+
+            # Return from this function to skip the rest of the logic
+            return
+        if label.name == 'sin':
+            pass
+
+        if label.name == 'itof':
+            pass
+
+        if label.name == 'ftoi':
+            pass
+        if label.name == 'isqrt':
+            pass
+
+        # --- If not 'cos', proceed with a standard function call ---
+        arg_types = [a[0] for a in args]
         arg_locs = self.determine_arg_locations(arg_types)
         stack_size = 0
         for arg_loc, arg2 in zip(arg_locs, args):
@@ -450,17 +476,15 @@ class TwigArch(Architecture):
                     v3 = frame.new_reg(TwigRegister)
 
                     # Destination location:
-                    # Remember that the LR and FP are pushed in between
-                    # So hence -8:
                     yield from self.immUsed(p1, SP, arg_loc.offset, "addi")
+
                     # Source location:
-                    yield from self.immUsed(p2, self.fp, arg.offset + round_up(frame.stack_size + 8) - 8)
+                    yield from self.immUsed(p2, self.fp, arg.offset + round_up(frame.stack_size + 8) - 8, "addi")
 
                     yield from self.gen_twig_memcpy(p1, p2, v3, arg.size)
-            else:  # pragma: no cover
-                raise NotImplementedError("Parameters in memory not impl")
+                else:  # pragma: no cover
+                    raise NotImplementedError("Parameters in memory not impl")
 
-        # Record that certain amount of stack is required:
         frame.add_out_call(stack_size)
 
         arg_regs = {
@@ -474,7 +498,6 @@ class TwigArch(Architecture):
             retval_loc = self.determine_rv_location(rv[0])
             yield RegisterUseDef(defs=(retval_loc,))
             yield self.move(rv[1], retval_loc)
-
 
     def gen_function_enter(self, args):
         arg_types = [a[0] for a in args]

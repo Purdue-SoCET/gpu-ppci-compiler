@@ -295,8 +295,14 @@ gdb_registers = registers + [PC] + predregisters
 
 register_classes_swfp = [
     RegisterClass(
+        "predreg",
+        [ir.u32],
+        TwigPredRegister,
+        predregisters,
+    ),
+    RegisterClass(
         "reg",
-        [ir.i8, ir.i16, ir.i32, ir.ptr, ir.u8, ir.u16, ir.u32, ir.f32, ir.f64],
+        [ir.i8, ir.i16, ir.i32, ir.ptr, ir.u8, ir.u16, ir.u32, ir.f32],
         TwigRegister,
         [
             R9,
@@ -349,39 +355,7 @@ register_classes_swfp = [
             R60,
             R61,
             R62,
-            R63,
-            P0,
-            P1,
-            P2,
-            P3,
-            P4,
-            P5,
-            P6,
-            P7,
-            P8,
-            P9,
-            P10,
-            P11,
-            P12,
-            P13,
-            P14,
-            P15,
-            P16,
-            P17,
-            P18,
-            P19,
-            P20,
-            P21,
-            P22,
-            P23,
-            P24,
-            P25,
-            P26,
-            P27,
-            P28,
-            P29,
-            P30,
-            P31
+            R63
         ],
     )
 ]

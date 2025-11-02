@@ -140,6 +140,24 @@ Slli = make_i("slli", 0b0011101)
 Srli = make_i("srli", 0b0011110)
 Srai = make_i("srai", 0b0011111)
 
+#ftype (custom mapping)
+
+class TwigFInstruction(Instruction):
+    tokens = [TwigFToken]
+    isa = isa
+
+class Cos(TwigFInstruction):
+    rd = Operand("rd", TwigRegister, write=True)
+    rs1 = Operand("rs1", TwigRegister, read=True)
+    syntax = Syntax(["cos", " ", rd, ",", " ", rs1])
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b0101010
+        tokens[0][7:13] = self.rd.num
+        tokens[0][13:19] = self.rs1.num
+        return tokens[0].encode()
+
 #loads
 def make_load(mnemonic, opcode):
     rd = Operand("rd", TwigRegister, write=True)
