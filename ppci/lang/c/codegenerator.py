@@ -620,52 +620,52 @@ class CCodeGenerator:
         # Restore state:
         self.switch_options = backup
 
-    def gen_while(self, stmt: statements.While) -> None:
-        """Generate while statement code"""
-        print("YIPEEEEEEEE\n")
-        condition_block = self.builder.new_block()
-        body_block = self.builder.new_block()
-        final_block = self.builder.new_block()
-        self.break_block_stack.append(final_block)
-        self.continue_block_stack.append(condition_block)
-        self.builder.emit_jump(condition_block)
-        self.builder.set_block(condition_block)
-        self.gen_condition(stmt.condition, body_block, final_block)
-        self.builder.set_block(body_block)
-        self.gen_stmt(stmt.body)
-        self.builder.emit_jump(condition_block)
-        self.builder.set_block(final_block)
-        self.break_block_stack.pop()
-        self.continue_block_stack.pop()
-
     # def gen_while(self, stmt: statements.While) -> None:
-    #     """Generate while-statement code (check-before-run)."""
-    #     check_block = self.builder.new_block()
+    #     """Generate while statement code"""
+    #     print("YIPEEEEEEEE\n")
+    #     condition_block = self.builder.new_block()
     #     body_block = self.builder.new_block()
-    #     end_block = self.builder.new_block()
-
-    #     # push control flow context
-    #     self.break_block_stack.append(end_block)
-    #     self.continue_block_stack.append(check_block)
-
-    #     # Jump to condition first
-    #     self.builder.emit_jump(check_block)
-
-    #     # Condition check
-    #     self.builder.set_block(check_block)
-    #     self.gen_condition(stmt.condition, body_block, end_block)
-
-    #     # Loop body
+    #     final_block = self.builder.new_block()
+    #     self.break_block_stack.append(final_block)
+    #     self.continue_block_stack.append(condition_block)
+    #     self.builder.emit_jump(condition_block)
+    #     self.builder.set_block(condition_block)
+    #     self.gen_condition(stmt.condition, body_block, final_block)
     #     self.builder.set_block(body_block)
     #     self.gen_stmt(stmt.body)
-    #     self.builder.emit_jump(check_block)
-
-    #     # Continue after loop
-    #     self.builder.set_block(end_block)
-
-    #     # pop stacks
+    #     self.builder.emit_jump(condition_block)
+    #     self.builder.set_block(final_block)
     #     self.break_block_stack.pop()
     #     self.continue_block_stack.pop()
+
+    def gen_while(self, stmt: statements.While) -> None:
+        """Generate while-statement code (check-before-run)."""
+        check_block = self.builder.new_block()
+        body_block = self.builder.new_block()
+        end_block = self.builder.new_block()
+
+        # push control flow context
+        self.break_block_stack.append(end_block)
+        self.continue_block_stack.append(check_block)
+
+        # Jump to condition first
+        self.builder.emit_jump(check_block)
+
+        # Condition check
+        self.builder.set_block(check_block)
+        self.gen_condition(stmt.condition, body_block, end_block)
+
+        # Loop body
+        self.builder.set_block(body_block)
+        self.gen_stmt(stmt.body)
+        self.builder.emit_jump(check_block)
+
+        # Continue after loop
+        self.builder.set_block(end_block)
+
+        # pop stacks
+        self.break_block_stack.pop()
+        self.continue_block_stack.pop()
 
     def gen_do_while(self, stmt: statements.DoWhile) -> None:
         """Generate do-while-statement code"""

@@ -5,7 +5,7 @@
 import argparse
 import io
 
-from pycparser.c_parser import CParser
+# from pycparser.c_parser import CParser
 
 from ppci.api import preprocess
 
