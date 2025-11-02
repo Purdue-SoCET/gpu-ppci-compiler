@@ -1,6 +1,14 @@
        section data
        global cos
        type cos func
+       global ftoi
+       type ftoi func
+       global itof
+       type itof func
+       global sin
+       type sin func
+       global isqrt
+       type isqrt func
        section data
        section code
        global main
@@ -15,9 +23,8 @@
  main_block0:
        jal x0, main_block1
  main_block1:
-       lui, x9, 64
-       lmi, x9, 1024
-       lli, x9, 0
+       addi x9, x0, 3
+       itof x9, x9
        sw x9, 20(x8)
        lw x9, 20(x8)
        lui, x10, 63
@@ -28,10 +35,17 @@
        lw x9, 20(x8)
        ftoi x9, x9
        sw x9, 16(x8)
+       lw x10, 20(x8)
+       lw x9, 16(x8)
+       ftoi x10, x10
+       add x9, x10, x9
+       sw x9, 12(x8)
        lw x9, 20(x8)
        cos x9, x9
-       sw x9, 12(x8)
-       lw x9, 12(x8)
+       isqrt x9, x9
+       sin x9, x9
+       sw x9, 8(x8)
+       lw x9, 8(x8)
        ftoi x10, x9
        jal x0, main_epilog
  main_epilog:

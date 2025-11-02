@@ -158,6 +158,31 @@ class Cos(TwigFInstruction):
         tokens[0][13:19] = self.rs1.num
         return tokens[0].encode()
 
+class Sin(TwigFInstruction):
+    rd = Operand("rd", TwigRegister, write=True)
+    rs1 = Operand("rs1", TwigRegister, read=True)
+    syntax = Syntax(["sin", " ", rd, ",", " ", rs1])
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b0101001
+        tokens[0][7:13] = self.rd.num
+        tokens[0][13:19] = self.rs1.num
+        return tokens[0].encode()
+
+
+class Isqrt(TwigFInstruction):
+    rd = Operand("rd", TwigRegister, write=True)
+    rs1 = Operand("rs1", TwigRegister, read=True)
+    syntax = Syntax(["isqrt", " ", rd, ",", " ", rs1])
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b0101000
+        tokens[0][7:13] = self.rd.num
+        tokens[0][13:19] = self.rs1.num
+        return tokens[0].encode()
+
 class ItoF(TwigFInstruction):
     rd = Operand("rd", TwigRegister, write=True)
     rs1 = Operand("rs1", TwigRegister, read=True)

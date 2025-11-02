@@ -449,7 +449,11 @@ class TwigArch(Architecture):
             # Return from this function to skip the rest of the logic
             return
         if label == 'sin':
-            pass
+            from .instructions import Sin
+            arg_vreg = args[0][1]
+            ret_vreg = rv[1]
+            yield Sin(ret_vreg, arg_vreg)
+            return
 
         if label == 'itof':
             from .instructions import ItoF
@@ -466,7 +470,11 @@ class TwigArch(Architecture):
             return
 
         if label == 'isqrt':
-            pass
+            from .instructions import Isqrt
+            arg_vreg = args[0][1]
+            ret_vreg = rv[1]
+            yield Isqrt(ret_vreg, arg_vreg)
+            return
 
         # --- If not custom calls, proceed with a standard function call ---
         arg_types = [a[0] for a in args]
