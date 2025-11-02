@@ -2,6 +2,7 @@ class Register:
     """Baseclass of all registers types"""
 
     # TODO: __slots__ = ('name', '_num', '_color')
+    __slots__ = ('name', '_num', '_color')
 
     @classmethod
     def all_registers(cls):
@@ -56,10 +57,14 @@ class Register:
             return self
 
     @classmethod
-    def from_num(cls, num):
+    def from_num(cls, num): # TODO: not sure what is the functionality of this
         """Retrieve the singleton instance of the given
         register number."""
-        raise NotImplementedError()
+        # raise NotImplementedError()
+        regs = getattr(cls, "registers", None)
+        if regs is None:
+            raise NotImplementedError(f"{cls.__name__}.registers not set")
+        return regs[num]
 
     @property
     def num(self):
