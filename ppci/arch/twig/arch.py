@@ -10,7 +10,7 @@ from ..data_instructions import DByte, DZero, data_isa
 from ..generic_instructions import Label, RegisterUseDef
 from ..stack import FramePointerLocation, StackLocation
 from . import instructions
-# from .asm_printer import TwigAsmPrinter
+from .asm_printer import TwigAsmPrinter
 from .instructions import (
     #rtype
     Add,
@@ -220,7 +220,9 @@ class TwigArch(Architecture):
         # self.isa.dsinst = DZero
         self.gdb_registers = gdb_registers
         # self.gdb_pc = PC
-        # self.asm_printer = TwigAsmPrinter() #TODO work.
+        # self.asm_printer = TwigAsmPrinter()
+        if TwigAsmPrinter:
+            self.asm_printer = TwigAsmPrinter()
         self.assembler = TwigAssembler()
         self.assembler.gen_asm_parser(self.isa)
 
