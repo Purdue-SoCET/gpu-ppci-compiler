@@ -63,7 +63,8 @@ from .instructions import (
     #isa
     isa,
     Align,
-    Section
+    Section,
+    dcd
 )
 from .registers import (
     R0,
@@ -191,15 +192,15 @@ class TwigAssembler(BaseAssembler):
             i = self.lit_pool.pop(0)
             self.emit(i)
 
-    # def add_literal(self, v):
-    #     """For use in the pseudo instruction LDR r0, =SOMESYM"""
-    #     # Invent some label for the literal and store it.
-    #     assert type(v) is str
-    #     self.lit_counter += 1
-    #     label_name = f"_lit_{self.lit_counter}"
-    #     self.lit_pool.append(Label(label_name))
-    #     self.lit_pool.append(dcd(v))
-    #     return label_name
+    def add_literal(self, v):
+        """For use in the pseudo instruction LDR r0, =SOMESYM"""
+        # Invent some label for the literal and store it.
+        assert type(v) is str
+        self.lit_counter += 1
+        label_name = f"_lit_{self.lit_counter}"
+        self.lit_pool.append(Label(label_name))
+        self.lit_pool.append(dcd(v))
+        return label_name
 
 
 class TwigArch(Architecture):
@@ -580,27 +581,27 @@ class TwigArch(Architecture):
         #return x10
         return self._ret_reg
 
-    # def litpool(self, frame):
-    #     """Generate instruction for the current literals"""
-    #     yield Section("data")
-    #     # Align at 4 byte
-    #     if frame.constants:
-    #         yield Align(4)
+    def litpool(self, frame):
+        """Generate instruction for the current literals"""
+        yield Section("data")
+        # Align at 4 byte
+        if frame.constants:
+            yield Align(4)
 
-    #     # Add constant literals:
-    #     while frame.constants:
-    #         label, value = frame.constants.pop(0)
-    #         yield Label(label)
-    #         if isinstance(value, (int, str)):
-    #             yield dcd(value)
-    #         elif isinstance(value, bytes):
-    #             for byte in value:
-    #                 yield DByte(byte)
-    #             yield Align(4)  # Align at 4 bytes
-    #         else:  # pragma: no cover
-    #             raise NotImplementedError(f"Constant of type {value}")
+        # Add constant literals:
+        while frame.constants:
+            label, value = frame.constants.pop(0)
+            yield Label(label)
+            if isinstance(value, (int, str)):
+                yield dcd(value)
+            elif isinstance(value, bytes):
+                for byte in value:
+                    yield DByte(byte)
+                yield Align(4)  # Align at 4 bytes
+            else:  # pragma: no cover
+                raise NotImplementedError(f"Constant of type {value}")
 
-    #     yield Section("code")
+        yield Section("code")
 
     def between_blocks(self, frame):
         return []

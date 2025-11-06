@@ -12,7 +12,7 @@ from ..generic_instructions import (
     RegisterUseDef,
     SectionInstruction
 )
-
+from ..data_instructions import Dd, Dcd2
 
 import struct
 
@@ -491,6 +491,14 @@ class Section(PseudoTwigInstruction):
     def render(self):
         self.rep = self.syntax.render(self)
         yield SectionInstruction(self.sec, self.rep)
+
+def dcd(v):
+    if type(v) is int:
+        return Dd(v)
+    elif type(v) is str:
+        return Dcd2(v)
+    else:  # pragma: no cover
+        raise NotImplementedError()
 
 #isa.pattern stuff
 
