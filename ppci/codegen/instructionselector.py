@@ -114,6 +114,8 @@ terminals = tuple(x + y for x in ops for y in data_types) + (
     "ALLOCA",
     "FREEA",
     "ASM",  # Inline assembly
+    "BJMP",
+    "PJMP"
 )
 
 
@@ -211,12 +213,21 @@ class TreeSelector:
     def apply_rules(self, context, tree, goal):
         """Apply all selected instructions to the tree"""
         rule = tree.state.get_rule(goal)
+        kid_goals = self.nts(rule)
+        # if len(kid_goals) != len(tree.children):
+        #     raise RuntimeError(f"Rule/Tree mismatch: {tree.name} has {len(tree.children)} children but rule expects {len(kid_goals)}")
         results = [
             self.apply_rules(context, kid_tree, kid_goal)
             for kid_tree, kid_goal in zip(
-                self.kids(tree, rule), self.nts(rule)
+                tree.children, kid_goals
             )
         ]
+        # results = [
+        #     self.apply_rules(context, kid_tree, kid_goal)
+        #     for kid_tree, kid_goal in zip(
+        #         self.kids(tree, rule), self.nts(rule)
+        #     )
+        # ]
         # Get the function to call:
         rule_f = self.sys.get_rule(rule).template
         context.tree = tree

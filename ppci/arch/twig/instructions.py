@@ -344,22 +344,23 @@ class TwigBInstruction(Instruction):
     #def relocations(self):
 
 def make_b(mnemonic, opcode):
-    rd = Operand("rd", TwigPredRegister, write=True)
+    rd = Operand("rd", int)
     rs1 = Operand("rs1", TwigRegister, read=True)
     rs2 = Operand("rs2", TwigRegister, read=True)
+    pred = Operand("pred", int)
     # pred  = Operand("pred", TwigPredRegister, read=True)
     # pstart = Operand("pstart", int, read=True)
     # pend = Operand("pend", int, read=True)
     fprel = False
     # syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", rs2, " ", pred, ",", " ", pstart, ",", " ", pend])
-    syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", rs2])
+    syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", rs2, ",", " ", pred])
     tokens = [TwigBToken]
     patterns = {
         "opcode": opcode,
         "rd": rd,
         "rs1": rs1,
-        "rs2": rs2
-        # "pred": pred,
+        "rs2": rs2,
+        "pred": pred
         # "pstart": pstart,
         # "pend": pend
     }
@@ -369,7 +370,7 @@ def make_b(mnemonic, opcode):
         "rd": rd,
         "rs1": rs1,
         "rs2": rs2,
-        # "pred": pred,
+        "pred": pred,
         # "pstart": pstart,
         # "pend": pend,
         "patterns": patterns,
@@ -860,7 +861,34 @@ def pattern_const_f32(context, tree):
     context.emit(Lli(d,lower_12))
     return d
 
-
+@isa.pattern("stm", "BJMP(reg, reg)", size=10)
+def pattern_bjmp(context, tree, c0, c1):
+    # print(tree.value)
+    # print((c0, c1))
+    op, yes_label, no_label, yes_pred, no_pred, parent_pred = tree.value
+    opnames = {"<": Blt,
+               #">": Bgt, #TODO swap the order of registers for these
+               "==": Beq,
+               "!=": Bne,
+               ">=": Bge
+               #"<=": Ble #TODO: swap the order of registers for these
+               }
+    invops = {"<": Bge,
+             #">": Ble, #TODO: above
+             "==": Bne,
+             "!=": Beq,
+             ">=": Blt
+            #  "<=":  Bgt
+    }
+    invBop = invops[op]
+    Bop = opnames[op]
+    # jmp_ins = B(no_label.name, jumps=[no_label])
+    # context.emit(Bop(R0, R0, yes_label.name, no_label.name))
+    context.emit(Bop(yes_pred, c0, c1, parent_pred))
+    context.emit(invBop(no_pred, c0, c1, parent_pred))
+    tgt = yes_label #start by jumping to if, if needs to jump to else after (covered by gen_if)
+    context.emit(Bl(R0, tgt.name, jumps=[tgt]))
+    # context.emit(jmp_ins)
 
 #TODO: want to swap out for predication
 # @isa.pattern("stm", "CJMPI32(reg, reg)", size=4)

@@ -12,10 +12,10 @@ int main() {
     } else {
         beta = 6;
     }
-    int theta = 0;
-    while(beta > 0){
-        beta--;
-        theta = theta * 2 + 1;
-    }
-    return theta;
+    // int theta = 0;
+    // while(beta > 0){
+    //     beta--;
+    //     theta = theta * 2 + 1;
+    // }
+    return beta;
 }

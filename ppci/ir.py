@@ -1408,29 +1408,22 @@ class PJump(JumpBase):
             + f"{self.lab_yes.name} : {self.lab_no.name}"
         )
 
-class BJump(JumpBase):
+class BJump(CJump):
     """Conditional jump to true or false labels."""
 
-    conditions = ["==", "<", ">", ">=", "<=", "!="]
-    a = value_use("a")
-    b = value_use("b")
-    lab_yes = block_use("lab_yes")
-    lab_no = block_use("lab_no")
-
-    def __init__(self, a, cond, b, lab_yes, lab_no):
-        super().__init__()
-        if cond not in CJump.conditions:
-            raise ValueError(f"Invalid condition {cond}")
-        self.a = a
-        self.cond = cond
-        self.b = b
-        self.lab_yes = lab_yes
-        self.lab_no = lab_no
+    def __init__(self, a, cond, b, lab_yes, lab_no, pred_yes, pred_no, pred_parent):
+        """
+        pred_yes and pred_no are the *integer IDs* of the
+        predicate registers to be written.
+        """
+        super().__init__(a, cond, b, lab_yes, lab_no)
+        self.pred_yes_id = pred_yes
+        self.pred_no_id = pred_no
 
     def __str__(self):
         return (
-            f"cjmp {self.a.name} {self.cond} {self.b.name} ? "
-            + f"{self.lab_yes.name} : {self.lab_no.name}"
+            f"bjmp {self.a.name} {self.cond} {self.b.name} ? "
+            f"{self.lab_yes.name} (p{self.pred_yes_id}) : {self.lab_no.name} (p{self.pred_no_id})"
         )
 
 class JumpTable(JumpBase):

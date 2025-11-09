@@ -679,7 +679,7 @@ class CCodeGenerator:
         # print(len(self.predicate_stack))
 
 
-        self.gen_bcondition(stmt.condition, yes_block, no_block)
+        self.gen_bcondition(stmt.condition, yes_block, no_block, yes_pred_reg, no_pred_reg, parent_pred_reg)
 
         # === YES BLOCK (then branch) ===
         self.builder.set_block(yes_block)
@@ -1095,7 +1095,7 @@ class CCodeGenerator:
         """Generate switch based on condition."""
         self.emit(ir.PJump(cur_block, yes_block, no_block))
 
-    def gen_bcondition(self, condition, yes_block, no_block):
+    def gen_bcondition(self, condition, yes_block, no_block, pred_yes, pred_no, pred_parent):
         """Generate switch based on condition."""
         if isinstance(condition, expressions.BinaryOperator):
             if condition.op == "||":
@@ -1120,7 +1120,7 @@ class CCodeGenerator:
                     ">=": ">=",
                 }
                 op = op_map[condition.op]
-                self.emit(ir.BJump(lhs, op, rhs, yes_block, no_block))
+                self.emit(ir.BJump(lhs, op, rhs, yes_block, no_block, pred_yes, pred_no, pred_parent))
             else:
                 self.check_non_zero(condition, yes_block, no_block)
         elif isinstance(condition, expressions.UnaryOperator):

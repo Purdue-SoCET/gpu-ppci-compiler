@@ -256,7 +256,7 @@ class SelectionGraphBuilder:
 
     def get_value(self, node):
         return self.function_info.value_map[node]
-    
+
     def do_predicate_annotation(self, node):
         """ Ignore predicate annotations during DAG building. """
         pass  # This is purely an annotation, do not add to DAG
@@ -277,11 +277,18 @@ class SelectionGraphBuilder:
         """ Process predicated jump (BJump) into the DAG.
         This is a terminal instruction.
         """
-        sgnode = self.new_node("BJMP", None)
+        lhs = self.get_value(node.a)
+        rhs = self.get_value(node.b)
+        sgnode = self.new_node("BJMP", None, lhs, rhs)
         sgnode.value = (
+            node.cond,
             self.function_info.label_map[node.lab_yes],
             self.function_info.label_map[node.lab_no],
+            node.pred_yes_id,
+            node.pred_no_id,
+            0 #TODO: update to parent predicate when all nodes contain predicates
         )
+
         self.chain(sgnode)
         self.debug_db.map(node, sgnode)
 
@@ -452,7 +459,7 @@ class SelectionGraphBuilder:
         self.debug_db.map(node, sgnode)
         sgnode.value = value
         output = sgnode.new_output(node.name)
-        output.wants_vreg = False
+        # output.wants_vreg = False
         self.add_map(node, output)
 
     def do_literal_data(self, node):
@@ -639,5 +646,3 @@ class SelectionGraphBuilder:
                 # Create move node:
                 sgnode = self.new_node("MOV", phi.ty, val, value=vreg)
                 self.chain(sgnode)
-
-    
