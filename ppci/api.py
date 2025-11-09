@@ -261,7 +261,7 @@ def ir_to_stream(
     verify_module(ir_module)
 
     # Code generation:
-    ir_module.display()
+    # if debug: ir_module.display() # Twig Debug
     code_generator.generate(ir_module, output_stream, debug=debug)
 
 

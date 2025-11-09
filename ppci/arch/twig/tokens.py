@@ -20,7 +20,7 @@ class TwigIToken(Token):
     opcode = bit_range(0,7)
     rd = bit_range(7,13)
     rs1 = bit_range(13,19)
-    imm6 = bit_range(19,25)
+    imm = bit_range(19,25)
     # pred = bit_range(25,30)
     # pstart = bit(30)
     # pend = bit(31)
@@ -66,7 +66,7 @@ class TwigUToken(Token):
 
     opcode = bit_range(0,7)
     rd = bit_range(7,13)
-    imm12 = bit_range(13,25)
+    imm = bit_range(13,25)
     # pred = bit_range(25,30)
     # pstart = bit(30)
     # pend = bit(31)
@@ -99,7 +99,7 @@ class TwigJToken(Token):
 
     opcode = bit_range(0,7)
     rd = bit_range(7,13)
-    imm17 = bit_range(13,30)
+    imm = bit_range(13,30)
     # pstart = bit(30)
     # pend = bit(31)
 
@@ -110,7 +110,7 @@ class TwigJrToken(Token):
     opcode = bit_range(0,7)
     rd = bit_range(7,13)
     rs1 = bit_range(13,19)
-    imm11 = bit_range(19,30)
+    imm = bit_range(19,30)
     # pstart = bit(30)
     # pend = bit(31)
 

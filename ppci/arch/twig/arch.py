@@ -37,6 +37,12 @@ from .instructions import (
     Sltiu,
     Srli,
     Srai,
+    #ftype
+    Cos,
+    Sin,
+    Isqrt,
+    ItoF,
+    FtoI,
     #memory
     Lw,
     Lh,
@@ -172,6 +178,14 @@ from .registers import (
     # register_classes_hwfp,
     register_classes_swfp,
 )
+
+BUILTIN_TABLE = {
+    "sin":   Sin,
+    "cos":   Cos,
+    "isqrt": Isqrt,
+    "itof":  ItoF,
+    "ftoi":  FtoI,
+}
 
 # def isinsrange(bits, val) -> bool:
 #     msb = 1 << (bits - 1)
@@ -435,46 +449,14 @@ class TwigArch(Architecture):
 
     def gen_call(self, frame, label, args, rv):
         """Implement actual call and save / restore live registers"""
-
-        if label == 'cos':
-            from .instructions import Cos
-
-            # 'args' is a list of tuples: [(ir.f32, vreg_for_3_0)]
-            # 'rv' is a tuple: (ir.f32, vreg_for_rd)
-            arg_vreg = args[0][1]  # Get the virtual register for the argument
-            ret_vreg = rv[1]       # Get the virtual register for the return value
-
-            # Emit the single 'cos rd, rs1' hardware instruction
-            yield Cos(ret_vreg, arg_vreg)
-
-            # Return from this function to skip the rest of the logic
-            return
-        if label == 'sin':
-            from .instructions import Sin
-            arg_vreg = args[0][1]
-            ret_vreg = rv[1]
-            yield Sin(ret_vreg, arg_vreg)
-            return
-
-        if label == 'itof':
-            from .instructions import ItoF
-            arg_vreg = args[0][1]
-            ret_vreg = rv[1]
-            yield ItoF(ret_vreg, arg_vreg)
-            return
-
-        if label == 'ftoi':
-            from .instructions import FtoI
-            arg_vreg = args[0][1]
-            ret_vreg = rv[1]
-            yield FtoI(ret_vreg, arg_vreg)
-            return
-
-        if label == 'isqrt':
-            from .instructions import Isqrt
-            arg_vreg = args[0][1]
-            ret_vreg = rv[1]
-            yield Isqrt(ret_vreg, arg_vreg)
+        name = str(getattr(label, "name", label))
+        impl = BUILTIN_TABLE.get(name)
+        if impl is not None:
+            if not args or rv is None:
+                return  # raise or log here if want stricter behavior
+            src = args[0][1]
+            dst = rv[1]
+            yield impl(dst, src)
             return
 
         # --- If not custom calls, proceed with a standard function call ---
@@ -483,7 +465,7 @@ class TwigArch(Architecture):
         stack_size = 0
         for arg_loc, arg2 in zip(arg_locs, args):
             arg = arg2[1]
-            if isinstance(arg_loc, (TwigRegister)):
+            if isinstance(arg_loc, TwigRegister):
                 yield self.move(arg_loc, arg)
             elif isinstance(arg_loc, StackLocation):
                 stack_size += arg_loc.size

@@ -303,12 +303,14 @@ class Bl(TwigJInstruction):
         tokens = self.get_tokens()
         tokens[0][0:7] = 0b1100000 #jal opcode
         tokens[0][7:13] = self.rd.num
+        tokens[0][13:30] = 0
         # tokens[0][30] = 0b0 #start of new packet
         # tokens[0][31] = 0b1 # end of curr packet
         return tokens[0].encode()
 
     def relocations(self):
-        return [JImm17Relocation]
+
+        return [JImm17Relocation(self.target)]
 
 class TwigJrInstruction(Instruction):
     tokens = [TwigJrToken]
@@ -400,7 +402,7 @@ def make_u(mnemonic, opcode):
     patterns = {
         "opcode": opcode,
         "rd": rd,
-        "imm12": imm
+        "imm": imm
     }
     members = {
         "syntax": syntax,
@@ -424,7 +426,7 @@ def make_u_mod(mnemonic, opcode):
     patterns = {
         "opcode": opcode,
         "rd": rd,
-        "imm12": imm
+        "imm": imm
     }
     members = {
         "syntax": syntax,
