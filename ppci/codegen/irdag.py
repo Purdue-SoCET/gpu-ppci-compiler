@@ -286,6 +286,25 @@ class SelectionGraphBuilder:
         )
         self.chain(sgnode)
         self.debug_db.map(node, sgnode)
+    # ... (after do_c_jump or do_exit)
+
+    def do_p_jump(self, node):
+        """Process conditional PJump into dag"""
+        # NOTE: Since PJump lacks operands 'a' and 'b' (they were commented out),
+        # we cannot use the standard CJMP pattern (which requires lhs and rhs).
+
+        # We will create a special-purpose JUMP node that carries both targets.
+
+        sgnode = self.new_node("PJMP", None)
+
+        # PJMP is assumed to be a conditional jump for the block state.
+        # We pass both labels as a tuple value.
+        sgnode.value = (
+            self.function_info.label_map[node.lab_yes],
+            self.function_info.label_map[node.lab_no],
+        )
+        self.chain(sgnode)
+        self.debug_db.map(node, sgnode)
 
     def do_exit(self, node):
         # Jump to epilog:

@@ -17,15 +17,21 @@ global function i32 main() {
 
   main_block2: {
     i32 tmp_load = load alloca_addr;
-    i32 num_1 = 1;
-    i32 tmp_2 = tmp_load - num_1;
-    store tmp_2, alloca_addr;
-    pjmp main_block2 == 0 ? main_block2 : main_block3;
+    i32 num_1 = 0;
+    cjmp tmp_load != num_1 ? main_block3 : main_block3;
   }
 
   main_block3: {
-    i32 num_3 = 0;
-    return num_3;
+    i32 tmp_load_2 = load alloca_addr;
+    i32 num_3 = 1;
+    i32 tmp_4 = tmp_load_2 - num_3;
+    store tmp_4, alloca_addr;
+    pjmp main_block3 == 0 ? main_block4 : main_block2;
+  }
+
+  main_block4: {
+    i32 num_5 = 0;
+    return num_5;
   }
 
 }

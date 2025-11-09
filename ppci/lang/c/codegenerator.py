@@ -620,24 +620,6 @@ class CCodeGenerator:
         # Restore state:
         self.switch_options = backup
 
-    # def gen_while(self, stmt: statements.While) -> None:
-    #     """Generate while statement code"""
-    #     print("YIPEEEEEEEE\n")
-    #     condition_block = self.builder.new_block()
-    #     body_block = self.builder.new_block()
-    #     final_block = self.builder.new_block()
-    #     self.break_block_stack.append(final_block)
-    #     self.continue_block_stack.append(condition_block)
-    #     self.builder.emit_jump(condition_block)
-    #     self.builder.set_block(condition_block)
-    #     self.gen_condition(stmt.condition, body_block, final_block)
-    #     self.builder.set_block(body_block)
-    #     self.gen_stmt(stmt.body)
-    #     self.builder.emit_jump(condition_block)
-    #     self.builder.set_block(final_block)
-    #     self.break_block_stack.pop()
-    #     self.continue_block_stack.pop()
-
     def gen_while(self, stmt: statements.While) -> None:
         """Generate while-statement code (check-before-run)."""
         check_block = self.builder.new_block()
@@ -653,12 +635,19 @@ class CCodeGenerator:
 
         # Condition check
         self.builder.set_block(check_block)
-        self.gen_condition(stmt.condition, body_block, end_block)
+
+        # <<<GPU ALTERATION >>> [REPLACED]
+        self.gen_condition(stmt.condition, body_block, body_block)
+        # self.gen_condition(stmt.condition, body_block, body_block)
 
         # Loop body
         self.builder.set_block(body_block)
         self.gen_stmt(stmt.body)
-        self.builder.emit_jump(check_block)
+
+        # <<< GPU ALTERATION >>> [ADDED]
+        self.gen_pcondition(body_block, end_block, check_block)
+
+        # self.builder.emit_jump(check_block)
 
         # Continue after loop
         self.builder.set_block(end_block)
@@ -676,7 +665,8 @@ class CCodeGenerator:
         self.builder.emit_jump(body_block)
         self.builder.set_block(body_block)
         self.gen_stmt(stmt.body)
-        self.gen_condition(stmt.condition, body_block, final_block)
+        # self.gen_condition(stmt.condition, body_block, final_block)
+        self.gen_pcondition(body_block, body_block, final_block)
         self.builder.set_block(final_block)
         self.break_block_stack.pop()
         self.continue_block_stack.pop()
@@ -700,10 +690,12 @@ class CCodeGenerator:
 
         # Condition:
         self.builder.set_block(condition_block)
-        if stmt.condition:
-            self.gen_condition(stmt.condition, body_block, final_block)
-        else:
-            self.builder.emit_jump(body_block)
+        # if stmt.condition:
+        #     self.gen_condition(stmt.condition, body_block, final_block)
+        # else:
+        #     self.builder.emit_jump(body_block)
+        self.gen_condition(stmt.condition, body_block, body_block)
+
 
         # Body:
         self.builder.set_block(body_block)
@@ -714,56 +706,14 @@ class CCodeGenerator:
         self.builder.set_block(iterator_block)
         if stmt.post:
             self.gen_expr(stmt.post, rvalue=True)
-        self.builder.emit_jump(condition_block)
+            print("See You Tomorrow")
+        # self.builder.emit_jump(condition_block)
+        self.gen_pcondition(iterator_block, final_block, condition_block)
 
         # Continue here:
         self.builder.set_block(final_block)
         self.break_block_stack.pop()
         self.continue_block_stack.pop()
-
-    # def gen_for(self, stmt: statements.For) -> None:
-    #     """Generate for-statement code (check-before-run)."""
-    #     init_block = self.builder.new_block()
-    #     cond_block = self.builder.new_block()
-    #     body_block = self.builder.new_block()
-    #     post_block = self.builder.new_block()
-    #     end_block = self.builder.new_block()
-
-    #     self.break_block_stack.append(end_block)
-    #     self.continue_block_stack.append(post_block)
-
-    #     # Initialization
-    #     self.builder.emit_jump(init_block)
-    #     self.builder.set_block(init_block)
-    #     if stmt.init:
-    #         if isinstance(stmt.init, declarations.VariableDeclaration):
-    #             self.gen_local_variable(stmt.init)
-    #         else:
-    #             self.gen_expr(stmt.init, rvalue=True)
-    #     self.builder.emit_jump(cond_block)
-
-    #     # Condition
-    #     self.builder.set_block(cond_block)
-    #     if stmt.condition:
-    #         self.gen_condition(stmt.condition, body_block, end_block)
-    #     else:
-    #         self.builder.emit_jump(body_block)
-
-    #     # Body
-    #     self.builder.set_block(body_block)
-    #     self.gen_stmt(stmt.body)
-    #     self.builder.emit_jump(post_block)
-
-    #     # Post expression
-    #     self.builder.set_block(post_block)
-    #     if stmt.post:
-    #         self.gen_expr(stmt.post, rvalue=True)
-    #     self.builder.emit_jump(cond_block)
-
-    #     # After loop
-    #     self.builder.set_block(end_block)
-    #     self.break_block_stack.pop()
-    #     self.continue_block_stack.pop()
 
     def gen_label(self, stmt: statements.Label) -> None:
         """Generate code for a label"""
@@ -911,6 +861,15 @@ class CCodeGenerator:
                 self.check_non_zero(condition, yes_block, no_block)
         else:
             self.check_non_zero(condition, yes_block, no_block)
+
+## GPU CODE ALTERATION: [ADDED] VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
+    def gen_pcondition(self, cur_block, yes_block, no_block):
+        """Generate switch based on condition."""
+        self.emit(ir.PJump(cur_block, yes_block, no_block))
+
+
+## GPU CODE ALTERATION: ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 
     def check_non_zero(self, expr, yes_block, no_block):
         """Check an expression for being non-zero"""

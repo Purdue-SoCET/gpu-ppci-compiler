@@ -1,0 +1,148 @@
+
+#added to \ppci\codegen\irdag.py
+def do_p_jump(self, node):
+        """Process conditional PJump into dag"""
+        # NOTE: Since PJump lacks operands 'a' and 'b' (they were commented out),
+        # we cannot use the standard CJMP pattern (which requires lhs and rhs).
+
+        # We will create a special-purpose JUMP node that carries both targets.
+
+        sgnode = self.new_node("PJMP", None)
+
+        # PJMP is assumed to be a conditional jump for the block state.
+        # We pass both labels as a tuple value.
+        sgnode.value = (
+            self.function_info.label_map[node.lab_yes],
+            self.function_info.label_map[node.lab_no],
+        )
+        self.chain(sgnode)
+        self.debug_db.map(node, sgnode)
+
+# added to ppci\ir.py
+class PJump(JumpBase):
+    """Conditional jump to true or false labels."""
+
+    cur_block = block_use("cur_block")
+    # a = value_use("a")
+    # b = value_use("b")
+    lab_yes = block_use("lab_yes")
+    lab_no = block_use("lab_no")
+
+    def __init__(self, cur_block, lab_yes, lab_no):
+        super().__init__()
+        # if cond not in CJump.conditions:
+        #     raise ValueError(f"Invalid condition {cond}")
+        # self.a = a
+        self.cur_block = cur_block
+        # self.b = b
+        self.lab_yes = lab_yes
+        self.lab_no = lab_no
+
+    def __str__(self):
+        return (
+            f"pjmp {self.cur_block.name} == 0 ? "
+            + f"{self.lab_yes.name} : {self.lab_no.name}"
+        )
+
+
+
+# ppci\lang\c\codegenerator.py
+def gen_while(self, stmt: statements.While) -> None:
+        """Generate while-statement code (check-before-run)."""
+        check_block = self.builder.new_block()
+        body_block = self.builder.new_block()
+        end_block = self.builder.new_block()
+
+        # push control flow context
+        self.break_block_stack.append(end_block)
+        self.continue_block_stack.append(check_block)
+
+        # Jump to condition first
+        self.builder.emit_jump(check_block)
+
+        # Condition check
+        self.builder.set_block(check_block)
+
+        # <<<GPU ALTERATION >>> [REPLACED]
+        self.gen_condition(stmt.condition, body_block, body_block)
+        # self.gen_condition(stmt.condition, body_block, body_block)
+
+        # Loop body
+        self.builder.set_block(body_block)
+        self.gen_stmt(stmt.body)
+
+        # <<< GPU ALTERATION >>> [ADDED]
+        self.gen_pcondition(body_block, end_block, check_block)
+
+        # self.builder.emit_jump(check_block)
+
+        # Continue after loop
+        self.builder.set_block(end_block)
+
+        # pop stacks
+        self.break_block_stack.pop()
+        self.continue_block_stack.pop()
+
+def gen_do_while(self, stmt: statements.DoWhile) -> None:
+        """Generate do-while-statement code"""
+        body_block = self.builder.new_block()
+        final_block = self.builder.new_block()
+        self.break_block_stack.append(final_block)
+        self.continue_block_stack.append(body_block)
+        self.builder.emit_jump(body_block)
+        self.builder.set_block(body_block)
+        self.gen_stmt(stmt.body)
+        # self.gen_condition(stmt.condition, body_block, final_block)
+        self.gen_pcondition(body_block, body_block, final_block)
+        self.builder.set_block(final_block)
+        self.break_block_stack.pop()
+        self.continue_block_stack.pop()
+
+def gen_for(self, stmt: statements.For) -> None:
+        """Generate code for for-statement"""
+        condition_block = self.builder.new_block()
+        body_block = self.builder.new_block()
+        final_block = self.builder.new_block()
+        iterator_block = self.builder.new_block()
+        self.break_block_stack.append(final_block)
+        self.continue_block_stack.append(iterator_block)
+
+        # Initialization:
+        if stmt.init:
+            if isinstance(stmt.init, declarations.VariableDeclaration):
+                self.gen_local_variable(stmt.init)
+            else:
+                self.gen_expr(stmt.init, rvalue=True)
+        self.builder.emit_jump(condition_block)
+
+        # Condition:
+        self.builder.set_block(condition_block)
+        # if stmt.condition:
+        #     self.gen_condition(stmt.condition, body_block, final_block)
+        # else:
+        #     self.builder.emit_jump(body_block)
+        self.gen_condition(stmt.condition, body_block, body_block)
+
+
+        # Body:
+        self.builder.set_block(body_block)
+        self.gen_stmt(stmt.body)
+        self.builder.emit_jump(iterator_block)
+
+        # Iterator part:
+        self.builder.set_block(iterator_block)
+        if stmt.post:
+            self.gen_expr(stmt.post, rvalue=True)
+            print("See You Tomorrow")
+        # self.builder.emit_jump(condition_block)
+        self.gen_pcondition(iterator_block, final_block, condition_block)
+
+        # Continue here:
+        self.builder.set_block(final_block)
+        self.break_block_stack.pop()
+        self.continue_block_stack.pop()
+
+## GPU CODE ALTERATION: [ADDED] VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
+    def gen_pcondition(self, cur_block, yes_block, no_block):
+        """Generate switch based on condition."""
+        self.emit(ir.PJump(cur_block, yes_block, no_block))

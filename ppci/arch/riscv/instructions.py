@@ -351,6 +351,40 @@ class B(RiscvInstruction):
     def relocations(self):
         return [BImm20Relocation(self.target)]
 
+class Jpnz(RiscvInstruction):
+    target = Operand("target", str)
+    pred = Operand("pred", RiscvRegister, read=True)  # The predicate register
+
+    # Syntax: jpnz pred, target
+    syntax = Syntax(["jpnz", " ", pred, ",", " ", target])
+
+    # The encode method uses a custom/reserved opcode combination.
+    # It follows the B-Type format (Opcode, Funct3, rs1, rs2, Imm).
+    def encode(self):
+        tokens = self.get_tokens()
+
+        # Opcode for branch instructions (standard: 0b1100011)
+        tokens[0][0:7] = 0b1100011
+
+        # Funct3: Using 0b111 as a placeholder for a custom branch funct3
+        # (check your GPU ISA documentation for the actual value).
+        tokens[0][12:15] = 0b111
+
+        # rs1 (pred): The register holding the thread mask/predicate.
+        tokens[0][15:20] = self.pred.num
+
+        # rs2 (R0): This instruction implicitly compares the predicate to zero.
+        # We use R0 as the second source register (rs2) as per B-Type convention.
+        tokens[0][20:25] = R0.num
+
+        # Relocations will fill the immediate field (rest of the token)
+        return tokens[0].encode()
+
+    def relocations(self):
+        # Since it's a jump to a label, it uses the BImm12Relocation format.
+        return [BImm12Relocation(self.target)]
+
+
 
 class Blr(RiscvInstruction):
     rd = Operand("rd", RiscvRegister, write=True)
@@ -546,7 +580,7 @@ def make_branch(mnemonic, cond, invert):
     target = Operand("target", str)
     rn = Operand("rn", RiscvRegister, read=True)
     rm = Operand("rm", RiscvRegister, read=True)
-    syntax = Syntax([mnemonic, " ", rn, ",", " ", rm, ",", " ", target])
+    syntax = Syntax([mnemonic," ", rn, ",", " ", rm, ",", " ", target])
 
     members = {
         "syntax": syntax,
@@ -704,6 +738,24 @@ def pattern_movi8(context, tree, c0):
 @isa.pattern("stm", "JMP", size=4)
 def pattern_jmp(context, tree):
     tgt = tree.value
+    context.emit(B(tgt.name, jumps=[tgt]))
+
+# ... after pattern_jmp ...
+
+@isa.pattern("stm", "PJMP", size=4)  # <-- ADD THIS RULE
+def pattern_pjmp(context, tree):
+    # PJMP is likely a jump to a register, typically for a function return.
+    # In RISC-V, the return address is held in the Link Register (LR), which is x1.
+    # The instruction JALR (Jump and Link Register) is used for indirect jumps.
+
+    tgt = tree.value # 'tgt' is likely the register to jump to (e.g., LR for return)
+
+    # Use the Blr (Branch and Link Register) instruction defined earlier in the file.
+    # Blr syntax: jalr rd, rs1, offset
+    # For a simple jump to register 'tgt', we use R0 (zero register) for rd and offset=0.
+
+    # Check the type of 'tgt' first. Assuming it's a register object:
+    # context.emit(Blr(R0, tgt, 0)) # R0 as destination (no link needed), jump to register 'tgt'
     context.emit(B(tgt.name, jumps=[tgt]))
 
 

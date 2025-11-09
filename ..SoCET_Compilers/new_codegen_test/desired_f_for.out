@@ -1,0 +1,51 @@
+module main;
+
+global function i32 main() {
+  main_block0: {
+    blob<4:4> alloca = alloc 4 bytes aligned at 4;
+    ptr alloca_addr = &alloca;
+    blob<4:4> alloca_13 = alloc 4 bytes aligned at 4;
+    ptr alloca_addr_14 = &alloca_13;
+    jmp main_block1;
+  }
+
+  main_block1: {
+    i32 num = 10;
+    store num, alloca_addr;
+    ptr num_0 = 4;
+    ptr tmp = alloca_addr + num_0;
+    i32 num_1 = 0;
+    store num_1, alloca_addr_14;
+    ptr num_2 = 4;
+    ptr tmp_3 = alloca_addr_14 + num_2;
+    jmp main_block2;
+  }
+
+  main_block2: {
+    i32 tmp_load = load alloca_addr_14;
+    i32 num_4 = 10;
+    cjmp tmp_load < num_4 ? main_block3 : main_block3;
+  }
+
+  main_block3: {
+    i32 tmp_load_5 = load alloca_addr;
+    i32 num_6 = 1;
+    i32 tmp_7 = tmp_load_5 - num_6;
+    store tmp_7, alloca_addr;
+    pjmp main_block3 == 0 ? main_block4 : main_block2;
+  }
+
+  main_block4: {
+    i32 num_11 = 0;
+    return num_11;
+  }
+
+  main_block5: {
+    i32 tmp_load_8 = load alloca_addr_14;
+    i32 num_9 = 1;
+    i32 tmp_10 = tmp_load_8 + num_9;
+    store tmp_10, alloca_addr_14;
+    jmp main_block2;
+  }
+
+}
