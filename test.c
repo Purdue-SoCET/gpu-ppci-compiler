@@ -5,10 +5,17 @@
 //extern float isqrt(float);
 
 int main() {
-    float y = itof(3);
-    y = y + (float)1.3;
-    int x = y;
-    int w = (int)y + x;
-    float z = sin(isqrt(cos(y)));
-    return ftoi(z);
+    int alpha = 3;
+    int beta;
+    if(alpha < 3){
+        beta = 4;
+    } else {
+        beta = 6;
+    }
+    int theta = 0;
+    while(beta > 0){
+        beta--;
+        theta = theta * 2 + 1;
+    }
+    return theta;
 }
