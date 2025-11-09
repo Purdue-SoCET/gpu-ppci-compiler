@@ -1,8 +1,8 @@
-extern float cos(float);
-extern int ftoi(float);
-extern float itof(int);
-extern float sin(float);
-extern float isqrt(float);
+//extern float cos(float);
+//extern int ftoi(float);
+//extern float itof(int);
+//extern float sin(float);
+//extern float isqrt(float);
 
 int main() {
     float y = itof(3);
