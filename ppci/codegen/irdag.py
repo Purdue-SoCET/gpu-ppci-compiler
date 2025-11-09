@@ -256,6 +256,34 @@ class SelectionGraphBuilder:
 
     def get_value(self, node):
         return self.function_info.value_map[node]
+    
+    def do_predicate_annotation(self, node):
+        """ Ignore predicate annotations during DAG building. """
+        pass  # This is purely an annotation, do not add to DAG
+
+    def do_p_jump(self, node):
+        """ Process predicated jump (PJump) into the DAG.
+        This is a terminal instruction.
+        """
+        sgnode = self.new_node("PJMP", None)
+        sgnode.value = (
+            self.function_info.label_map[node.lab_yes],
+            self.function_info.label_map[node.lab_no],
+        )
+        self.chain(sgnode)
+        self.debug_db.map(node, sgnode)
+
+    def do_b_jump(self, node):
+        """ Process predicated jump (BJump) into the DAG.
+        This is a terminal instruction.
+        """
+        sgnode = self.new_node("BJMP", None)
+        sgnode.value = (
+            self.function_info.label_map[node.lab_yes],
+            self.function_info.label_map[node.lab_no],
+        )
+        self.chain(sgnode)
+        self.debug_db.map(node, sgnode)
 
     def do_return(self, node):
         """Move result into result register and jump to epilog"""
@@ -611,3 +639,5 @@ class SelectionGraphBuilder:
                 # Create move node:
                 sgnode = self.new_node("MOV", phi.ty, val, value=vreg)
                 self.chain(sgnode)
+
+    

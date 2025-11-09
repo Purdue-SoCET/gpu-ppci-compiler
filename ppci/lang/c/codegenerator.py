@@ -673,7 +673,13 @@ class CCodeGenerator:
             no_block = final_block  # No else, go straight to end
 
         # Convert AST condition to IR conditional jump
-        self.gen_condition(stmt.condition, yes_block, yes_block)
+        # self.gen_condition(stmt.condition, yes_block, yes_block)
+
+        # UTILIZE STACK
+        # print(len(self.predicate_stack))
+
+
+        self.gen_bcondition(stmt.condition, yes_block, no_block)
 
         # === YES BLOCK (then branch) ===
         self.builder.set_block(yes_block)
@@ -721,6 +727,7 @@ class CCodeGenerator:
 
             # Pop predicate context
             self._pop_predicate_context()
+
 
             self.builder.emit_jump(final_block)
 
@@ -1072,6 +1079,7 @@ class CCodeGenerator:
                 }
                 op = op_map[condition.op]
                 self.emit(ir.CJump(lhs, op, rhs, yes_block, no_block))
+                print(yes_block," ", type(yes_block))
             else:
                 self.check_non_zero(condition, yes_block, no_block)
         elif isinstance(condition, expressions.UnaryOperator):
@@ -1086,6 +1094,43 @@ class CCodeGenerator:
     def gen_pcondition(self, cur_block, yes_block, no_block):
         """Generate switch based on condition."""
         self.emit(ir.PJump(cur_block, yes_block, no_block))
+
+    def gen_bcondition(self, condition, yes_block, no_block):
+        """Generate switch based on condition."""
+        if isinstance(condition, expressions.BinaryOperator):
+            if condition.op == "||":
+                middle_block = self.builder.new_block()
+                self.gen_condition(condition.a, yes_block, middle_block)
+                self.builder.set_block(middle_block)
+                self.gen_condition(condition.b, yes_block, no_block)
+            elif condition.op == "&&":
+                middle_block = self.builder.new_block()
+                self.gen_condition(condition.a, middle_block, no_block)
+                self.builder.set_block(middle_block)
+                self.gen_condition(condition.b, yes_block, no_block)
+            elif condition.op in ["<", ">", "==", "!=", "<=", ">="]:
+                lhs = self.gen_expr(condition.a, rvalue=True)
+                rhs = self.gen_expr(condition.b, rvalue=True)
+                op_map = {
+                    ">": ">",
+                    "<": "<",
+                    "==": "==",
+                    "!=": "!=",
+                    "<=": "<=",
+                    ">=": ">=",
+                }
+                op = op_map[condition.op]
+                self.emit(ir.BJump(lhs, op, rhs, yes_block, no_block))
+            else:
+                self.check_non_zero(condition, yes_block, no_block)
+        elif isinstance(condition, expressions.UnaryOperator):
+            if condition.op == "!":
+                # Simply swap yes and no here!
+                self.gen_condition(condition.a, no_block, yes_block)
+            else:
+                self.check_non_zero(condition, yes_block, no_block)
+        else:
+            self.check_non_zero(condition, yes_block, no_block)
 
     def check_non_zero(self, expr, yes_block, no_block):
         """Check an expression for being non-zero"""
