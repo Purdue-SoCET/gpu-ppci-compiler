@@ -1408,6 +1408,31 @@ class PJump(JumpBase):
             + f"{self.lab_yes.name} : {self.lab_no.name}"
         )
 
+class BJump(JumpBase):
+    """Conditional jump to true or false labels."""
+
+    conditions = ["==", "<", ">", ">=", "<=", "!="]
+    a = value_use("a")
+    b = value_use("b")
+    lab_yes = block_use("lab_yes")
+    lab_no = block_use("lab_no")
+
+    def __init__(self, a, cond, b, lab_yes, lab_no):
+        super().__init__()
+        if cond not in CJump.conditions:
+            raise ValueError(f"Invalid condition {cond}")
+        self.a = a
+        self.cond = cond
+        self.b = b
+        self.lab_yes = lab_yes
+        self.lab_no = lab_no
+
+    def __str__(self):
+        return (
+            f"cjmp {self.a.name} {self.cond} {self.b.name} ? "
+            + f"{self.lab_yes.name} : {self.lab_no.name}"
+        )
+
 class JumpTable(JumpBase):
     """Jump table.
 
