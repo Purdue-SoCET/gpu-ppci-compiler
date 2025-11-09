@@ -26,6 +26,7 @@ class JImm17Relocation(Relocation):
         setattr(token, self.field, self.calc(sym_value, reloc_value))
         return token.encode()
 
+# TDOO: Check for all relocations
 #need Abs32Imm12Relocation for lmi, lli
 #need RelImm12Relocation for auipc
 #need Abs32Imm8Relocation for lui

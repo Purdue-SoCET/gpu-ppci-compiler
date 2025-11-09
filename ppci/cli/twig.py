@@ -22,7 +22,7 @@ parser.add_argument("sources", metavar="source", nargs="+", type=argparse.FileTy
 def twig(argv=None):
     args = parser.parse_args(argv)
     with LogSetup(args) as log_setup:
-        march = get_arch("twig")  # English: hard-code target arch
+        march = get_arch("twig")  # hard-code target arch
 
         coptions = COptions()
         coptions.process_args(args)
@@ -34,7 +34,7 @@ def twig(argv=None):
             return 0
 
         if args.M:
-            # English: Fill if you implement dep scanning; placeholder now.
+            # Fill if you implement dep scanning; placeholder now.
             return 0
 
         if args.ast:
