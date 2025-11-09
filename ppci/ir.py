@@ -834,6 +834,34 @@ class Undefined(LocalValue):
         return f"{self.name} = undefined"
 
 
+class PredicateAnnotation(Instruction):
+    """GPU-style predicate annotation for control flow divergence tracking.
+
+    This instruction annotates a basic block with predicate register information
+    to track which threads are active in GPU-style SIMT execution.
+
+    For backend code generation, the assembly will compute:
+        pred[dest_pred_reg] = pred[parent_pred_reg] AND condition_mask
+
+    Where:
+    - parent_pred_reg: Source predicate (active threads from parent context)
+    - dest_pred_reg: Destination predicate (active threads in this block)
+    - condition_mask: Computed from the branch condition
+    """
+
+    def __init__(self, pred_reg, pred_mask, context_name="", parent_pred_reg=None):
+        super().__init__()
+        self.pred_reg = pred_reg
+        self.pred_mask = pred_mask
+        self.context_name = context_name
+        self.parent_pred_reg = parent_pred_reg if parent_pred_reg is not None else 0
+
+    def __str__(self):
+        # Show destination pred and parent pred for assembly generation
+        if self.context_name:
+            return f"pred{self.pred_reg} = pred{self.parent_pred_reg} AND <condition> // {self.context_name}"
+        return f"pred{self.pred_reg} = pred{self.parent_pred_reg} // root (all ones)"
+
 class Const(LocalValue):
     """Represents a constant value"""
 
@@ -1355,6 +1383,30 @@ class CJump(JumpBase):
             + f"{self.lab_yes.name} : {self.lab_no.name}"
         )
 
+class PJump(JumpBase):
+    """Conditional jump to true or false labels."""
+
+    cur_block = block_use("cur_block")
+    # a = value_use("a")
+    # b = value_use("b")
+    lab_yes = block_use("lab_yes")
+    lab_no = block_use("lab_no")
+
+    def __init__(self, cur_block, lab_yes, lab_no):
+        super().__init__()
+        # if cond not in CJump.conditions:
+        #     raise ValueError(f"Invalid condition {cond}")
+        # self.a = a
+        self.cur_block = cur_block
+        # self.b = b
+        self.lab_yes = lab_yes
+        self.lab_no = lab_no
+
+    def __str__(self):
+        return (
+            f"pjmp {self.cur_block.name} == 0 ? "
+            + f"{self.lab_yes.name} : {self.lab_no.name}"
+        )
 
 class JumpTable(JumpBase):
     """Jump table.

@@ -36,6 +36,11 @@ class CCodeGenerator:
         self.labeled_blocks = {}
         self.switch_options = None
         self.static_counter = 0  # Unique number to make static vars unique
+
+        # GPU-style predicate register tracking
+        self.predicate_stack = []  # Stack of active predicate contexts
+        self.predicate_counter = 0  # Counter for predicate register allocation
+        self.block_predicates = {}  # Maps blocks to their predicate info
         int_types = {2: ir.i16, 4: ir.i32, 8: ir.i64}
         uint_types = {2: ir.i16, 4: ir.u32, 8: ir.u64}
         int_size = self.context.arch_info.get_size("int")
@@ -58,6 +63,77 @@ class CCodeGenerator:
             BasicType.VA_LIST: (ir.ptr, self.ptr_size),
         }
         self._constant_evaluator = LinkTimeExpressionEvaluator(self)
+
+    def _allocate_predicate_register(self):
+        """Allocate a new predicate register number."""
+        pred_num = self.predicate_counter
+        self.predicate_counter += 1
+        return pred_num
+
+    def _push_predicate_context(self, pred_reg, pred_mask_str):
+        """Push a new predicate context onto the stack."""
+        context = {
+            'pred_reg': pred_reg,
+            'pred_mask': pred_mask_str,
+            'parent': self.predicate_stack[-1] if self.predicate_stack else None
+        }
+        self.predicate_stack.append(context)
+        return context
+
+    def _pop_predicate_context(self):
+        """Pop the current predicate context from the stack."""
+        if self.predicate_stack:
+            return self.predicate_stack.pop()
+        return None
+
+    def _get_current_predicate_mask(self):
+        """Get the current active predicate mask."""
+        if self.predicate_stack:
+            return self.predicate_stack[-1]['pred_mask']
+        return "11111"  # All ones (all threads active)
+
+    def _format_predicate_binary(self, value):
+        """Format a predicate value as a binary string (5 bits for visualization)."""
+        return format(value, '05b')
+
+    def _annotate_block_with_predicate(self, block, pred_reg, pred_mask_str, context_name="", parent_pred_reg=None):
+        """Annotate a block with predicate information.
+
+        Args:
+            block: The IR block to annotate
+            pred_reg: Destination predicate register
+            pred_mask_str: The predicate mask (for visualization)
+            context_name: Context description (if_then, if_else, etc.)
+            parent_pred_reg: Parent predicate register (for mask computation)
+        """
+        # If parent not specified, use current parent from stack or 0
+        if parent_pred_reg is None:
+            parent_pred_reg = self.predicate_stack[-1]['pred_reg'] if self.predicate_stack else 0
+
+        self.block_predicates[block] = {
+            'pred_reg': pred_reg,
+            'pred_mask': pred_mask_str,
+            'context_name': context_name,
+            'parent_pred_reg': parent_pred_reg
+        }
+
+        # Save current block
+        saved_block = self.builder.block
+
+        # Set to the block we want to annotate
+        self.builder.set_block(block)
+
+        # Insert predicate annotation as first instruction
+        pred_annotation = ir.PredicateAnnotation(pred_reg, pred_mask_str, context_name, parent_pred_reg)
+        block.insert_instruction(pred_annotation, before_instruction=block.first_instruction if not block.is_empty else None)
+
+        # Restore block
+        self.builder.set_block(saved_block)
+
+        # Log for debugging
+        self.logger.info(f"Block {block.name}: predicate={pred_reg}, parent={parent_pred_reg}, mask={pred_mask_str}, context={context_name}")
+
+
 
     def get_label_block(self, name):
         """Get the ir block for a given label, and create it if necessary"""
@@ -393,6 +469,11 @@ class CCodeGenerator:
         self.labeled_blocks = {}
         assert not self.labeled_blocks
 
+        # Initialize predicate tracking for this function
+        self.predicate_stack = []
+        self.predicate_counter = 0
+        self.block_predicates = {}
+
         # Save current function for later on..
         self.current_function = function
 
@@ -406,6 +487,12 @@ class CCodeGenerator:
         # Create first real code block:
         first_block = self.builder.new_block()
         self.builder.set_block(first_block)
+
+        # Initialize root predicate context (all threads active)
+        root_pred_reg = self._allocate_predicate_register()
+        self._push_predicate_context(root_pred_reg, "11111")
+        # Root has no parent (parent=0 which is itself)
+        self._annotate_block_with_predicate(first_block, root_pred_reg, "11111", "root", parent_pred_reg=0)
 
         self._allocs = []
 
@@ -552,32 +639,115 @@ class CCodeGenerator:
         self.gen_expr(statement.expression, rvalue=True)
         # TODO: issue a warning when expression result is non void?
 
+    """Generate if-statement code with GPU-style predicate tracking
+
+        Predicate allocation scheme:
+        - Each branch gets a unique predicate register (no MSB inversion)
+        - Parent predicate is tracked for mask computation
+        - Assembly will use: dest_pred = parent_pred AND condition_mask
+    """
     def gen_if(self, stmt: statements.If) -> None:
-        """Generate if-statement code"""
+        """Generate if-statement code with GPU-style predicate tracking
+
+        Predicate allocation scheme:
+        - Each branch gets a unique predicate register (no MSB inversion)
+        - Parent predicate is tracked for mask computation
+        - Assembly will use: dest_pred = parent_pred AND condition_mask
+        """
+
+        # Get parent predicate register and mask
+        parent_pred_reg = self.predicate_stack[-1]['pred_reg'] if self.predicate_stack else 0
+        parent_mask = self._get_current_predicate_mask()
+
+        # Allocate separate predicate registers for then and else branches
+        yes_pred_reg = self._allocate_predicate_register()
+        no_pred_reg = self._allocate_predicate_register()
+
+        # Create basic blocks
         final_block = self.builder.new_block()
         yes_block = self.builder.new_block()
-        if stmt.no:
+
+        if stmt.no:  # Check if else branch exists
             no_block = self.builder.new_block()
         else:
-            no_block = final_block
-        self.gen_condition(stmt.condition, yes_block, no_block)
+            no_block = final_block  # No else, go straight to end
+
+        # Convert AST condition to IR conditional jump
+        self.gen_condition(stmt.condition, yes_block, yes_block)
+
+        # === YES BLOCK (then branch) ===
         self.builder.set_block(yes_block)
+
+        # Compute yes predicate: parent_mask AND condition_true
+        # In hardware: pred[yes_pred_reg] = pred[parent_pred_reg] AND condition_mask
+        yes_mask = parent_mask  # Simplified: inherit parent mask
+
+        # Annotate block with predicate (includes parent info)
+        self._annotate_block_with_predicate(yes_block, yes_pred_reg, yes_mask, "if_then", parent_pred_reg)
+
+        # Push predicate context for nested statements
+        self._push_predicate_context(yes_pred_reg, yes_mask)
+
+        # Log predicate stack state
+        self.logger.info(f"PREDICATE STACK (entering then): {[c['pred_reg'] for c in self.predicate_stack]}")
+
+        # Generate IR for 'then' branch
         self.gen_stmt(stmt.yes)
-        self.builder.emit_jump(final_block)
+
+        # Pop predicate context
+        self._pop_predicate_context()
+
+        self.builder.emit_jump(no_block)
+
+        # === NO BLOCK (else branch) ===
         if stmt.no:
             self.builder.set_block(no_block)
+
+            # Compute no predicate: parent_mask AND condition_false
+            # In hardware: pred[no_pred_reg] = pred[parent_pred_reg] AND NOT(condition_mask)
+            no_mask = parent_mask  # Simplified: inherit parent mask
+
+            # Annotate block with predicate (includes parent info)
+            self._annotate_block_with_predicate(no_block, no_pred_reg, no_mask, "if_else", parent_pred_reg)
+
+            # Push predicate context for nested statements
+            self._push_predicate_context(no_pred_reg, no_mask)
+
+            # Log predicate stack state
+            self.logger.info(f"PREDICATE STACK (entering else): {[c['pred_reg'] for c in self.predicate_stack]}")
+
+            # Generate IR for 'else' branch
             self.gen_stmt(stmt.no)
+
+            # Pop predicate context
+            self._pop_predicate_context()
+
             self.builder.emit_jump(final_block)
+
+        # === FINAL BLOCK (reconvergence point) ===
         self.builder.set_block(final_block)
 
+        # At reconvergence, restore parent predicate
+        reconverge_pred_reg = parent_pred_reg
+        reconverge_mask = parent_mask
+        self._annotate_block_with_predicate(final_block, reconverge_pred_reg, reconverge_mask, "reconverge", parent_pred_reg)
+
+        self.logger.info(f"PREDICATE STACK (after reconverge): {[c['pred_reg'] for c in self.predicate_stack]}")
+
     def gen_switch(self, stmt: statements.Switch) -> None:
-        """Generate switch-case-statement code.
+        """Generate switch-case-statement code with GPU-style predicate tracking.
+
+        Switch is implemented as a series of if-else comparisons.
+        Each case gets its own predicate register derived from parent.
+
         See also:
             https://www.codeproject.com/Articles/100473/
             Something-You-May-Not-Know-About-the-Switch-Statem
-
-        For now, implemented as a gigantic if-then forest.
         """
+        # Get parent predicate
+        parent_pred_reg = self.predicate_stack[-1]['pred_reg'] if self.predicate_stack else 0
+        parent_mask = self._get_current_predicate_mask()
+
         backup = self.switch_options
         self.switch_options = {}
         test_block = self.builder.new_block()
@@ -594,46 +764,79 @@ class CCodeGenerator:
         self.builder.emit_jump(final_block)
         self.break_block_stack.pop()
 
-        # Implement switching logic, now that we have the branches:
-        # TODO: implement jump tables and other performance related stuff.
+        # Implement switching logic with predicate tracking
         self.builder.set_block(test_block)
+
+        # Annotate test block with parent predicate
+        self._annotate_block_with_predicate(test_block, parent_pred_reg, parent_mask, "switch_test", parent_pred_reg)
+
         test_value = self.gen_expr(stmt.expression, rvalue=True)
         switch_ir_typ = self.get_ir_type(stmt.expression.typ)
+
+        # Each case comparison gets its own predicate register
         for option, target_block in self.switch_options.items():
             if option != "default":
-                option = self.builder.emit_const(option, switch_ir_typ)
+                # Allocate predicate for this case
+                case_pred_reg = self._allocate_predicate_register()
+
+                option_const = self.builder.emit_const(option, switch_ir_typ)
                 next_test_block = self.builder.new_block()
+
                 self.emit(
                     ir.CJump(
-                        test_value, "==", option, target_block, next_test_block
+                        test_value, "==", option_const, target_block, next_test_block
                     )
                 )
+
+                # Annotate the next test block (continues checking)
                 self.builder.set_block(next_test_block)
+                self._annotate_block_with_predicate(next_test_block, parent_pred_reg, parent_mask, "switch_test", parent_pred_reg)
 
         # If all else fails, jump to the default case if we have it.
         target_block = self.switch_options.get("default", final_block)
         self.builder.emit_jump(target_block)
 
-        # Set continuation point:
+        # Set continuation point (reconvergence)
         self.builder.set_block(final_block)
+        self._annotate_block_with_predicate(final_block, parent_pred_reg, parent_mask, "switch_reconverge", parent_pred_reg)
 
         # Restore state:
         self.switch_options = backup
 
+
     def gen_while(self, stmt: statements.While) -> None:
-        """Generate while statement code"""
-        condition_block = self.builder.new_block()
+        """Generate while-statement code (check-before-run)."""
+        check_block = self.builder.new_block()
         body_block = self.builder.new_block()
-        final_block = self.builder.new_block()
-        self.break_block_stack.append(final_block)
-        self.continue_block_stack.append(condition_block)
-        self.builder.emit_jump(condition_block)
-        self.builder.set_block(condition_block)
-        self.gen_condition(stmt.condition, body_block, final_block)
+        end_block = self.builder.new_block()
+
+        # push control flow context
+        self.break_block_stack.append(end_block)
+        self.continue_block_stack.append(check_block)
+
+        # Jump to condition first
+        self.builder.emit_jump(check_block)
+
+        # Condition check
+        self.builder.set_block(check_block)
+
+        # <<<GPU ALTERATION >>> [REPLACED]
+        self.gen_condition(stmt.condition, body_block, body_block)
+        # self.gen_condition(stmt.condition, body_block, body_block)
+
+        # Loop body
         self.builder.set_block(body_block)
         self.gen_stmt(stmt.body)
-        self.builder.emit_jump(condition_block)
-        self.builder.set_block(final_block)
+
+        # <<< GPU ALTERATION >>> [ADDED]
+        self.gen_pcondition(body_block, end_block, check_block)
+
+        # self.builder.emit_jump(check_block)
+
+        # Continue after loop
+        self.builder.set_block(end_block)
+
+        # pop stacks
         self.break_block_stack.pop()
         self.continue_block_stack.pop()
 
@@ -646,7 +849,8 @@ class CCodeGenerator:
         self.builder.emit_jump(body_block)
         self.builder.set_block(body_block)
         self.gen_stmt(stmt.body)
-        self.gen_condition(stmt.condition, body_block, final_block)
+        # self.gen_condition(stmt.condition, body_block, final_block)
+        self.gen_pcondition(body_block, final_block, body_block)
         self.builder.set_block(final_block)
         self.break_block_stack.pop()
         self.continue_block_stack.pop()
@@ -670,10 +874,12 @@ class CCodeGenerator:
 
         # Condition:
         self.builder.set_block(condition_block)
-        if stmt.condition:
-            self.gen_condition(stmt.condition, body_block, final_block)
-        else:
-            self.builder.emit_jump(body_block)
+        # if stmt.condition:
+        #     self.gen_condition(stmt.condition, body_block, final_block)
+        # else:
+        #     self.builder.emit_jump(body_block)
+        self.gen_condition(stmt.condition, body_block, body_block)
+
 
         # Body:
         self.builder.set_block(body_block)
@@ -684,12 +890,15 @@ class CCodeGenerator:
         self.builder.set_block(iterator_block)
         if stmt.post:
             self.gen_expr(stmt.post, rvalue=True)
-        self.builder.emit_jump(condition_block)
+            # print("See You Tomorrow")
+        # self.builder.emit_jump(condition_block)
+        self.gen_pcondition(iterator_block, final_block, condition_block)
 
         # Continue here:
         self.builder.set_block(final_block)
         self.break_block_stack.pop()
         self.continue_block_stack.pop()
+
 
     def gen_label(self, stmt: statements.Label) -> None:
         """Generate code for a label"""
@@ -708,7 +917,19 @@ class CCodeGenerator:
         self.switch_options[value] = block
         self.builder.emit_jump(block)  # fall through
         self.builder.set_block(block)
+
+        # Annotate case block with predicate tracking
+        case_pred_reg = self._allocate_predicate_register()
+        parent_pred = self.predicate_stack[-1]['pred_reg'] if self.predicate_stack else 0
+        self._annotate_block_with_predicate(
+            block, case_pred_reg, f"(x == {value})", f"case_{value}", parent_pred
+        )
+        self._push_predicate_context(case_pred_reg, f"case_{value}")
+
         self.gen_stmt(stmt.statement)
+
+        # Pop case predicate context
+        self._pop_predicate_context()
 
     def gen_range_case(self, stmt: statements.Case) -> None:
         """Generate code for range case label inside a switch statement"""
@@ -724,7 +945,19 @@ class CCodeGenerator:
 
         self.builder.emit_jump(block)  # fall through
         self.builder.set_block(block)
+
+        # Annotate range case block with predicate tracking
+        case_pred_reg = self._allocate_predicate_register()
+        parent_pred = self.predicate_stack[-1]['pred_reg'] if self.predicate_stack else 0
+        self._annotate_block_with_predicate(
+            block, case_pred_reg, f"(x in {value1}..{value2})", f"case_{value1}_{value2}", parent_pred
+        )
+        self._push_predicate_context(case_pred_reg, f"case_{value1}_{value2}")
+
         self.gen_stmt(stmt.statement)
+
+        # Pop case predicate context
+        self._pop_predicate_context()
 
     def gen_default(self, stmt: statements.Default) -> None:
         """Generate code for case label inside a switch statement"""
@@ -733,7 +966,19 @@ class CCodeGenerator:
         self.switch_options["default"] = block
         self.builder.emit_jump(block)  # fall through
         self.builder.set_block(block)
+
+        # Annotate default block with predicate tracking
+        default_pred_reg = self._allocate_predicate_register()
+        parent_pred = self.predicate_stack[-1]['pred_reg'] if self.predicate_stack else 0
+        self._annotate_block_with_predicate(
+            block, default_pred_reg, "(default)", "default", parent_pred
+        )
+        self._push_predicate_context(default_pred_reg, "default")
+
         self.gen_stmt(stmt.statement)
+
+        # Pop default predicate context
+        self._pop_predicate_context()
 
     def gen_goto(self, stmt: statements.Goto) -> None:
         """Generate code for a goto statement"""
@@ -837,6 +1082,10 @@ class CCodeGenerator:
                 self.check_non_zero(condition, yes_block, no_block)
         else:
             self.check_non_zero(condition, yes_block, no_block)
+
+    def gen_pcondition(self, cur_block, yes_block, no_block):
+        """Generate switch based on condition."""
+        self.emit(ir.PJump(cur_block, yes_block, no_block))
 
     def check_non_zero(self, expr, yes_block, no_block):
         """Check an expression for being non-zero"""
