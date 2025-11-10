@@ -678,7 +678,6 @@ class CCodeGenerator:
         # UTILIZE STACK
         # print(len(self.predicate_stack))
 
-
         self.gen_bcondition(stmt.condition, yes_block, no_block, yes_pred_reg, no_pred_reg, parent_pred_reg)
 
         # === YES BLOCK (then branch) ===
@@ -727,7 +726,6 @@ class CCodeGenerator:
 
             # Pop predicate context
             self._pop_predicate_context()
-
 
             self.builder.emit_jump(final_block)
 
