@@ -826,7 +826,8 @@ class CCodeGenerator:
         self.builder.set_block(check_block)
 
         # <<<GPU ALTERATION >>> [REPLACED]
-        self.gen_condition(stmt.condition, body_block, body_block)
+
+        self.gen_bcondition(stmt.condition, body_block, body_block, 0, 0, 0)
         # self.gen_condition(stmt.condition, body_block, body_block)
 
         # Loop body
@@ -1077,6 +1078,46 @@ class CCodeGenerator:
                 }
                 op = op_map[condition.op]
                 self.emit(ir.CJump(lhs, op, rhs, yes_block, no_block))
+                # self.emit(ir.CJump(lhs, op, rhs, yes_block, no_block))
+                print(yes_block," ", type(yes_block))
+            else:
+                self.check_non_zero(condition, yes_block, no_block)
+        elif isinstance(condition, expressions.UnaryOperator):
+            if condition.op == "!":
+                # Simply swap yes and no here!
+                self.gen_condition(condition.a, no_block, yes_block)
+            else:
+                self.check_non_zero(condition, yes_block, no_block)
+        else:
+            self.check_non_zero(condition, yes_block, no_block)
+
+    def gen_scondition(self, condition, yes_block, no_block):
+        """Generate switch based on condition."""
+        if isinstance(condition, expressions.BinaryOperator):
+            if condition.op == "||":
+                middle_block = self.builder.new_block()
+                self.gen_condition(condition.a, yes_block, middle_block)
+                self.builder.set_block(middle_block)
+                self.gen_condition(condition.b, yes_block, no_block)
+            elif condition.op == "&&":
+                middle_block = self.builder.new_block()
+                self.gen_condition(condition.a, middle_block, no_block)
+                self.builder.set_block(middle_block)
+                self.gen_condition(condition.b, yes_block, no_block)
+            elif condition.op in ["<", ">", "==", "!=", "<=", ">="]:
+                lhs = self.gen_expr(condition.a, rvalue=True)
+                rhs = self.gen_expr(condition.b, rvalue=True)
+                op_map = {
+                    ">": ">",
+                    "<": "<",
+                    "==": "==",
+                    "!=": "!=",
+                    "<=": "<=",
+                    ">=": ">=",
+                }
+                op = op_map[condition.op]
+                self.emit(ir.SJump(lhs, op, rhs, yes_block, no_block))
+                # self.emit(ir.CJump(lhs, op, rhs, yes_block, no_block))
                 print(yes_block," ", type(yes_block))
             else:
                 self.check_non_zero(condition, yes_block, no_block)

@@ -392,33 +392,27 @@ def make_b(mnemonic, opcode):
     }
     return type(mnemonic + "_ins", (TwigBInstruction,), members)
 
-def make_cj(mnemonic, opcode):
-    # rd = Operand("rd", int)
-    rs1 = Operand("rs1", TwigRegister, read=True)
-    rs2 = Operand("rs2", TwigRegister, read=True)
-    # pred = Operand("pred", int)
+def make_pb(mnemonic, opcode):
+    # pred = Operand("pred", str) # CHANGE TO INT LATER
     target = Operand("target", str)
     # pred  = Operand("pred", TwigPredRegister, read=True)
     # pstart = Operand("pstart", int, read=True)
     # pend = Operand("pend", int, read=True)
     fprel = False
-    # syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", rs2, " ", pred, ",", " ", pstart, ",", " ", pend])
-    syntax = Syntax([mnemonic, " ", rs1, ",", " ", rs2, ",", " ", target])
+
+    syntax = Syntax([mnemonic, " ", "p", ",", " ", target])
+        # syntax = Syntax([mnemonic, " ", pred, ",", " ", target])
+
     tokens = [TwigBToken]
     patterns = {
-        "opcode": opcode,
-        "rs1": rs1,
-        "rs2": rs2,
+        # "pred": pred,
         "target": target
-        # "pred": pred
         # "pstart": pstart,
         # "pend": pend
     }
     members = {
         "syntax": syntax,
         "fprel": fprel,
-        "rs1": rs1,
-        "rs2": rs2,
         # "pred": pred,
         "target": target,
         # "pstart": pstart,
@@ -429,64 +423,7 @@ def make_cj(mnemonic, opcode):
     }
     return type(mnemonic + "_ins", (TwigBInstruction,), members)
 
-def make_pj(mnemonic, opcode):
-    # rd = Operand("rd", int)
-    rs1 = Operand("rs1", TwigRegister, read=True)
-    rs2 = Operand("rs2", TwigRegister, read=True)
-    # pred = Operand("pred", int)
-    target = Operand("target", str)
-    # pred  = Operand("pred", TwigPredRegister, read=True)
-    # pstart = Operand("pstart", int, read=True)
-    # pend = Operand("pend", int, read=True)
-    fprel = False
-    # syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", rs2, " ", pred, ",", " ", pstart, ",", " ", pend])
-    syntax = Syntax([mnemonic, " ", rs1, ",", " ", rs2, ",", " ", target])
-    tokens = [TwigBToken]
-    patterns = {
-        "opcode": opcode,
-        "rs1": rs1,
-        "rs2": rs2,
-        "target": target
-        # "pred": pred
-        # "pstart": pstart,
-        # "pend": pend
-    }
-    members = {
-        "syntax": syntax,
-        "fprel": fprel,
-        "rs1": rs1,
-        "rs2": rs2,
-        # "pred": pred,
-        "target": target,
-        # "pstart": pstart,
-        # "pend": pend,
-        "patterns": patterns,
-        "tokens": tokens,
-        "opcode": opcode,
-    }
-    return type(mnemonic + "_ins", (TwigBInstruction,), members)
-
-Beq_pj = make_pj("beq", 0b1000000)
-Bne_pj = make_pj("bne", 0b1000001)
-Bge_pj = make_pj("bge", 0b1000010)
-Bgeu_pj = make_pj("bgeu", 0b1000011)
-Blt_pj = make_pj("blt", 0b1000100)
-Bltu_pj = make_pj("bltu", 0b1000101)
-Beqf_pj = make_pj("beqf", 0b1001000)
-Bnef_pj = make_pj("bnef", 0b1001001)
-Bgef_pj = make_pj("bgef", 0b1001010)
-Bltf_pj = make_pj("bltf", 0b1001100)
-
-Beq_cj = make_cj("beq", 0b1000000)
-Bne_cj = make_cj("bne", 0b1000001)
-Bge_cj = make_cj("bge", 0b1000010)
-Bgeu_cj = make_cj("bgeu", 0b1000011)
-Blt_cj = make_cj("blt", 0b1000100)
-Bltu_cj = make_cj("bltu", 0b1000101)
-Beqf_cj = make_cj("beqf", 0b1001000)
-Bnef_cj = make_cj("bnef", 0b1001001)
-Bgef_cj = make_cj("bgef", 0b1001010)
-Bltf_cj = make_cj("bltf", 0b1001100)
+Jpnz = make_pb("jpnz", 0b1000000)
 
 Beq = make_b("beq", 0b1000000)
 Bne = make_b("bne", 0b1000001)
@@ -970,6 +907,13 @@ def pattern_const_f32(context, tree):
     context.emit(Lli(d,lower_12))
     return d
 
+@isa.pattern("stm", "PJMP(reg, CONSTI32)", size=6)
+def pattern_pjmp(context, tree):
+    print("SEE YOU TOMORROW")
+    cur_block, lab_yes, lab_no = tree.value
+    context.emit(Jpnz(lab_yes.name))
+    # context.emit(Jpnz(cur_block, lab_yes))
+
 @isa.pattern("stm", "BJMP(reg, reg)", size=10)
 def pattern_bjmp(context, tree, c0, c1):
     # print(tree.value)
@@ -998,31 +942,6 @@ def pattern_bjmp(context, tree, c0, c1):
     tgt = yes_label #start by jumping to if, if needs to jump to else after (covered by gen_if)
     context.emit(Bl(R0, tgt.name, jumps=[tgt]))
     # context.emit(jmp_ins)
-
-
-@isa.pattern("stm", "CJMPI32(reg, reg)", size=4)
-@isa.pattern("stm", "CJMPI16(reg, reg)", size=4)
-@isa.pattern("stm", "CJMPI8(reg, reg)", size=4)
-def pattern_cjmpi(context, tree, c0, c1):
-    print(tree.value)
-    op, yes_label, no_label = tree.value
-    opnames = {"<": Blt_cj, 
-            #    ">": Bgt, 
-               "==": Beq_cj, 
-               "!=": Bne_cj, 
-               ">=": Bge_cj, 
-            #    "<=": Ble
-               }
-    Bop = opnames[op]
-    # print(Bop)
-    # print(c0)
-    # print(c1)
-    # print(yes_label)
-    context.emit(Bop(c0, c1, str(yes_label)))
-    # jmp_ins = Bl(no_label.name, jumps=[no_label])
-    # context.emit(Bop(c0, c1, yes_label.name, jumps=[yes_label, jmp_ins]))
-    # context.emit(jmp_ins)
-
 
 # @isa.pattern("stm", "CJMPU8(reg, reg)", size=4)
 # @isa.pattern("stm", "CJMPU16(reg, reg)", size=4)

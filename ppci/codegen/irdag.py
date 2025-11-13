@@ -262,14 +262,17 @@ class SelectionGraphBuilder:
         pass  # This is purely an annotation, do not add to DAG
 
     def do_p_jump(self, node):
-        """ Process predicated jump (PJump) into the DAG.
-        This is a terminal instruction.
-        """
+    #     """ Process predicated jump (PJump) into the DAG.
+    #     This is a terminal instruction.
+    #     """
+
         sgnode = self.new_node("PJMP", None)
         sgnode.value = (
-            self.function_info.label_map[node.lab_yes],
-            self.function_info.label_map[node.lab_no],
+            self.function_info.label_map[node.cur_block], # (main_blockX == 0 ?)
+            self.function_info.label_map[node.lab_yes], # main_block_YES
+            self.function_info.label_map[node.lab_no], # main_block_NO
         )
+
         self.chain(sgnode)
         self.debug_db.map(node, sgnode)
 
@@ -281,11 +284,11 @@ class SelectionGraphBuilder:
         rhs = self.get_value(node.b)
         sgnode = self.new_node("BJMP", None, lhs, rhs)
         sgnode.value = (
-            node.cond,
-            self.function_info.label_map[node.lab_yes],
-            self.function_info.label_map[node.lab_no],
-            node.pred_yes_id,
-            node.pred_no_id,
+            node.cond, # (tmpload < num_X ?)
+            self.function_info.label_map[node.lab_yes], # main_block_YES
+            self.function_info.label_map[node.lab_no], # main_block_NO
+            node.pred_yes_id, # main_blockP_YES
+            node.pred_no_id, # main_blockP_NO
             0 #TODO: update to parent predicate when all nodes contain predicates
         )
 
