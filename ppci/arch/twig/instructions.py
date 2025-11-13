@@ -426,6 +426,50 @@ def make_pb(mnemonic, opcode):
     }
     return type(mnemonic + "_ins", (TwigBInstruction,), members)
 
+def make_sb(mnemonic, opcode):
+    pred = Operand("pred", int)
+    rs1 = Operand("rs1", TwigRegister, read=True)
+    rs2 = Operand("rs2", TwigRegister, read=True)
+    # pred  = Operand("pred", TwigPredRegister, read=True)
+    # pstart = Operand("pstart", int, read=True)
+    # pend = Operand("pend", int, read=True)
+    fprel = False
+    # syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", rs2, " ", pred, ",", " ", pstart, ",", " ", pend])
+    syntax = Syntax([mnemonic, " ", pred, ",", " ", rs1, ",", " ", rs2])
+    tokens = [TwigBToken]
+    patterns = {
+        "opcode": opcode,
+        "pred": pred,
+        "rs1": rs1,
+        "rs2": rs2
+        # "pstart": pstart,
+        # "pend": pend
+    }
+    members = {
+        "syntax": syntax,
+        "fprel": fprel,
+        "pred": pred,
+        "rs1": rs1,
+        "rs2": rs2,
+        # "pstart": pstart,
+        # "pend": pend,
+        "patterns": patterns,
+        "tokens": tokens,
+        "opcode": opcode,
+    }
+    return type(mnemonic + "_ins", (TwigBInstruction,), members)
+
+Beq_s = make_sb("beq", 0b1000000)
+Bne_s = make_sb("bne", 0b1000001)
+Bge_s = make_sb("bge", 0b1000010)
+Bgeu_s = make_sb("bgeu", 0b1000011)
+Blt_s = make_sb("blt", 0b1000100)
+Bltu_s = make_sb("bltu", 0b1000101)
+Beqf_s = make_sb("beqf", 0b1001000)
+Bnef_s = make_sb("bnef", 0b1001001)
+Bgef_s = make_sb("bgef", 0b1001010)
+Bltf_s = make_sb("bltf", 0b1001100)
+
 Jpnz = make_pb("jpnz", 0b1100000)
 
 Beq = make_b("beq", 0b1000000)
@@ -947,23 +991,20 @@ def pattern_bjmp(context, tree, c0, c1):
     context.emit(Bl(R0, tgt.name, jumps=[tgt]))
     # context.emit(jmp_ins)
 
-# @isa.pattern("stm", "CJMPU8(reg, reg)", size=4)
-# @isa.pattern("stm", "CJMPU16(reg, reg)", size=4)
-# @isa.pattern("stm", "CJMPU32(reg, reg)", size=4)
-# def pattern_cjmpu(context, tree, c0, c1):
-#     op, yes_label, no_label = tree.value
-#     opnames = {
-#         "<": Bltu,
-#         # ">": Bgtu,
-#         "==": Beq,
-#         "!=": Bne,
-#         ">=": Bgeu,
-#         # "<=": Bleu,
-#     }
-#     Bop = opnames[op]
-#     jmp_ins = B(no_label.name, jumps=[no_label])
-#     context.emit(Bop(c0, c1, yes_label.name, jumps=[yes_label, jmp_ins]))
-#     context.emit(jmp_ins)
+@isa.pattern("stm", "SJMP(reg, reg)", size=10)
+def pattern_sjmp(context, tree, c0, c1):
+    op, yes_label, yes_pred = tree.value
+    opnames = {"<": Blt_s,
+               #">": Bgt, #TODO swap the order of registers for these
+               "==": Beq_s,
+               "!=": Bne_s,
+               ">=": Bge_s
+               #"<=": Ble #TODO: swap the order of registers for these
+               }
+    Bop = opnames[op]
+    context.emit(Bop(yes_pred, c0, c1))
+    tgt = yes_label #start by jumping to if, if needs to jump to else after (covered by gen_if)
+    context.emit(Bl(R0, tgt.name, jumps=[tgt]))
 
 @isa.pattern(
     "reg",

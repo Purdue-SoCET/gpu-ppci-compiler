@@ -1396,6 +1396,23 @@ class PJump(JumpBase):
             f"pjmp p{self.cur_pred} == 0 ? "
             + f"{self.lab_yes.name} : {self.lab_no.name}"
         )
+    
+class SJump(CJump):
+    """Conditional jump to true or false labels."""
+
+    def __init__(self, a, cond, b, lab_yes, pred_yes):
+        """
+        pred_yes and pred_no are the *integer IDs* of the
+        predicate registers to be written.
+        """
+        super().__init__(a, cond, b, lab_yes, lab_yes)
+        self.pred_yes_id = pred_yes
+
+    def __str__(self):
+        return (
+            f"sjmp {self.a.name} {self.cond} {self.b.name} : "
+            f"{self.lab_yes.name}"
+        )
 
 class BJump(CJump):
     """Conditional jump to true or false labels."""
@@ -1414,6 +1431,8 @@ class BJump(CJump):
             f"bjmp {self.a.name} {self.cond} {self.b.name} ? "
             f"{self.lab_yes.name} (p{self.pred_yes_id}) : {self.lab_no.name} (p{self.pred_no_id})"
         )
+
+
 
 class JumpTable(JumpBase):
     """Jump table.

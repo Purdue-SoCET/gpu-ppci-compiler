@@ -286,6 +286,22 @@ class SelectionGraphBuilder:
         self.chain(sgnode)
         self.debug_db.map(node, sgnode)
 
+    def do_s_jump(self, node):
+        """ Process predicated jump (SJump) into the DAG.
+        This is a terminal instruction.
+        """
+        lhs = self.get_value(node.a)
+        rhs = self.get_value(node.b)
+        sgnode = self.new_node("SJMP", None, lhs, rhs)
+        sgnode.value = (
+            node.cond, # (tmpload < num_X ?)
+            self.function_info.label_map[node.lab_yes], # main_block_YES
+            node.pred_yes_id # main_blockP_YES
+        )
+
+        self.chain(sgnode)
+        self.debug_db.map(node, sgnode)
+
     def do_b_jump(self, node):
         """ Process predicated jump (BJump) into the DAG.
         This is a terminal instruction.

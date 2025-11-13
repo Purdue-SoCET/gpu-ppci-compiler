@@ -827,8 +827,10 @@ class CCodeGenerator:
         self.builder.set_block(check_block)
 
         # <<<GPU ALTERATION >>> [REPLACED]
+        
+        self.gen_scondition(stmt.condition, body_block, body_block, 0, 0, 0)
+        ## TODO: IMPLEMENT SO BODY PREDICATE USED
 
-        self.gen_bcondition(stmt.condition, body_block, body_block, 0, 0, 0)
         # self.gen_condition(stmt.condition, body_block, body_block)
 
         # Loop body
@@ -1100,7 +1102,7 @@ class CCodeGenerator:
         else:
             self.check_non_zero(condition, yes_block, no_block)
 
-    def gen_scondition(self, condition, yes_block, no_block):
+    def gen_scondition(self, condition, yes_block, no_block, pred_yes, pred_no, pred_parent):
         """Generate switch based on condition."""
         if isinstance(condition, expressions.BinaryOperator):
             if condition.op == "||":
@@ -1125,9 +1127,7 @@ class CCodeGenerator:
                     ">=": ">=",
                 }
                 op = op_map[condition.op]
-                self.emit(ir.SJump(lhs, op, rhs, yes_block, no_block))
-                # self.emit(ir.CJump(lhs, op, rhs, yes_block, no_block))
-                print(yes_block," ", type(yes_block))
+                self.emit(ir.SJump(lhs, op, rhs, yes_block, pred_yes))
             else:
                 self.check_non_zero(condition, yes_block, no_block)
         elif isinstance(condition, expressions.UnaryOperator):
