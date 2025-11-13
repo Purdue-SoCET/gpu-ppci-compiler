@@ -658,6 +658,7 @@ class CCodeGenerator:
         # Get parent predicate register and mask
         parent_pred_reg = self.predicate_stack[-1]['pred_reg'] if self.predicate_stack else 0
         parent_mask = self._get_current_predicate_mask()
+        # print(parent_mask)
 
         # Allocate separate predicate registers for then and else branches
         yes_pred_reg = self._allocate_predicate_register()
@@ -834,8 +835,16 @@ class CCodeGenerator:
         self.builder.set_block(body_block)
         self.gen_stmt(stmt.body)
 
+
+        #     def _get_current_predicate_mask(self):
+        # """Get the current active predicate mask."""
+        # if self.predicate_stack:
+        #     return self.predicate_stack[-1]['pred_mask']
+        # return "11111"  # All ones (all threads active)
+
         # <<< GPU ALTERATION >>> [ADDED]
-        self.gen_pcondition(body_block, end_block, check_block)
+        cur_pred = self.predicate_stack[-1]['pred_reg']
+        self.gen_pcondition(cur_pred, end_block, check_block)
 
         # self.builder.emit_jump(check_block)
 
@@ -1130,9 +1139,9 @@ class CCodeGenerator:
         else:
             self.check_non_zero(condition, yes_block, no_block)
 
-    def gen_pcondition(self, cur_block, yes_block, no_block):
+    def gen_pcondition(self, cur_pred, yes_block, no_block):
         """Generate switch based on condition."""
-        self.emit(ir.PJump(cur_block, yes_block, no_block))
+        self.emit(ir.PJump(cur_pred, yes_block, no_block))
 
     def gen_bcondition(self, condition, yes_block, no_block, pred_yes, pred_no, pred_parent):
         """Generate switch based on condition."""

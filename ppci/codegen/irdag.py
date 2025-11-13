@@ -262,17 +262,27 @@ class SelectionGraphBuilder:
         pass  # This is purely an annotation, do not add to DAG
 
     def do_p_jump(self, node):
-    #     """ Process predicated jump (PJump) into the DAG.
-    #     This is a terminal instruction.
-    #     """
+        """ Process predicated jump (PJump) into the DAG.
+        This is a terminal instruction.
+        """
 
-        sgnode = self.new_node("PJMP", None)
+        if node.lab_yes not in self.function_info.label_map:
+            print(f"WARNING: {node.lab_yes} was missing. Creating placeholder.")
+            # You must verify what object type 'label_map' expects. 
+            # Usually it is a Label object from ppci.ir or similar.
+            self.function_info.label_map[node.lab_yes] = node.lab_yes
+
+        # Check if the 'no' label exists (good practice to check both)
+        if node.lab_no not in self.function_info.label_map:
+            print(f"WARNING: {node.lab_no} was missing. Creating placeholder.")
+            self.function_info.label_map[node.lab_no] = node.lab_no
+
+        sgnode = self.new_node("PJMP", None) # (main_blockX == 0 ?)
         sgnode.value = (
-            self.function_info.label_map[node.cur_block], # (main_blockX == 0 ?)
-            self.function_info.label_map[node.lab_yes], # main_block_YES
-            self.function_info.label_map[node.lab_no], # main_block_NO
+            node.cur_pred,
+            self.function_info.label_map[node.lab_yes],
+            self.function_info.label_map[node.lab_no],
         )
-
         self.chain(sgnode)
         self.debug_db.map(node, sgnode)
 

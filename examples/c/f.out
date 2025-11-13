@@ -52,10 +52,8 @@
        lli, x11, 512
        add x11, x8, x11
        sw x9, 0(x11)
-       jpnz p, main_block4
- main_block4:
-       addi x10, x0, 0
-       jal x0, main_epilog
+       jpnz p0, main_block4
+       jal x0, main_block2
  main_epilog:
        lw x9, 0(x8)
        lui, x11, 0

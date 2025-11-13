@@ -394,18 +394,20 @@ def make_b(mnemonic, opcode):
 
 def make_pb(mnemonic, opcode):
     # pred = Operand("pred", str) # CHANGE TO INT LATER
+    cur_pred = Operand("cur_pred", int)
     target = Operand("target", str)
     # pred  = Operand("pred", TwigPredRegister, read=True)
     # pstart = Operand("pstart", int, read=True)
     # pend = Operand("pend", int, read=True)
     fprel = False
 
-    syntax = Syntax([mnemonic, " ", "p", ",", " ", target])
+    syntax = Syntax([mnemonic, " ", "p", cur_pred, ",", " ", target])
         # syntax = Syntax([mnemonic, " ", pred, ",", " ", target])
 
     tokens = [TwigBToken]
     patterns = {
         # "pred": pred,
+        "cur_pred": cur_pred,
         "target": target
         # "pstart": pstart,
         # "pend": pend
@@ -414,6 +416,7 @@ def make_pb(mnemonic, opcode):
         "syntax": syntax,
         "fprel": fprel,
         # "pred": pred,
+        "cur_pred": cur_pred,
         "target": target,
         # "pstart": pstart,
         # "pend": pend,
@@ -423,7 +426,7 @@ def make_pb(mnemonic, opcode):
     }
     return type(mnemonic + "_ins", (TwigBInstruction,), members)
 
-Jpnz = make_pb("jpnz", 0b1000000)
+Jpnz = make_pb("jpnz", 0b1100000)
 
 Beq = make_b("beq", 0b1000000)
 Bne = make_b("bne", 0b1000001)
@@ -910,9 +913,10 @@ def pattern_const_f32(context, tree):
 @isa.pattern("stm", "PJMP(reg, CONSTI32)", size=6)
 def pattern_pjmp(context, tree):
     print("SEE YOU TOMORROW")
-    cur_block, lab_yes, lab_no = tree.value
-    context.emit(Jpnz(lab_yes.name))
+    cur_pred, lab_yes, lab_no = tree.value
+    context.emit(Jpnz(cur_pred, lab_yes.name))
     # context.emit(Jpnz(cur_block, lab_yes))
+    context.emit(Bl(R0, lab_no.name, jumps=[lab_no]))
 
 @isa.pattern("stm", "BJMP(reg, reg)", size=10)
 def pattern_bjmp(context, tree, c0, c1):
