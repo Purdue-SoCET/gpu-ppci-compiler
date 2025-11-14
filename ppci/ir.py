@@ -1411,7 +1411,7 @@ class SJump(CJump):
     def __str__(self):
         return (
             f"sjmp {self.a.name} {self.cond} {self.b.name} : "
-            f"{self.lab_yes.name}"
+            f"{self.lab_yes.name} (p{self.pred_yes_id})"
         )
 
 class BJump(CJump):

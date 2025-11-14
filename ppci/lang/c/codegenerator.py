@@ -828,7 +828,8 @@ class CCodeGenerator:
 
         # <<<GPU ALTERATION >>> [REPLACED]
         
-        self.gen_scondition(stmt.condition, body_block, body_block, 0, 0, 0)
+        cur_pred = self.predicate_stack[-1]['pred_reg']
+        self.gen_scondition(stmt.condition, body_block, cur_pred)
         ## TODO: IMPLEMENT SO BODY PREDICATE USED
 
         # self.gen_condition(stmt.condition, body_block, body_block)
@@ -1102,42 +1103,20 @@ class CCodeGenerator:
         else:
             self.check_non_zero(condition, yes_block, no_block)
 
-    def gen_scondition(self, condition, yes_block, no_block, pred_yes, pred_no, pred_parent):
+    def gen_scondition(self, condition, yes_block, pred_yes):
         """Generate switch based on condition."""
-        if isinstance(condition, expressions.BinaryOperator):
-            if condition.op == "||":
-                middle_block = self.builder.new_block()
-                self.gen_condition(condition.a, yes_block, middle_block)
-                self.builder.set_block(middle_block)
-                self.gen_condition(condition.b, yes_block, no_block)
-            elif condition.op == "&&":
-                middle_block = self.builder.new_block()
-                self.gen_condition(condition.a, middle_block, no_block)
-                self.builder.set_block(middle_block)
-                self.gen_condition(condition.b, yes_block, no_block)
-            elif condition.op in ["<", ">", "==", "!=", "<=", ">="]:
-                lhs = self.gen_expr(condition.a, rvalue=True)
-                rhs = self.gen_expr(condition.b, rvalue=True)
-                op_map = {
-                    ">": ">",
-                    "<": "<",
-                    "==": "==",
-                    "!=": "!=",
-                    "<=": "<=",
-                    ">=": ">=",
-                }
-                op = op_map[condition.op]
-                self.emit(ir.SJump(lhs, op, rhs, yes_block, pred_yes))
-            else:
-                self.check_non_zero(condition, yes_block, no_block)
-        elif isinstance(condition, expressions.UnaryOperator):
-            if condition.op == "!":
-                # Simply swap yes and no here!
-                self.gen_condition(condition.a, no_block, yes_block)
-            else:
-                self.check_non_zero(condition, yes_block, no_block)
-        else:
-            self.check_non_zero(condition, yes_block, no_block)
+        lhs = self.gen_expr(condition.a, rvalue=True)
+        rhs = self.gen_expr(condition.b, rvalue=True)
+        op_map = {
+            ">": ">",
+            "<": "<",
+            "==": "==",
+            "!=": "!=",
+            "<=": "<=",
+            ">=": ">=",
+        }
+        op = op_map[condition.op]
+        self.emit(ir.SJump(lhs, op, rhs, yes_block, pred_yes))
 
     def gen_pcondition(self, cur_pred, yes_block, no_block):
         """Generate switch based on condition."""
