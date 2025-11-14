@@ -4,6 +4,9 @@ int main() {
     while (a != 0) {
         a--;
     }
+    // do {
+    //     a--;
+    // } while(a != 0);
     // for(int i = 0; i < 10; i++) {
     //     a += i;
     // }

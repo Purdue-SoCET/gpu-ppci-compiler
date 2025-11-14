@@ -956,7 +956,7 @@ def pattern_const_f32(context, tree):
 
 @isa.pattern("stm", "PJMP(reg, CONSTI32)", size=6)
 def pattern_pjmp(context, tree):
-    print("SEE YOU TOMORROW")
+    # print("SEE YOU TOMORROW")
     cur_pred, lab_yes, lab_no = tree.value
     context.emit(Jpnz(cur_pred, lab_yes.name))
     # context.emit(Jpnz(cur_block, lab_yes))

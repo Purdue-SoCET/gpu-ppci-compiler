@@ -1383,20 +1383,6 @@ class CJump(JumpBase):
             + f"{self.lab_yes.name} : {self.lab_no.name}"
         )
 
-class PJump(JumpBase):
-    """Conditional jump to true or false labels."""
-    def __init__(self, cur_pred, lab_yes, lab_no):
-        super().__init__()
-        self.cur_pred = cur_pred
-        self.lab_yes = lab_yes
-        self.lab_no = lab_no
-
-    def __str__(self):
-        return (
-            f"pjmp p{self.cur_pred} == 0 ? "
-            + f"{self.lab_yes.name} : {self.lab_no.name}"
-        )
-    
 class SJump(CJump):
     """Conditional jump to true or false labels."""
 
@@ -1412,6 +1398,19 @@ class SJump(CJump):
         return (
             f"sjmp {self.a.name} {self.cond} {self.b.name} : "
             f"{self.lab_yes.name} (p{self.pred_yes_id})"
+        )
+    
+class PJump(CJump):
+    """Conditional jump to true or false labels."""
+    def __init__(self, a, cond, b, lab_yes, lab_no, pred_yes, pred_no, pred_parent):
+        super().__init__(a, cond, b, lab_yes, lab_no)
+        self.pred_yes_id = pred_yes
+        self.pred_no_id = pred_no
+
+    def __str__(self):
+        return (
+            f"pjmp p{self.pred_yes_id} == 0 ? "
+            + f"{self.lab_yes.name} : {self.lab_no.name}"
         )
 
 class BJump(CJump):
