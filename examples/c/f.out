@@ -1,77 +1,84 @@
-       .section data
-       .section data
-       .section code
-       global main
-       type main func
- main:
-       lui, x11, 255
-       lmi, x11, 4095
-       lli, x11, 2672
-       add x2, x2, x11
-       lui, x11, 0
-       lmi, x11, 0
-       lli, x11, 128
-       add x11, x2, x11
-       sw x1, 0(x11)
-       sw x8, 0(x2)
-       lui, x11, 0
-       lmi, x11, 0
-       lli, x11, 256
-       add x8, x2, x11
-       sw x9, 0(x8)
- main_block0:
-       jal x0, main_block1
- main_block1:
-       addi x9, x0, 10
-       lui, x11, 0
-       lmi, x11, 0
-       lli, x11, 512
-       add x11, x8, x11
-       sw x9, 0(x11)
-       jal x0, main_block2
- main_block2:
-       lui, x11, 0
-       lmi, x11, 0
-       lli, x11, 512
-       add x11, x8, x11
-       lw x9, 0(x11)
-       addi x10, x0, 0
-       bne 0, x9, x10
-       jal x0, main_block3
- main_block3:
-       lui, x11, 0
-       lmi, x11, 0
-       lli, x11, 512
-       add x11, x8, x11
-       lw x9, 0(x11)
-       addi x10, x0, 1
-       sub x9, x9, x10
-       lui, x11, 0
-       lmi, x11, 0
-       lli, x11, 512
-       add x11, x8, x11
-       sw x9, 0(x11)
-       lui, x11, 0
-       lmi, x11, 0
-       lli, x11, 512
-       add x11, x8, x11
-       lw x9, 0(x11)
-       jpnz p0, main_block4
-       jal x0, main_block2
- main_block4:
-       addi x10, x0, 0
-       jal x0, main_epilog
- main_epilog:
-       lw x9, 0(x8)
-       lui, x11, 0
-       lmi, x11, 0
-       lli, x11, 128
-       add x11, x2, x11
-       lw x1, 0(x11)
-       lw x8, 0(x2)
-       lui, x11, 0
-       lmi, x11, 0
-       lli, x11, 1424
-       add x2, x2, x11
-       jalr x0,x1, 0
-       .align 4
+Compilation unit with 5 declarations
+    Function storage=extern typ=Function-type name=threadId
+        Function-type
+            Basic type int
+    Function storage=None typ=Function-type name=main
+        Function-type
+            Basic type int
+        Compound
+            Declaration statement
+                Variable [storage=None typ=Basic type float name=a]
+                    Basic type float
+                    BinaryOperator / <Basic type float>
+                        Cast Basic type float
+                            Basic type float
+                            Numeric literal 3.14 <Basic type double>
+                                Basic type double
+                        Cast Basic type float
+                            Basic type float
+                            Numeric literal 2 <Basic type int>
+                                Basic type int
+                        Basic type float
+            Declaration statement
+                Variable [storage=None typ=Basic type float name=b]
+                    Basic type float
+                    FunctionCall
+                        Cast Pointer-type
+                            Pointer-type
+                                Function-type
+                                    Parameter [typ=Basic type float name=None]
+                                        Basic type float
+                                    Basic type float
+                            Id cos <Function-type>
+                        Id a <Basic type float>
+            Declaration statement
+                Variable [storage=None typ=Basic type float name=c]
+                    Basic type float
+                    FunctionCall
+                        Cast Pointer-type
+                            Pointer-type
+                                Function-type
+                                    Parameter [typ=Basic type float name=None]
+                                        Basic type float
+                                    Basic type float
+                            Id sin <Function-type>
+                        Id a <Basic type float>
+            Declaration statement
+                Variable [storage=None typ=Basic type float name=d]
+                    Basic type float
+                    FunctionCall
+                        Cast Pointer-type
+                            Pointer-type
+                                Function-type
+                                    Parameter [typ=Basic type float name=None]
+                                        Basic type float
+                                    Basic type float
+                            Id isqrt <Function-type>
+                        Id a <Basic type float>
+            Declaration statement
+                Variable [storage=None typ=Basic type int name=x]
+                    Basic type int
+                    FunctionCall
+                        Cast Pointer-type
+                            Pointer-type
+                                Function-type
+                                    Basic type int
+                            Id threadId <Function-type>
+            Return
+                Numeric literal 0 <Basic type int>
+                    Basic type int
+    Function storage=extern typ=Function-type name=cos
+        Function-type
+            Parameter [typ=Basic type float name=None]
+                Basic type float
+            Basic type float
+    Function storage=extern typ=Function-type name=sin
+        Function-type
+            Parameter [typ=Basic type float name=None]
+                Basic type float
+            Basic type float
+    Function storage=extern typ=Function-type name=isqrt
+        Function-type
+            Parameter [typ=Basic type float name=None]
+                Basic type float
+            Basic type float

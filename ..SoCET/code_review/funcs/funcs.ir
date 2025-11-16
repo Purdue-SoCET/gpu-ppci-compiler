@@ -1,33 +1,59 @@
 module main;
 
+external function i32 threadId();
+
 external function f32 cos(f32);
+
+external function f32 sin(f32);
+
+external function f32 isqrt(f32);
 
 global function i32 main() {
   main_block0: {
     blob<4:4> alloca = alloc 4 bytes aligned at 4;
     ptr alloca_addr = &alloca;
-    blob<4:4> alloca_8 = alloc 4 bytes aligned at 4;
-    ptr alloca_addr_9 = &alloca_8;
+    blob<4:4> alloca_19 = alloc 4 bytes aligned at 4;
+    ptr alloca_addr_20 = &alloca_19;
+    blob<4:4> alloca_21 = alloc 4 bytes aligned at 4;
+    ptr alloca_addr_22 = &alloca_21;
+    blob<4:4> alloca_23 = alloc 4 bytes aligned at 4;
+    ptr alloca_addr_24 = &alloca_23;
+    blob<4:4> alloca_25 = alloc 4 bytes aligned at 4;
+    ptr alloca_addr_26 = &alloca_25;
     jmp main_block1;
   }
 
   main_block1: {
     pred0 = pred0 AND <condition> // root;
     f64 num = 3.14;
+    f32 typecast = cast num;
     i32 num_0 = 2;
-    f64 typecast = cast num_0;
-    f64 tmp = num / typecast;
-    f32 typecast_1 = cast tmp;
-    store typecast_1, alloca_addr;
+    f32 typecast_1 = cast num_0;
+    f32 tmp = typecast / typecast_1;
+    store tmp, alloca_addr;
     ptr num_2 = 4;
     ptr tmp_3 = alloca_addr + num_2;
     f32 tmp_load = load alloca_addr;
     f32 result = call cos(tmp_load);
-    store result, alloca_addr_9;
+    store result, alloca_addr_20;
     ptr num_4 = 4;
-    ptr tmp_5 = alloca_addr_9 + num_4;
-    i32 num_6 = 0;
-    return num_6;
+    ptr tmp_5 = alloca_addr_20 + num_4;
+    f32 tmp_load_6 = load alloca_addr;
+    f32 result_7 = call sin(tmp_load_6);
+    store result_7, alloca_addr_22;
+    ptr num_8 = 4;
+    ptr tmp_9 = alloca_addr_22 + num_8;
+    f32 tmp_load_10 = load alloca_addr;
+    f32 result_11 = call isqrt(tmp_load_10);
+    store result_11, alloca_addr_24;
+    ptr num_12 = 4;
+    ptr tmp_13 = alloca_addr_24 + num_12;
+    i32 result_14 = call threadId();
+    store result_14, alloca_addr_26;
+    ptr num_15 = 4;
+    ptr tmp_16 = alloca_addr_26 + num_15;
+    i32 num_17 = 0;
+    return num_17;
   }
 
 }

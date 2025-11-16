@@ -1,9 +1,13 @@
+extern int threadId();
+
 int main() {
     
-    int a = 10;
-    while(a != 0) {
-        a--;
-    }
+    float a = (float)3.14 / 2;
+    float b = cos(a);
+    float c = sin(a);
+    float d = isqrt(a);
+
+    int x = threadId();
 
     return 0;
 }
