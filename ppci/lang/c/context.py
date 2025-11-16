@@ -51,7 +51,7 @@ class CContext:
             BasicType.ULONG: (long_size, long_alignment),
             BasicType.LONGLONG: (longlong_size, longlong_alignment),
             BasicType.ULONGLONG: (longlong_size, longlong_alignment),
-            # BasicType.FLOAT: (4, 4),
+            BasicType.FLOAT: (4, 4),
             # BasicType.DOUBLE: (double_size, double_alignment),
             # BasicType.LONGDOUBLE: (10, 10),
             BasicType.VA_LIST: (ptr_size, ptr_size),

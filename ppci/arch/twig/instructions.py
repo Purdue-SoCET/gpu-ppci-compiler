@@ -207,6 +207,22 @@ class FtoI(TwigFInstruction):
         tokens[0][13:19] = self.rs1.num
         return tokens[0].encode()
 
+class TwigCRInstruction(Instruction):
+    tokens = [TwigCRToken]
+    isa = isa
+
+class Csrr(TwigCRInstruction):
+    rd = Operand("rd", TwigRegister, write=True)
+    rs1 = Operand("rs1", int)
+    syntax = Syntax(["csrr", " ", rd, ",", " ", rs1])
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b1011000
+        tokens[0][7:13] = self.rd.num
+        tokens[0][13:19] = self.rs1.num
+        return tokens[0].encode()
+
 #loads
 def make_load(mnemonic, opcode):
     rd = Operand("rd", TwigRegister, write=True)
@@ -636,6 +652,28 @@ def pattern_int_to_float(context, tree, c0):
     context.emit(ItoF(d, c0))
     return d
 
+
+def call_internal1(context, name, a, clobbers=()):
+    from .registers import R10, R12, LR
+    d = context.new_reg(TwigRegister)
+    context.move(R12, a)
+    context.emit(RegisterUseDef(uses=(R12,)))
+    context.emit(Global(name))
+    context.emit(Bl(LR, name, clobbers=clobbers))
+    context.emit(RegisterUseDef(uses=(R10,)))
+    context.move(d, R10)
+    return d
+
+@isa.pattern("reg", "NEGF64(reg)", size=20)
+@isa.pattern("reg", "NEGF32(reg)", size=20)
+def pattern_neg_f32(context, tree, c0):
+    return call_internal1(
+        context, "float32_neg", c0, clobbers=context.arch.caller_save
+    )
+
+@isa.pattern("reg", "F64TOF32(reg)", size=10)
+def pattern_i32_to_i32(context, tree, c0):
+    return c0
 
 @isa.pattern("reg", "F32TOI32(reg)", size=2)
 @isa.pattern("reg", "F32TOU32(reg)", size=2)

@@ -14,6 +14,7 @@ from .asm_printer import TwigAsmPrinter
 from .instructions import (
     #rtype
     Add,
+    Csrr,
     Sub,
     Mul,
     Div,
@@ -458,7 +459,18 @@ class TwigArch(Architecture):
             dst = rv[1]
             yield impl(dst, src)
             return
-
+        if label == 'threadIdx':
+            ret_vreg = rv[1]
+            yield Csrr(ret_vreg, 1)
+            return
+        if label == 'blockIdx':
+            ret_vreg = rv[1]
+            yield Csrr(ret_vreg, 2)
+            return
+        if label == 'blockDim':
+            ret_vreg = rv[1]
+            yield Csrr(ret_vreg, 3)
+            return
         # --- If not custom calls, proceed with a standard function call ---
         arg_types = [a[0] for a in args]
         arg_locs = self.determine_arg_locations(arg_types)

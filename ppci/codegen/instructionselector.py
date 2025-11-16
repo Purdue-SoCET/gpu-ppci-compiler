@@ -100,6 +100,7 @@ ops = [
     "F64TO",
     "FPREL",
     "SPREL",  # Frame/stack pointer relative
+    "BJMP",
 ]
 
 # Add all possible terminals:
