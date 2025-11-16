@@ -41,6 +41,7 @@ class CCodeGenerator:
         self.predicate_stack = []  # Stack of active predicate contexts
         self.predicate_counter = 0  # Counter for predicate register allocation
         self.block_predicates = {}  # Maps blocks to their predicate info
+        self.freed_predicate_registers = []  # Pool of freed registers for reuse
         int_types = {2: ir.i16, 4: ir.i32, 8: ir.i64}
         uint_types = {2: ir.i16, 4: ir.u32, 8: ir.u64}
         int_size = self.context.arch_info.get_size("int")
@@ -65,9 +66,20 @@ class CCodeGenerator:
         self._constant_evaluator = LinkTimeExpressionEvaluator(self)
 
     def _allocate_predicate_register(self):
-        """Allocate a new predicate register number."""
+        """Allocate a new predicate register number, reusing freed ones."""
+        # Try to reuse a freed register first
+        if self.freed_predicate_registers:
+            pred_num = self.freed_predicate_registers.pop(0)
+            self.logger.info(f"REUSING predicate register: pred{pred_num}")
+            return pred_num
+
+        # Allocate new register
+        if self.predicate_counter >= 32:
+            raise Exception(f"Predicate register exhaustion! Already allocated {self.predicate_counter} registers. Hardware limit is 32.")
+
         pred_num = self.predicate_counter
         self.predicate_counter += 1
+        self.logger.info(f"ALLOCATING new predicate register: pred{pred_num}")
         return pred_num
 
     def _push_predicate_context(self, pred_reg, pred_mask_str):
@@ -91,6 +103,13 @@ class CCodeGenerator:
         if self.predicate_stack:
             return self.predicate_stack[-1]['pred_mask']
         return "11111"  # All ones (all threads active)
+
+    def _free_predicate_registers(self, *pred_regs):
+        """Free predicate registers for reuse after reconvergence."""
+        for pred_reg in pred_regs:
+            if pred_reg != 0 and pred_reg not in self.freed_predicate_registers:
+                self.freed_predicate_registers.append(pred_reg)
+                self.logger.info(f"FREED predicate register: pred{pred_reg} (available for reuse)")
 
     def _format_predicate_binary(self, value):
         """Format a predicate value as a binary string (5 bits for visualization)."""
@@ -473,6 +492,7 @@ class CCodeGenerator:
         self.predicate_stack = []
         self.predicate_counter = 0
         self.block_predicates = {}
+        self.freed_predicate_registers = []  # Clear freed register pool
 
         # Save current function for later on..
         self.current_function = function
@@ -737,6 +757,9 @@ class CCodeGenerator:
         reconverge_pred_reg = parent_pred_reg
         reconverge_mask = parent_mask
         self._annotate_block_with_predicate(final_block, reconverge_pred_reg, reconverge_mask, "reconverge", parent_pred_reg)
+
+        # Free the predicates that are no longer needed (enable register reuse)
+        self._free_predicate_registers(yes_pred_reg, no_pred_reg)
 
         self.logger.info(f"PREDICATE STACK (after reconverge): {[c['pred_reg'] for c in self.predicate_stack]}")
 
