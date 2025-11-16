@@ -28,15 +28,21 @@
        lli, x11, 512
        add x11, x8, x11
        sw x9, 0(x11)
+       addi x9, x0, 0
+       lui, x11, 0
+       lmi, x11, 0
+       lli, x11, 384
+       add x11, x8, x11
+       sw x9, 0(x11)
        jal x0, main_block2
  main_block2:
        lui, x11, 0
        lmi, x11, 0
-       lli, x11, 512
+       lli, x11, 384
        add x11, x8, x11
        lw x9, 0(x11)
-       addi x10, x0, 0
-       bne 0, x9, x10
+       addi x10, x0, 10
+       blt 0, x9, x10
        jal x0, main_block3
  main_block3:
        lui, x11, 0
@@ -51,16 +57,29 @@
        lli, x11, 512
        add x11, x8, x11
        sw x9, 0(x11)
+       jal x0, main_block5
+ main_block4:
+       addi x10, x0, 0
+       jal x0, main_epilog
+ main_block5:
        lui, x11, 0
        lmi, x11, 0
-       lli, x11, 512
+       lli, x11, 384
+       add x11, x8, x11
+       lw x9, 0(x11)
+       addi x9, x9, 1
+       lui, x11, 0
+       lmi, x11, 0
+       lli, x11, 384
+       add x11, x8, x11
+       sw x9, 0(x11)
+       lui, x11, 0
+       lmi, x11, 0
+       lli, x11, 384
        add x11, x8, x11
        lw x9, 0(x11)
        jpnz p0, main_block4
        jal x0, main_block2
- main_block4:
-       addi x10, x0, 0
-       jal x0, main_epilog
  main_epilog:
        lw x9, 0(x8)
        lui, x11, 0

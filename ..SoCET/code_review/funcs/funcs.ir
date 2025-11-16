@@ -1,0 +1,33 @@
+module main;
+
+external function f32 cos(f32);
+
+global function i32 main() {
+  main_block0: {
+    blob<4:4> alloca = alloc 4 bytes aligned at 4;
+    ptr alloca_addr = &alloca;
+    blob<4:4> alloca_8 = alloc 4 bytes aligned at 4;
+    ptr alloca_addr_9 = &alloca_8;
+    jmp main_block1;
+  }
+
+  main_block1: {
+    pred0 = pred0 AND <condition> // root;
+    f64 num = 3.14;
+    i32 num_0 = 2;
+    f64 typecast = cast num_0;
+    f64 tmp = num / typecast;
+    f32 typecast_1 = cast tmp;
+    store typecast_1, alloca_addr;
+    ptr num_2 = 4;
+    ptr tmp_3 = alloca_addr + num_2;
+    f32 tmp_load = load alloca_addr;
+    f32 result = call cos(tmp_load);
+    store result, alloca_addr_9;
+    ptr num_4 = 4;
+    ptr tmp_5 = alloca_addr_9 + num_4;
+    i32 num_6 = 0;
+    return num_6;
+  }
+
+}

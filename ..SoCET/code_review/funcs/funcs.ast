@@ -1,0 +1,38 @@
+Compilation unit with 2 declarations
+    Function storage=None typ=Function-type name=main
+        Function-type
+            Basic type int
+        Compound
+            Declaration statement
+                Variable [storage=None typ=Basic type float name=a]
+                    Basic type float
+                    Cast Basic type float
+                        Basic type float
+                        BinaryOperator / <Basic type double>
+                            Numeric literal 3.14 <Basic type double>
+                                Basic type double
+                            Cast Basic type double
+                                Basic type double
+                                Numeric literal 2 <Basic type int>
+                                    Basic type int
+                            Basic type double
+            Declaration statement
+                Variable [storage=None typ=Basic type float name=b]
+                    Basic type float
+                    FunctionCall
+                        Cast Pointer-type
+                            Pointer-type
+                                Function-type
+                                    Parameter [typ=Basic type float name=None]
+                                        Basic type float
+                                    Basic type float
+                            Id cos <Function-type>
+                        Id a <Basic type float>
+            Return
+                Numeric literal 0 <Basic type int>
+                    Basic type int
+    Function storage=extern typ=Function-type name=cos
+        Function-type
+            Parameter [typ=Basic type float name=None]
+                Basic type float
+            Basic type float

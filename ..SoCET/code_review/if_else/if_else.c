@@ -1,9 +1,10 @@
 int main() {
-    
     int a = 10;
-    while(a != 0) {
+    if(a < 10) {
+        a++;
+    }
+    else {
         a--;
     }
-
     return 0;
 }
