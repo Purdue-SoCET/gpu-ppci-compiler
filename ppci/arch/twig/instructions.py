@@ -1082,19 +1082,65 @@ def pattern_bjmp(context, tree, c0, c1):
     tgt = yes_label
     context.emit(Bl(R0, tgt.name, jumps=[tgt]))
 
-@isa.pattern("stm", "SJMP(reg, reg)", size=10)
+@isa.pattern("stm", "SJMPU8(reg, reg)", size=10)
+@isa.pattern("stm", "SJMPU16(reg, reg)", size=10)
+@isa.pattern("stm", "SJMPU32(reg, reg)", size=10)
 def pattern_sjmp(context, tree, c0, c1):
-    op, yes_label, yes_pred = tree.value
-    opnames = {"<": Blt,
-               #">": Bgt, #TODO swap the order of registers for these
+    op, yes_label, yes_pred, parent_pred = tree.value
+    opnames = {"<": Bltu,
+               ">": Bltu, 
                "==": Beq,
                "!=": Bne,
-               ">=": Bge
-               #"<=": Ble #TODO: swap the order of registers for these
+               ">=": Bgeu,
+               "<=": Bgeu
                }
     Bop = opnames[op]
-    context.emit(Bop(yes_pred, c0, c1))
+    if op == ">" or op == "<=":
+        temp = c0
+        c0 = c1
+        c1 = temp
+    context.emit(Bop(yes_pred, c0, c1, parent_pred))
     tgt = yes_label #start by jumping to if, if needs to jump to else after (covered by gen_if)
+    context.emit(Bl(R0, tgt.name, jumps=[tgt]))
+
+@isa.pattern("stm", "SJMPI8(reg, reg)", size=10)
+@isa.pattern("stm", "SJMPI16(reg, reg)", size=10)
+@isa.pattern("stm", "SJMPI32(reg, reg)", size=10)
+def pattern_sjmp(context, tree, c0, c1):
+    op, yes_label, yes_pred, parent_pred = tree.value
+    opnames = {"<": Blt,
+               ">": Blt, 
+               "==": Beq,
+               "!=": Bne,
+               ">=": Bge,
+               "<=": Bge
+               }
+    Bop = opnames[op]
+    if op == ">" or op == "<=":
+        temp = c0
+        c0 = c1
+        c1 = temp
+    context.emit(Bop(yes_pred, c0, c1, parent_pred))
+    tgt = yes_label 
+    context.emit(Bl(R0, tgt.name, jumps=[tgt]))
+
+@isa.pattern("stm", "SJMPF32(reg, reg)", size=10)
+def pattern_sjmp(context, tree, c0, c1):
+    op, yes_label, yes_pred, parent_pred = tree.value
+    opnames = {"<": Bltf,
+               ">": Bltf, 
+               "==": Beqf,
+               "!=": Bnef,
+               ">=": Bgef,
+               "<=": Bgef
+               }
+    Bop = opnames[op]
+    if op == ">" or op == "<=":
+        temp = c0
+        c0 = c1
+        c1 = temp
+    context.emit(Bop(yes_pred, c0, c1, parent_pred))
+    tgt = yes_label 
     context.emit(Bl(R0, tgt.name, jumps=[tgt]))
 
 @isa.pattern(

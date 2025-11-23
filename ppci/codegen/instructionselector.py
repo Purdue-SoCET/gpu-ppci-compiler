@@ -101,6 +101,7 @@ ops = [
     "FPREL",
     "SPREL",  # Frame/stack pointer relative
     "BJMP",
+    "SJMP",
 ]
 
 # Add all possible terminals:
@@ -115,7 +116,7 @@ terminals = tuple(x + y for x in ops for y in data_types) + (
     "ALLOCA",
     "FREEA",
     "ASM",  # Inline assembly
-    "BJMP",
+    "BJMP", #maybe these two (bjmp and sjmp) should not be in terminals since they are in ops
     "SJMP",
     "PJMP"
 )
