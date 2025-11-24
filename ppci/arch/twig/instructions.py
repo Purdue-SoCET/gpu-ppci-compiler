@@ -911,7 +911,7 @@ def pattern_movb(context, tree, c0, c1):
 @isa.pattern("reg", "I16TOI8(reg)", size=0)
 @isa.pattern("reg", "I16TOU8(reg)", size=0)
 # @isa.pattern("reg", "F32TOF64(reg)", size=10)
-# @isa.pattern("reg", "F64TOF32(reg)", size=10)
+@isa.pattern("reg", "F32TOF32(reg)", size=10)
 def pattern_i32_to_i32(context, tree, c0):
     return c0
 
