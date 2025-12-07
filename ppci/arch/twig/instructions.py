@@ -475,17 +475,6 @@ def make_sb(mnemonic, opcode):
     }
     return type(mnemonic + "_ins", (TwigBInstruction,), members)
 
-Beq_s = make_sb("beq", 0b1000000)
-Bne_s = make_sb("bne", 0b1000001)
-Bge_s = make_sb("bge", 0b1000010)
-Bgeu_s = make_sb("bgeu", 0b1000011)
-Blt_s = make_sb("blt", 0b1000100)
-Bltu_s = make_sb("bltu", 0b1000101)
-Beqf_s = make_sb("beqf", 0b1001000)
-Bnef_s = make_sb("bnef", 0b1001001)
-Bgef_s = make_sb("bgef", 0b1001010)
-Bltf_s = make_sb("bltf", 0b1001100)
-
 Jpnz = make_pb("jpnz", 0b1100000)
 
 Beq = make_b("beq", 0b1000000)
@@ -664,14 +653,14 @@ def call_internal1(context, name, a, clobbers=()):
     context.move(d, R10)
     return d
 
-@isa.pattern("reg", "NEGF64(reg)", size=20)
+# @isa.pattern("reg", "NEGF64(reg)", size=20)
 @isa.pattern("reg", "NEGF32(reg)", size=20)
 def pattern_neg_f32(context, tree, c0):
     return call_internal1(
         context, "float32_neg", c0, clobbers=context.arch.caller_save
     )
 
-@isa.pattern("reg", "F64TOF32(reg)", size=10)
+# @isa.pattern("reg", "F64TOF32(reg)", size=10)
 def pattern_i32_to_i32(context, tree, c0):
     return c0
 
@@ -921,8 +910,8 @@ def pattern_movb(context, tree, c0, c1):
 @isa.pattern("reg", "U16TOI8(reg)", size=0)
 @isa.pattern("reg", "I16TOI8(reg)", size=0)
 @isa.pattern("reg", "I16TOU8(reg)", size=0)
-@isa.pattern("reg", "F32TOF64(reg)", size=10)
-@isa.pattern("reg", "F64TOF32(reg)", size=10)
+# @isa.pattern("reg", "F32TOF64(reg)", size=10)
+@isa.pattern("reg", "F32TOF32(reg)", size=10)
 def pattern_i32_to_i32(context, tree, c0):
     return c0
 
@@ -979,7 +968,7 @@ def pattern_32_to_8_16(context, tree, c0):
 
 
 @isa.pattern("reg", "CONSTF32", size=10)
-@isa.pattern("reg", "CONSTF64", size=10)
+# @isa.pattern("reg", "CONSTF64", size=10)
 def pattern_const_f32(context, tree):
     float_const = struct.pack("f", tree.value)
     (c0,) = struct.unpack("i", float_const)
@@ -994,54 +983,164 @@ def pattern_const_f32(context, tree):
 
 @isa.pattern("stm", "PJMP(reg, CONSTI32)", size=6)
 def pattern_pjmp(context, tree):
-    # print("SEE YOU TOMORROW")
     cur_pred, lab_yes, lab_no = tree.value
     context.emit(Jpnz(cur_pred, lab_yes.name))
-    # context.emit(Jpnz(cur_block, lab_yes))
     context.emit(Bl(R0, lab_no.name, jumps=[lab_no]))
 
-@isa.pattern("stm", "BJMP(reg, reg)", size=10)
+# @isa.pattern("stm", "BJMPF64(reg,reg)", size=10)
+@isa.pattern("stm", "BJMPF32(reg,reg)", size=10)
+def pattern_bjmpf(context, tree, c0, c1):
+    op, yes_label, no_label, yes_pred, no_pred, parent_pred = tree.value
+
+    opnames = {"<": Bltf,
+               ">": Bltf,
+               "==": Beqf,
+               "!=": Bnef,
+               ">=": Bgef,
+               "<=": Bgef
+    }
+    invops = {
+                "<": Bgef,
+                ">": Bgef,
+                "==": Bnef,
+                "!=": Beqf,
+                ">=": Bltf,
+                "<=": Bltf    
+    }
+    invBop = invops[op]
+    Bop = opnames[op]
+    if op == ">" or op == "<=":
+        temp = c0
+        c0 = c1
+        c1 = temp
+    context.emit(Bop(yes_pred, c0, c1, parent_pred))
+    context.emit(invBop(no_pred, c0, c1, parent_pred))
+    tgt = yes_label
+    context.emit(Bl(R0, tgt.name, jumps=[tgt]))
+
+# @isa.pattern("stm", "BJMPI8(reg, reg)", size=10)
+@isa.pattern("stm", "BJMPI16(reg, reg)", size=10)
+@isa.pattern("stm", "BJMPI32(reg, reg)", size=10)
 def pattern_bjmp(context, tree, c0, c1):
     # print(tree.value)
     # print((c0, c1))
     op, yes_label, no_label, yes_pred, no_pred, parent_pred = tree.value
     opnames = {"<": Blt,
-               #">": Bgt, #TODO swap the order of registers for these
+               ">": Blt, 
                "==": Beq,
                "!=": Bne,
-               ">=": Bge
-               #"<=": Ble #TODO: swap the order of registers for these
+               ">=": Bge,
+               "<=": Bge
                }
     invops = {"<": Bge,
-             #">": Ble, #TODO: above
+             ">": Bge, 
              "==": Bne,
              "!=": Beq,
-             ">=": Blt
-            #  "<=":  Bgt
+             ">=": Blt,
+             "<=":  Blt
     }
     invBop = invops[op]
     Bop = opnames[op]
-    # jmp_ins = B(no_label.name, jumps=[no_label])
-    # context.emit(Bop(R0, R0, yes_label.name, no_label.name))
+    if op == ">" or op == "<=":
+        temp = c0
+        c0 = c1
+        c1 = temp
     context.emit(Bop(yes_pred, c0, c1, parent_pred))
     context.emit(invBop(no_pred, c0, c1, parent_pred))
-    tgt = yes_label #start by jumping to if, if needs to jump to else after (covered by gen_if)
+    tgt = yes_label
     context.emit(Bl(R0, tgt.name, jumps=[tgt]))
-    # context.emit(jmp_ins)
 
-@isa.pattern("stm", "SJMP(reg, reg)", size=10)
+@isa.pattern("stm", "BJMPU8(reg, reg)", size=10)
+@isa.pattern("stm", "BJMPU16(reg, reg)", size=10)
+@isa.pattern("stm", "BJMPU32(reg, reg)", size=10)
+def pattern_bjmp(context, tree, c0, c1):
+    # print(tree.value)
+    # print((c0, c1))
+    op, yes_label, no_label, yes_pred, no_pred, parent_pred = tree.value
+    opnames = {"<": Bltu,
+               ">": Bltu, 
+               "==": Beq,
+               "!=": Bne,
+               ">=": Bgeu,
+               "<=": Bgeu
+               }
+    invops = {"<": Bgeu,
+             ">": Bgeu, 
+             "==": Bne,
+             "!=": Beq,
+             ">=": Bltu,
+             "<=":  Bltu
+    }
+    invBop = invops[op]
+    Bop = opnames[op]
+    if op == ">" or op == "<=":
+        temp = c0
+        c0 = c1
+        c1 = temp
+    context.emit(Bop(yes_pred, c0, c1, parent_pred))
+    context.emit(invBop(no_pred, c0, c1, parent_pred))
+    tgt = yes_label
+    context.emit(Bl(R0, tgt.name, jumps=[tgt]))
+
+@isa.pattern("stm", "SJMPU8(reg, reg)", size=10)
+@isa.pattern("stm", "SJMPU16(reg, reg)", size=10)
+@isa.pattern("stm", "SJMPU32(reg, reg)", size=10)
 def pattern_sjmp(context, tree, c0, c1):
-    op, yes_label, yes_pred = tree.value
-    opnames = {"<": Blt_s,
-               #">": Bgt, #TODO swap the order of registers for these
-               "==": Beq_s,
-               "!=": Bne_s,
-               ">=": Bge_s
-               #"<=": Ble #TODO: swap the order of registers for these
+    op, yes_label, yes_pred, parent_pred = tree.value
+    opnames = {"<": Bltu,
+               ">": Bltu, 
+               "==": Beq,
+               "!=": Bne,
+               ">=": Bgeu,
+               "<=": Bgeu
                }
     Bop = opnames[op]
-    context.emit(Bop(yes_pred, c0, c1))
+    if op == ">" or op == "<=":
+        temp = c0
+        c0 = c1
+        c1 = temp
+    context.emit(Bop(yes_pred, c0, c1, parent_pred))
     tgt = yes_label #start by jumping to if, if needs to jump to else after (covered by gen_if)
+    context.emit(Bl(R0, tgt.name, jumps=[tgt]))
+
+@isa.pattern("stm", "SJMPI8(reg, reg)", size=10)
+@isa.pattern("stm", "SJMPI16(reg, reg)", size=10)
+@isa.pattern("stm", "SJMPI32(reg, reg)", size=10)
+def pattern_sjmp(context, tree, c0, c1):
+    op, yes_label, yes_pred, parent_pred = tree.value
+    opnames = {"<": Blt,
+               ">": Blt, 
+               "==": Beq,
+               "!=": Bne,
+               ">=": Bge,
+               "<=": Bge
+               }
+    Bop = opnames[op]
+    if op == ">" or op == "<=":
+        temp = c0
+        c0 = c1
+        c1 = temp
+    context.emit(Bop(yes_pred, c0, c1, parent_pred))
+    tgt = yes_label 
+    context.emit(Bl(R0, tgt.name, jumps=[tgt]))
+
+@isa.pattern("stm", "SJMPF32(reg, reg)", size=10)
+def pattern_sjmp(context, tree, c0, c1):
+    op, yes_label, yes_pred, parent_pred = tree.value
+    opnames = {"<": Bltf,
+               ">": Bltf, 
+               "==": Beqf,
+               "!=": Bnef,
+               ">=": Bgef,
+               "<=": Bgef
+               }
+    Bop = opnames[op]
+    if op == ">" or op == "<=":
+        temp = c0
+        c0 = c1
+        c1 = temp
+    context.emit(Bop(yes_pred, c0, c1, parent_pred))
+    tgt = yes_label 
     context.emit(Bl(R0, tgt.name, jumps=[tgt]))
 
 @isa.pattern(

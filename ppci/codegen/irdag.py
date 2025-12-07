@@ -292,11 +292,12 @@ class SelectionGraphBuilder:
         """
         lhs = self.get_value(node.a)
         rhs = self.get_value(node.b)
-        sgnode = self.new_node("SJMP", None, lhs, rhs)
+        sgnode = self.new_node("SJMP", node.a.ty, lhs, rhs)
         sgnode.value = (
-            node.cond, # (tmpload < num_X ?)
-            self.function_info.label_map[node.lab_yes], # main_block_YES
-            node.pred_yes_id # main_blockP_YES
+            node.cond, 
+            self.function_info.label_map[node.lab_yes], 
+            node.pred_yes_id, 
+            0 #TODO: update to parent predicate
         )
 
         self.chain(sgnode)
@@ -308,13 +309,13 @@ class SelectionGraphBuilder:
         """
         lhs = self.get_value(node.a)
         rhs = self.get_value(node.b)
-        sgnode = self.new_node("BJMP", None, lhs, rhs)
+        sgnode = self.new_node("BJMP", node.a.ty, lhs, rhs)
         sgnode.value = (
-            node.cond, # (tmpload < num_X ?)
-            self.function_info.label_map[node.lab_yes], # main_block_YES
-            self.function_info.label_map[node.lab_no], # main_block_NO
-            node.pred_yes_id, # main_blockP_YES
-            node.pred_no_id, # main_blockP_NO
+            node.cond,
+            self.function_info.label_map[node.lab_yes],
+            self.function_info.label_map[node.lab_no],
+            node.pred_yes_id,
+            node.pred_no_id, 
             0 #TODO: update to parent predicate when all nodes contain predicates
         )
 

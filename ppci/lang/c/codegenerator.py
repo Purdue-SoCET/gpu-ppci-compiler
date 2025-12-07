@@ -59,8 +59,8 @@ class CCodeGenerator:
             BasicType.LONGLONG: (ir.i64, 8),
             BasicType.ULONGLONG: (ir.u64, 8),
             BasicType.FLOAT: (ir.f32, 4),
-            BasicType.DOUBLE: (ir.f64, 8),
-            BasicType.LONGDOUBLE: (ir.f64, 8),  # TODO: is this correct?
+            BasicType.DOUBLE: (ir.f32, 4),
+            BasicType.LONGDOUBLE: (ir.f32, 4),  # TODO: is this correct?
             BasicType.VA_LIST: (ir.ptr, self.ptr_size),
         }
         self._constant_evaluator = LinkTimeExpressionEvaluator(self)
@@ -850,8 +850,11 @@ class CCodeGenerator:
         self.builder.set_block(check_block)
 
         # <<<GPU ALTERATION >>> [REPLACED]
-        cur_pred = self.predicate_stack[-1]['pred_reg']
-        self.gen_scondition(stmt.condition, body_block, cur_pred)
+
+        loop_pred_reg = self._allocate_predicate_register()
+
+        cur_pred = self.predicate_stack[-1]['pred_reg'] if self.predicate_stack else -1 #parent_pred_reg
+        self.gen_scondition(stmt.condition, body_block, loop_pred_reg, cur_pred)
         ## TODO: IMPLEMENT SO BODY PREDICATE USED
 
         # self.gen_condition(stmt.condition, body_block, body_block)
@@ -915,8 +918,10 @@ class CCodeGenerator:
         #     self.gen_condition(stmt.condition, body_block, final_block)
         # else:
         #     self.builder.emit_jump(body_block)
-        cur_pred = self.predicate_stack[-1]['pred_reg']
-        self.gen_scondition(stmt.condition, body_block, cur_pred)
+        loop_pred_reg = self._allocate_predicate_register()
+
+        cur_pred = self.predicate_stack[-1]['pred_reg'] if self.predicate_stack else -1 #parent_pred_reg
+        self.gen_scondition(stmt.condition, body_block, loop_pred_reg, cur_pred)
         # self.gen_condition(stmt.condition, body_block, body_block)
 
 
@@ -1127,7 +1132,7 @@ class CCodeGenerator:
         else:
             self.check_non_zero(condition, yes_block, no_block)
 
-    def gen_scondition(self, condition, yes_block, pred_yes):
+    def gen_scondition(self, condition, yes_block, pred_yes, pred_parent):
         """Generate switch based on condition."""
         lhs = self.gen_expr(condition.a, rvalue=True)
         rhs = self.gen_expr(condition.b, rvalue=True)
