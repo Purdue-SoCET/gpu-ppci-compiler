@@ -384,6 +384,10 @@ class TwigArch(Architecture):
                     new_instructions.extend(
                         self.immUsed(ins.rs2, ins.rs1, final_offset, "sw")
                     )
+                elif isinstance(ins, Addi):
+                    new_instructions.extend(
+                        self.immUsed(ins.rd, ins.rs1, final_offset, "addi")
+                    )
                 else:
                     raise TypeError(f"Unhandled fprel instruction: {ins}")
             else:
