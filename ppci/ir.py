@@ -704,6 +704,7 @@ class Instruction:
         self._var_map = {}
         self.block = None
         self.uses = OrderedSet()
+        self.pred = 0
 
     @property
     def function(self):
@@ -1399,7 +1400,7 @@ class SJump(CJump):
             f"sjmp {self.a.name} {self.cond} {self.b.name} : "
             f"{self.lab_yes.name} (p{self.pred_yes_id})"
         )
-    
+
 class PJump(CJump):
     """Conditional jump to true or false labels."""
     def __init__(self, a, cond, b, lab_yes, lab_no, pred_yes, pred_no, pred_parent):

@@ -117,6 +117,7 @@ class SGNode:
         self.value = None
         self.inputs = []
         self.outputs = []
+        self.pred = 0
 
     def __repr__(self):
         return f"{self.name} [{self.value}]"

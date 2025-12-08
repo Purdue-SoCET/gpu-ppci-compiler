@@ -207,7 +207,7 @@ class SelectionGraphBuilder:
             # In case of last statement, first perform phi-lifting:
             if instruction.is_terminator:
                 self.copy_phis_of_successors(ir_block)
-
+            self.curr_ins_pred = getattr(instruction, "pred", 0)
             # Dispatch the handler depending on type:
             self.f_map[type(instruction)](self, instruction)
 
@@ -229,7 +229,7 @@ class SelectionGraphBuilder:
             sgnode.add_input(self.current_token)
         self.current_token = sgnode.new_output("ctrl", kind=SGValue.CONTROL)
 
-    def new_node(self, name, ty, *args, value=None):
+    def new_node(self, name, ty, *args, value=None, predicate=None):
         """Create a new selection graph node, and add it to the graph"""
         assert isinstance(name, str)
         assert isinstance(ty, ir.Typ) or ty is None
@@ -240,6 +240,9 @@ class SelectionGraphBuilder:
         sgnode.add_inputs(*args)
         sgnode.value = value
         sgnode.group = self.current_block
+        if predicate is None:
+            predicate = getattr(self, "curr_ins_pred", 0)
+        sgnode.pred = predicate
         self.sgraph.add_node(sgnode)
         return sgnode
 
@@ -268,7 +271,7 @@ class SelectionGraphBuilder:
 
         # if node.lab_yes not in self.function_info.label_map:
         #     print(f"WARNING: {node.lab_yes} was missing. Creating placeholder.")
-        #     # You must verify what object type 'label_map' expects. 
+        #     # You must verify what object type 'label_map' expects.
         #     # Usually it is a Label object from ppci.ir or similar.
         #     self.function_info.label_map[node.lab_yes] = node.lab_yes
 
@@ -294,10 +297,10 @@ class SelectionGraphBuilder:
         rhs = self.get_value(node.b)
         sgnode = self.new_node("SJMP", node.a.ty, lhs, rhs)
         sgnode.value = (
-            node.cond, 
-            self.function_info.label_map[node.lab_yes], 
-            node.pred_yes_id, 
-            0 #TODO: update to parent predicate
+            node.cond,
+            self.function_info.label_map[node.lab_yes],
+            node.pred_yes_id,
+            getattr(node, 'pred', 0)
         )
 
         self.chain(sgnode)
@@ -315,8 +318,8 @@ class SelectionGraphBuilder:
             self.function_info.label_map[node.lab_yes],
             self.function_info.label_map[node.lab_no],
             node.pred_yes_id,
-            node.pred_no_id, 
-            0 #TODO: update to parent predicate when all nodes contain predicates
+            node.pred_no_id,
+            getattr(node, 'pred', 0)
         )
 
         self.chain(sgnode)

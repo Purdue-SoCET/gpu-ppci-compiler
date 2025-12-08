@@ -321,14 +321,14 @@ class TwigArch(Architecture):
     #     return asm(io.StringIO(asm_src), self)
 
 
-    def immUsed(self, r1, r2, offset, instruction):
+    def immUsed(self, r1, r2, offset, instruction, pred=0):
         if offset in range(-32,32):
             if instruction == "addi":
-                yield Addi(r1, r2, offset)
+                yield Addi(r1, r2, offset, pred)
             if instruction == "lw":
-                yield Lw(r1, offset, r2)
+                yield Lw(r1, offset, r2, pred)
             if instruction == "sw":
-                yield Sw(r1, offset, r2)
+                yield Sw(r1, offset, r2, pred)
         else:
             upper_8 = (offset>>24) & 0xff
             middle_12 = (offset>>12) & 0xfff
@@ -337,14 +337,14 @@ class TwigArch(Architecture):
             yield Lmi(R11, middle_12)
             yield Lli(R11, lower_12)
             if instruction == "addi":
-                yield Add(r1, r2, R11)
+                yield Add(r1, r2, R11, pred)
             if instruction == "lw":
                 #here r2 is the address so we can add the offset to the address for the new address
-                yield Add(R11, r2, R11)
-                yield Lw(r1, 0, R11)
+                yield Add(R11, r2, R11, pred)
+                yield Lw(r1, 0, R11, pred)
             if instruction == "sw":
-                yield Add(R11, r2, R11)
-                yield Sw(r1, 0, R11)
+                yield Add(R11, r2, R11, pred)
+                yield Sw(r1, 0, R11, pred)
         return
 
     def gen_twig_memcpy(self, dst, src, tmp, size):
@@ -374,20 +374,20 @@ class TwigArch(Architecture):
 
                 # 3. Final SIMT byte offset from FP
                 final_offset = var_base_offset + (scalar_var_offset * NUM_THREADS)
-
+                curr_pred = getattr(ins, 'pred', 0)
                 if isinstance(ins, Lw):
                     # immUsed(rd, FP, final_offset, "lw")
                     new_instructions.extend(
-                        self.immUsed(ins.rd, ins.rs1, final_offset, "lw")
+                        self.immUsed(ins.rd, ins.rs1, final_offset, "lw", curr_pred)
                     )
                 elif isinstance(ins, Sw):
                     # immUsed(rs2, FP, final_offset, "sw")
                     new_instructions.extend(
-                        self.immUsed(ins.rs2, ins.rs1, final_offset, "sw")
+                        self.immUsed(ins.rs2, ins.rs1, final_offset, "sw", curr_pred)
                     )
                 elif isinstance(ins, Addi):
                     new_instructions.extend(
-                        self.immUsed(ins.rd, ins.rs1, final_offset, "addi")
+                        self.immUsed(ins.rd, ins.rs1, final_offset, "addi", curr_pred)
                     )
                 else:
                     raise TypeError(f"Unhandled fprel instruction: {ins}")
@@ -397,7 +397,7 @@ class TwigArch(Architecture):
 
     def move(self, dst, src):
         """Generate a move from src to dst"""
-        return Addi(dst, src, 0, ismove=True)
+        return Addi(dst, src, 0, 4, ismove=True)
 
     def gen_prologue(self, frame):
         """TODO idk, adjust sp, save lr and lp(?), save callee saves on stack"""

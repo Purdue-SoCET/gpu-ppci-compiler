@@ -28,18 +28,18 @@ def make_r(mnemonic, opcode):
     rd = Operand("rd", TwigRegister, write=True)
     rs1 = Operand("rs1", TwigRegister, read=True)
     rs2 = Operand("rs2", TwigRegister, read=True)
-    # pred = Operand("pred", TwigPredRegister, read=True)
+    pred = Operand("pred", int)
     # pstart = Operand("pstart", int, read=True)
     # pend = Operand("pend", int, read=True)
     # syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", rs2, " ", pred, ",", " ", pstart, ",", " ", pend])
-    syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", rs2])
+    syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", rs2, ",", " ", pred])
     tokens = [TwigRToken]
     patterns = {
         "opcode": opcode,
         "rd": rd,
         "rs1": rs1,
-        "rs2": rs2
-        # "pred": pred,
+        "rs2": rs2,
+        "pred": pred,
         # "pstart": pstart,
         # "pend": pend
     }
@@ -48,7 +48,7 @@ def make_r(mnemonic, opcode):
         "rd": rd,
         "rs1": rs1,
         "rs2": rs2,
-        # "pred": pred,
+        "pred": pred,
         # "pstart": pstart,
         # "pend": pend,
         "patterns": patterns,
@@ -99,19 +99,19 @@ def make_i(mnemonic, opcode):
     rd = Operand("rd", TwigRegister, write=True)
     rs1 = Operand("rs1", TwigRegister, read=True)
     offset = Operand("offset", int)
-    # pred = Operand("pred", TwigPredRegister, read=True)
+    pred = Operand("pred", int)
     # pstart = Operand("pstart", int, read=True)
     # pend = Operand("pend", int, read=True)
     fprel = False
     tokens = [TwigIToken]
     # syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", offset, " ", pred, ",", " ", pstart, ",", " ", pend])
-    syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", offset])
+    syntax = Syntax([mnemonic, " ", rd, ",", " ", rs1, ",", " ", offset, ",", " ", pred])
     patterns = {
         "opcode": opcode,
         "rd": rd,
         "rs1": rs1,
-        "imm": offset
-        # "pred": pred,
+        "imm": offset,
+        "pred": pred,
         # "pstart": pstart,
         # "pend": pend
     }
@@ -121,7 +121,7 @@ def make_i(mnemonic, opcode):
         "rd": rd,
         "rs1": rs1,
         "offset": offset,
-        # "pred": pred,
+        "pred": pred,
         # "pstart": pstart,
         # "pend": pend,
         "tokens": tokens,
@@ -228,19 +228,19 @@ def make_load(mnemonic, opcode):
     rd = Operand("rd", TwigRegister, write=True)
     offset = Operand("offset", int)
     rs1 = Operand("rs1", TwigRegister, read=True)
-    # pred = Operand("pred", TwigPredRegister, read=True)
+    pred = Operand("pred", int)
     # pstart = Operand("pstart", int, read=True)
     # pend = Operand("pend", int, read=True)
     fprel = False
     # syntax = Syntax([mnemonic, " ", rd, ",", " ", offset, "(", rs1, ")", ",", " ", pred, ",", " ", pstart, ",", " ", pend])
-    syntax = Syntax([mnemonic, " ", rd, ",", " ", offset, "(", rs1, ")",])
+    syntax = Syntax([mnemonic, " ", rd, ",", " ", offset, "(", rs1, ")", ",", " ", pred])
     tokens = [TwigIToken]
     patterns = {
         "opcode": opcode,
         "rd": rd,
         "rs1": rs1,
-        "imm": offset
-        # "pred": pred,
+        "imm": offset,
+        "pred": pred,
         # "pstart": pstart,
         # "pend": pend
     }
@@ -252,7 +252,7 @@ def make_load(mnemonic, opcode):
         "offset": offset,
         "rd": rd,
         "rs1": rs1,
-        # "pred": pred,
+        "pred": pred,
         # "pstart": pstart,
         # "pend": pend,
         "opcode": opcode
@@ -271,19 +271,19 @@ def make_store(mnemonic, opcode):
     rs1 = Operand("rs1", TwigRegister, read=True)
     offset = Operand("offset", int)
     rs2 = Operand("rs2", TwigRegister, read=True)
-    # pred = Operand("pred", TwigPredRegister, read=True)
+    pred = Operand("pred", int)
     # pstart = Operand("pstart", int, read=True)
     # pend = Operand("pend", int, read=True)
     fprel = False
     # syntax = Syntax([mnemonic, " ", rs2, ",", " ", offset, "(", rs1, ")", ",", " ", pred, ",", " ", pstart, ",", " ", pend])
-    syntax = Syntax([mnemonic, " ", rs2, ",", " ", offset, "(", rs1, ")"])
+    syntax = Syntax([mnemonic, " ", rs2, ",", " ", offset, "(", rs1, ")", ",", " ", pred])
     tokens = [TwigSToken]
     patterns = {
         "opcode": opcode,
         "rs2": rs2,
         "rs1": rs1,
-        "imm": offset
-        # "pred": pred,
+        "imm": offset,
+        "pred": pred,
         # "pstart": pstart,
         # "pend": pend
     }
@@ -295,7 +295,7 @@ def make_store(mnemonic, opcode):
         "offset": offset,
         "rs2": rs2,
         "rs1": rs1,
-        # "pred": pred,
+        "pred": pred,
         # "pstart": pstart,
         # "pend": pend,
         "opcode": opcode
@@ -610,7 +610,8 @@ def dcd(v):
 @isa.pattern("reg", "ADDI32(reg,reg)", size=2)
 def pattern_add_i32(context, tree, c0, c1): #c0 = rs1, c1 = rs2, d = rd
     d = context.new_reg(TwigRegister)
-    context.emit(Add(d,c0,c1))
+    p = tree.pred
+    context.emit(Add(d,c0,c1, p))
     return d
 
 @isa.pattern("reg", "ADDU16(reg, reg)", size=2)
@@ -736,7 +737,8 @@ def pattern_jmp(context, tree):
 def pattern_fpreli32(context, tree):
     d = context.new_reg(TwigRegister)
     offset = tree.value.offset
-    Code = Addi(d, FP, offset)
+    p = tree.pred
+    Code = Addi(d, FP, offset, p)
     Code.fprel = True
     context.emit(Code)
     return d
@@ -767,10 +769,11 @@ def pattern_fprel_large(context, tree):
     It loads the offset into a temp register and adds it to FP.
     """
     offset = tree.value.offset
-
+    p = tree.pred
     t1 = context.new_reg(TwigRegister)
     if offset in range(-32, 32):
-        context.emit(Addi(t1, R0, offset))
+
+        context.emit(Addi(t1, R0, offset, p))
     else:
         upper_8 = (offset >> 24) & 0xFF
         middle_12 = (offset >> 12) & 0xFFF
@@ -780,7 +783,7 @@ def pattern_fprel_large(context, tree):
         context.emit(Lli(t1, lower_12))
 
     d = context.new_reg(TwigRegister)
-    context.emit(Add(d, FP, t1))
+    context.emit(Add(d, FP, t1, p))
     return d
 
 @isa.pattern("mem", "reg", size=10)
@@ -794,7 +797,8 @@ def pattern_mem_reg(context, tree, c0):
 # @isa.pattern("stm", "STRF64(mem, reg)", size=10)
 def pattern_sw32(context, tree, c0, c1):
     base_reg, offset = c0
-    Code = Sw(c1, offset, base_reg)
+    p = tree.pred
+    Code = Sw(c1, offset, base_reg, p)
     Code.fprel = True
     context.emit(Code)
 
@@ -804,7 +808,8 @@ def pattern_sw32(context, tree, c0, c1):
 # @isa.pattern("stm", "STRF64(reg, reg)", size=10)
 def pattern_sw32_reg(context, tree, c0, c1):
     base_reg = c0
-    Code = Sw(c1, 0, base_reg)
+    p = tree.pred
+    Code = Sw(c1, 0, base_reg, p)
     context.emit(Code)
 
 
@@ -847,8 +852,9 @@ def pattern_sbi8_reg(context, tree, c0, c1):
 def pattern_const(context, tree):
     d = context.new_reg(TwigRegister)
     c0 = tree.value
+    p = tree.pred
     if c0 in range(-32, 32):
-        context.emit(Addi(d, R0, c0))
+        context.emit(Addi(d, R0, c0, p))
         return d
     upper_8 = (c0 >> 24) & 0xFF
     middle_12 = (c0 >> 12) & 0xFFF
@@ -862,15 +868,20 @@ def pattern_const(context, tree):
 @isa.pattern("stm", "MOVU32(reg)", size=2)
 @isa.pattern("stm", "MOVF32(reg)", size=2)
 def pattern_mov32(context, tree, c0):
-    context.move(tree.value, c0)
-    return tree.value
+    # context.move(tree.value, c0)
+    dst = tree.value
+    src = c0
+    p = tree.pred
+    context.emit(Addi(dst, src, 0, p))
+    return dst
 
 @isa.pattern("reg", "LDRU32(mem)", size=2)
 @isa.pattern("reg", "LDRI32(mem)", size=2)
 def pattern_ldr32_fprel(context, tree, c0):
     d = context.new_reg(TwigRegister)
     base_reg, offset = c0
-    Code = Lw(d, offset, base_reg)
+    p = tree.pred
+    Code = Lw(d, offset, base_reg, p)
     Code.fprel = True
     context.emit(Code)
     return d
@@ -881,7 +892,8 @@ def pattern_ldr32_fprel(context, tree, c0):
 def pattern_ldr32_reg(context, tree, c0):
     d = context.new_reg(TwigRegister)
     base_reg = c0
-    Code = Lw(d, 0, base_reg)
+    p = tree.pred
+    Code = Lw(d, 0, base_reg, p)
     context.emit(Code)
     return d
 
@@ -1005,7 +1017,7 @@ def pattern_bjmpf(context, tree, c0, c1):
                 "==": Bnef,
                 "!=": Beqf,
                 ">=": Bltf,
-                "<=": Bltf    
+                "<=": Bltf
     }
     invBop = invops[op]
     Bop = opnames[op]
@@ -1026,14 +1038,14 @@ def pattern_bjmp(context, tree, c0, c1):
     # print((c0, c1))
     op, yes_label, no_label, yes_pred, no_pred, parent_pred = tree.value
     opnames = {"<": Blt,
-               ">": Blt, 
+               ">": Blt,
                "==": Beq,
                "!=": Bne,
                ">=": Bge,
                "<=": Bge
                }
     invops = {"<": Bge,
-             ">": Bge, 
+             ">": Bge,
              "==": Bne,
              "!=": Beq,
              ">=": Blt,
@@ -1058,14 +1070,14 @@ def pattern_bjmp(context, tree, c0, c1):
     # print((c0, c1))
     op, yes_label, no_label, yes_pred, no_pred, parent_pred = tree.value
     opnames = {"<": Bltu,
-               ">": Bltu, 
+               ">": Bltu,
                "==": Beq,
                "!=": Bne,
                ">=": Bgeu,
                "<=": Bgeu
                }
     invops = {"<": Bgeu,
-             ">": Bgeu, 
+             ">": Bgeu,
              "==": Bne,
              "!=": Beq,
              ">=": Bltu,
@@ -1088,7 +1100,7 @@ def pattern_bjmp(context, tree, c0, c1):
 def pattern_sjmp(context, tree, c0, c1):
     op, yes_label, yes_pred, parent_pred = tree.value
     opnames = {"<": Bltu,
-               ">": Bltu, 
+               ">": Bltu,
                "==": Beq,
                "!=": Bne,
                ">=": Bgeu,
@@ -1109,7 +1121,7 @@ def pattern_sjmp(context, tree, c0, c1):
 def pattern_sjmp(context, tree, c0, c1):
     op, yes_label, yes_pred, parent_pred = tree.value
     opnames = {"<": Blt,
-               ">": Blt, 
+               ">": Blt,
                "==": Beq,
                "!=": Bne,
                ">=": Bge,
@@ -1121,14 +1133,14 @@ def pattern_sjmp(context, tree, c0, c1):
         c0 = c1
         c1 = temp
     context.emit(Bop(yes_pred, c0, c1, parent_pred))
-    tgt = yes_label 
+    tgt = yes_label
     context.emit(Bl(R0, tgt.name, jumps=[tgt]))
 
 @isa.pattern("stm", "SJMPF32(reg, reg)", size=10)
 def pattern_sjmp(context, tree, c0, c1):
     op, yes_label, yes_pred, parent_pred = tree.value
     opnames = {"<": Bltf,
-               ">": Bltf, 
+               ">": Bltf,
                "==": Beqf,
                "!=": Bnef,
                ">=": Bgef,
@@ -1140,7 +1152,7 @@ def pattern_sjmp(context, tree, c0, c1):
         c0 = c1
         c1 = temp
     context.emit(Bop(yes_pred, c0, c1, parent_pred))
-    tgt = yes_label 
+    tgt = yes_label
     context.emit(Bl(R0, tgt.name, jumps=[tgt]))
 
 @isa.pattern(
@@ -1158,7 +1170,8 @@ def pattern_sjmp(context, tree, c0, c1):
 def pattern_add_i32_reg_const(context, tree, c0):
     d = context.new_reg(TwigRegister)
     c1 = tree.children[1].value
-    context.emit(Addi(d, c0, c1))
+    p = tree.pred
+    context.emit(Addi(d, c0, c1, p))
     return d
 
 @isa.pattern(
@@ -1176,7 +1189,8 @@ def pattern_add_i32_reg_const(context, tree, c0):
 def pattern_add_i32_const_reg(context, tree, c0):
     d = context.new_reg(TwigRegister)
     c1 = tree.children[0].value
-    context.emit(Addi(d, c0, c1))
+    p = tree.pred
+    context.emit(Addi(d, c0, c1, p))
     return d
 
 @isa.pattern("reg", "SUBI8(reg, reg)", size=2)
@@ -1187,7 +1201,8 @@ def pattern_add_i32_const_reg(context, tree, c0):
 @isa.pattern("reg", "SUBU32(reg, reg)", size=2)
 def pattern_sub_i32(context, tree, c0, c1):
     d = context.new_reg(TwigRegister)
-    context.emit(Sub(d, c0, c1))
+    p = tree.pred
+    context.emit(Sub(d, c0, c1, p))
     return d
 
 
@@ -1413,32 +1428,6 @@ def pattern_xor_i32_const_reg(context, tree, c0):
     context.emit(Xori(d, c0, c1))
     return d
 
-
-#idk what this is
-# def call_internal2(context, name, a, b, clobbers=()):
-#     d = context.new_reg(TwigRegister)
-#     context.move(R12, a)
-#     context.move(R13, b)
-#     context.emit(RegisterUseDef(uses=(R12, R13)))
-#     context.emit(Global(name))
-#     context.emit(Bl(LR, name, clobbers=clobbers))
-#     context.emit(RegisterUseDef(uses=(R10,)))
-#     context.move(d, R10)
-#     return d
-
-
-# def call_internal1(context, name, a, clobbers=()):
-#     d = context.new_reg(TwigRegister)
-#     context.move(R12, a)
-#     context.emit(RegisterUseDef(uses=(R12,)))
-#     context.emit(Global(name))
-#     context.emit(Bl(LR, name, clobbers=clobbers))
-#     context.emit(RegisterUseDef(uses=(R10,)))
-#     context.move(d, R10)
-#     return d
-
-
-#insert floating coverage here
 
 #legacy code grandfathered in since May 22, 2019 at 10:33 AM
 def round_up(s):

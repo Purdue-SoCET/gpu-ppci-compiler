@@ -11,12 +11,13 @@ from ppci.lang.tools.baselex import BaseLexer
 class Tree:
     """Tree node with a name and possibly some child nodes"""
 
-    __slots__ = ("name", "value", "children", "state")
+    __slots__ = ("name", "value", "children", "state", "pred")
 
     def __init__(self, name, *args, value=None):
         self.name = name
         self.value = value
         self.children = args
+        self.pred = 0
 
     def __repr__(self):
         if self.children:

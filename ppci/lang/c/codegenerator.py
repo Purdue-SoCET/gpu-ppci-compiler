@@ -63,12 +63,17 @@ class CCodeGenerator:
             BasicType.LONGDOUBLE: (ir.f32, 4),  # TODO: is this correct?
             BasicType.VA_LIST: (ir.ptr, self.ptr_size),
         }
+
         self._constant_evaluator = LinkTimeExpressionEvaluator(self)
 
     def _allocate_predicate_register(self):
         """Allocate a new predicate register number, reusing freed ones."""
         # Try to reuse a freed register first
         if self.freed_predicate_registers:
+            # FIX: Sort the list to ensure we always pick the lowest available index
+            # instead of just the oldest one freed (FIFO).
+            self.freed_predicate_registers.sort()
+
             pred_num = self.freed_predicate_registers.pop(0)
             self.logger.info(f"REUSING predicate register: pred{pred_num}")
             return pred_num
@@ -166,6 +171,16 @@ class CCodeGenerator:
     def gen_code(self, compile_unit):
         """Initial entry point for the code generator"""
         self.builder = irutils.Builder()
+        # self.builder = irutils.Builder()
+        original_emit = self.builder.emit
+        def predicated_emit(instruction):
+            if self.predicate_stack:
+                current_pred = self.predicate_stack[-1]['pred_reg']
+                instruction.pred = current_pred
+            else:
+                instruction.pred = 0
+            return original_emit(instruction)
+        self.builder.emit = predicated_emit
         self.ir_var_map = {}
         self.logger.debug("Generating IR-code")
         self.debug_db = debuginfo.DebugDb()
@@ -205,6 +220,11 @@ class CCodeGenerator:
 
     def emit(self, instruction):
         """Helper function to emit a single instruction"""
+        if self.predicate_stack:
+            pred = self.predicate_stack[-1]['pred_reg']
+            instruction.pred = pred
+        else:
+            instruction.pred = 0
         return self.builder.emit(instruction)
 
     def emit_alloca(self, typ):
@@ -839,44 +859,36 @@ class CCodeGenerator:
         body_block = self.builder.new_block()
         end_block = self.builder.new_block()
 
-        # push control flow context
         self.break_block_stack.append(end_block)
         self.continue_block_stack.append(check_block)
-
-        # Jump to condition first
         self.builder.emit_jump(check_block)
-
-        # Condition check
+        # 1. Condition Check
         self.builder.set_block(check_block)
-
-        # <<<GPU ALTERATION >>> [REPLACED]
+        parent_pred_reg = self.predicate_stack[-1]['pred_reg'] if self.predicate_stack else 0
+        parent_mask = self._get_current_predicate_mask()
+        self._annotate_block_with_predicate(check_block, parent_pred_reg, parent_mask, "while_check", parent_pred_reg)
 
         loop_pred_reg = self._allocate_predicate_register()
+        # Generate split-jump: calculates loop_pred based on condition
+        self.gen_scondition(stmt.condition, body_block, loop_pred_reg, parent_pred_reg)
 
-        cur_pred = self.predicate_stack[-1]['pred_reg'] if self.predicate_stack else -1 #parent_pred_reg
-        self.gen_scondition(stmt.condition, body_block, loop_pred_reg, cur_pred)
-        ## TODO: IMPLEMENT SO BODY PREDICATE USED
-
-        # self.gen_condition(stmt.condition, body_block, body_block)
-
-        # Loop body
+        # 2. Body
         self.builder.set_block(body_block)
+        self._annotate_block_with_predicate(body_block, loop_pred_reg, "loop_mask", "while_body", parent_pred_reg)
+        self._push_predicate_context(loop_pred_reg, "loop_mask")
         self.gen_stmt(stmt.body)
+        # Jump Back Logic
 
-        # <<< GPU ALTERATION >>> [ADDED]
-
-        cur_pred = self.predicate_stack[-1]['pred_reg']
-        # self.gen_pcondition(cur_pred, end_block, check_block)
-        self.gen_pcondition(stmt.condition, end_block, check_block, cur_pred, cur_pred, cur_pred)
-
-        # self.builder.emit_jump(check_block)
-
-        # Continue after loop
+        cur_pred = loop_pred_reg
+        self.gen_pcondition(stmt.condition, check_block, end_block, cur_pred, cur_pred, cur_pred)
+        self._pop_predicate_context()
+        # 3. End
         self.builder.set_block(end_block)
+        self._annotate_block_with_predicate(end_block, parent_pred_reg, parent_mask, "while_end", parent_pred_reg)
 
-        # pop stacks
         self.break_block_stack.pop()
         self.continue_block_stack.pop()
+        self._free_predicate_registers(loop_pred_reg)
 
     def gen_do_while(self, stmt: statements.DoWhile) -> None:
         """Generate do-while-statement code"""
@@ -904,48 +916,58 @@ class CCodeGenerator:
         self.break_block_stack.append(final_block)
         self.continue_block_stack.append(iterator_block)
 
-        # Initialization:
+        # Initialization
         if stmt.init:
             if isinstance(stmt.init, declarations.VariableDeclaration):
                 self.gen_local_variable(stmt.init)
             else:
                 self.gen_expr(stmt.init, rvalue=True)
+
         self.builder.emit_jump(condition_block)
 
-        # Condition:
+        # 1. Condition
         self.builder.set_block(condition_block)
-        # if stmt.condition:
-        #     self.gen_condition(stmt.condition, body_block, final_block)
-        # else:
-        #     self.builder.emit_jump(body_block)
+        parent_pred_reg = self.predicate_stack[-1]['pred_reg'] if self.predicate_stack else 0
+        parent_mask = self._get_current_predicate_mask()
+        self._annotate_block_with_predicate(condition_block, parent_pred_reg, parent_mask, "for_check", parent_pred_reg)
         loop_pred_reg = self._allocate_predicate_register()
 
-        cur_pred = self.predicate_stack[-1]['pred_reg'] if self.predicate_stack else -1 #parent_pred_reg
-        self.gen_scondition(stmt.condition, body_block, loop_pred_reg, cur_pred)
-        # self.gen_condition(stmt.condition, body_block, body_block)
+        if stmt.condition:
+            self.gen_scondition(stmt.condition, body_block, loop_pred_reg, parent_pred_reg)
+        else:
+            # Infinite loop: Predicate is always true (inherit parent)
+            # This requires manual handling if stmt.condition is None
+            # For now, we assume condition exists or parser handles it.
+            pass
 
-
-        # Body:
+        # 2. Body
         self.builder.set_block(body_block)
+        self._annotate_block_with_predicate(body_block, loop_pred_reg, "loop_mask", "for_body", parent_pred_reg)
+        self._push_predicate_context(loop_pred_reg, "loop_mask")
         self.gen_stmt(stmt.body)
         self.builder.emit_jump(iterator_block)
-
-        # Iterator part:
+        # 3. Iterator
         self.builder.set_block(iterator_block)
+        self._annotate_block_with_predicate(iterator_block, loop_pred_reg, "loop_mask", "for_iter", parent_pred_reg)
+
         if stmt.post:
             self.gen_expr(stmt.post, rvalue=True)
-            # print("See You Tomorrow")
-        # self.builder.emit_jump(condition_block)
-        # self.gen_pcondition(iterator_block, final_block, condition_block)
-        cur_pred = self.predicate_stack[-1]['pred_reg']
-        # self.gen_pcondition(cur_pred, end_block, check_block)
-        self.gen_pcondition(stmt.condition, final_block, condition_block, cur_pred, cur_pred, cur_pred)
 
-        # Continue here:
+        cur_pred = loop_pred_reg
+        if stmt.condition:
+            self.gen_pcondition(stmt.condition, condition_block, final_block, cur_pred, cur_pred, cur_pred)
+        else:
+            self.builder.emit_jump(condition_block)
+
+        self._pop_predicate_context()
+
+        # 4. Final
         self.builder.set_block(final_block)
+        self._annotate_block_with_predicate(final_block, parent_pred_reg, parent_mask, "for_end", parent_pred_reg)
+
         self.break_block_stack.pop()
         self.continue_block_stack.pop()
-
+        self._free_predicate_registers(loop_pred_reg)
 
     def gen_label(self, stmt: statements.Label) -> None:
         """Generate code for a label"""
