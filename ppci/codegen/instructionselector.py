@@ -335,7 +335,7 @@ class InstructionSelector1:
 
     def call_function(self, context, tree):
         label, args, rv = tree.value
-        for instruction in self.arch.gen_call(context.frame, label, args, rv):
+        for instruction in self.arch.gen_call(context.frame, label, args, rv, pred=tree.pred):
             context.emit(instruction)
 
     def inline_asm(self, context, tree):

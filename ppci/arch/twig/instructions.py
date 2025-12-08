@@ -149,7 +149,8 @@ class TwigFInstruction(Instruction):
 class Cos(TwigFInstruction):
     rd = Operand("rd", TwigRegister, write=True)
     rs1 = Operand("rs1", TwigRegister, read=True)
-    syntax = Syntax(["cos", " ", rd, ",", " ", rs1])
+    pred = Operand("pred", int)
+    syntax = Syntax(["cos", " ", rd, ",", " ", rs1, ",", " ", pred])
 
     def encode(self):
         tokens = self.get_tokens()
@@ -161,7 +162,8 @@ class Cos(TwigFInstruction):
 class Sin(TwigFInstruction):
     rd = Operand("rd", TwigRegister, write=True)
     rs1 = Operand("rs1", TwigRegister, read=True)
-    syntax = Syntax(["sin", " ", rd, ",", " ", rs1])
+    pred = Operand("pred", int)
+    syntax = Syntax(["sin", " ", rd, ",", " ", rs1, ",", " ", pred])
 
     def encode(self):
         tokens = self.get_tokens()
@@ -174,7 +176,8 @@ class Sin(TwigFInstruction):
 class Isqrt(TwigFInstruction):
     rd = Operand("rd", TwigRegister, write=True)
     rs1 = Operand("rs1", TwigRegister, read=True)
-    syntax = Syntax(["isqrt", " ", rd, ",", " ", rs1])
+    pred = Operand("pred", int)
+    syntax = Syntax(["isqrt", " ", rd, ",", " ", rs1, ",", " ", pred])
 
     def encode(self):
         tokens = self.get_tokens()
@@ -186,7 +189,8 @@ class Isqrt(TwigFInstruction):
 class ItoF(TwigFInstruction):
     rd = Operand("rd", TwigRegister, write=True)
     rs1 = Operand("rs1", TwigRegister, read=True)
-    syntax = Syntax(["itof", " ", rd, ",", " ", rs1])
+    pred = Operand("pred", int)
+    syntax = Syntax(["itof", " ", rd, ",", " ", rs1, ",", " ", pred])
 
     def encode(self):
         tokens = self.get_tokens()
@@ -198,7 +202,8 @@ class ItoF(TwigFInstruction):
 class FtoI(TwigFInstruction):
     rd = Operand("rd", TwigRegister, write=True)
     rs1 = Operand("rs1", TwigRegister, read=True)
-    syntax = Syntax(["ftoi", " ", rd, ",", " ", rs1])
+    pred = Operand("pred", int)
+    syntax = Syntax(["ftoi", " ", rd, ",", " ", rs1, ",", " ", pred])
 
     def encode(self):
         tokens = self.get_tokens()
@@ -214,7 +219,8 @@ class TwigCRInstruction(Instruction):
 class Csrr(TwigCRInstruction):
     rd = Operand("rd", TwigRegister, write=True)
     rs1 = Operand("rs1", int)
-    syntax = Syntax(["csrr", " ", rd, ",", " ", rs1])
+    pred = Operand("pred", int)
+    syntax = Syntax(["csrr", " ", rd, ",", " ", rs1, ",", " ", pred])
 
     def encode(self):
         tokens = self.get_tokens()
@@ -496,12 +502,14 @@ class TwigUInstruction(Instruction):
 def make_u(mnemonic, opcode):
     rd = Operand("rd", TwigRegister, write=True)
     imm = Operand("imm", int)
-    syntax = Syntax([mnemonic, ",", " ", rd, ",", " ", imm])
+    pred = Operand("pred", int)
+    syntax = Syntax([mnemonic, ",", " ", rd, ",", " ", imm, ",", " ", pred])
     tokens = [TwigUToken]
     patterns = {
         "opcode": opcode,
         "rd": rd,
-        "imm": imm
+        "imm": imm,
+        "pred": pred
     }
     members = {
         "syntax": syntax,
@@ -509,7 +517,8 @@ def make_u(mnemonic, opcode):
         "imm": imm,
         "patterns": patterns,
         "tokens": tokens,
-        "opcode": opcode
+        "opcode": opcode,
+        "pred": pred
     }
     return type(mnemonic + "_ins", (TwigUInstruction,), members)
 
@@ -520,12 +529,14 @@ def make_u_mod(mnemonic, opcode):
     """
     rd = Operand("rd", TwigRegister, read=True, write=True)
     imm = Operand("imm", int)
-    syntax = Syntax([mnemonic, ",", " ", rd, ",", " ", imm])
+    pred = Operand("pred", int)
+    syntax = Syntax([mnemonic, ",", " ", rd, ",", " ", imm, ",", " ", pred])
     tokens = [TwigUToken]
     patterns = {
         "opcode": opcode,
         "rd": rd,
-        "imm": imm
+        "imm": imm,
+        "pred": pred
     }
     members = {
         "syntax": syntax,
@@ -533,7 +544,8 @@ def make_u_mod(mnemonic, opcode):
         "imm": imm,
         "patterns": patterns,
         "tokens": tokens,
-        "opcode": opcode
+        "opcode": opcode,
+        "pred": pred
     }
     return type(mnemonic + "_ins", (TwigUInstruction,), members)
 
@@ -618,14 +630,16 @@ def pattern_add_i32(context, tree, c0, c1): #c0 = rs1, c1 = rs2, d = rd
 @isa.pattern("reg", "ADDI16(reg, reg)", size=2)
 def pattern_add_i16(context, tree, c0, c1):
     d = context.new_reg(TwigRegister)
-    context.emit(Add(d, c0, c1))
+    p = tree.pred
+    context.emit(Add(d, c0, c1, p))
     return d
 
 @isa.pattern("reg", "ADDI8(reg, reg)", size=2)
 @isa.pattern("reg", "ADDU8(reg, reg)", size=2)
 def pattern_add8(context, tree, c0, c1):
     d = context.new_reg(TwigRegister)
-    context.emit(Add(d, c0, c1))
+    p = tree.pred
+    context.emit(Add(d, c0, c1, p))
     return d
 
 
@@ -639,26 +653,27 @@ def pattern_int_to_float(context, tree, c0):
     Emits the 'itof' hardware instruction.
     """
     d = context.new_reg(TwigRegister)
-    context.emit(ItoF(d, c0))
+    p = tree.pred
+    context.emit(ItoF(d, c0, p))
     return d
 
 
-def call_internal1(context, name, a, clobbers=()):
+def call_internal1(context, name, a, pred, clobbers=()):
     from .registers import R10, R12, LR
     d = context.new_reg(TwigRegister)
-    context.move(R12, a)
+    context.emit(Addi(R12, a, 0, pred))
     context.emit(RegisterUseDef(uses=(R12,)))
     context.emit(Global(name))
     context.emit(Bl(LR, name, clobbers=clobbers))
     context.emit(RegisterUseDef(uses=(R10,)))
-    context.move(d, R10)
+    context.move(Addi(d, R10, 0, pred))
     return d
 
 # @isa.pattern("reg", "NEGF64(reg)", size=20)
 @isa.pattern("reg", "NEGF32(reg)", size=20)
 def pattern_neg_f32(context, tree, c0):
     return call_internal1(
-        context, "float32_neg", c0, clobbers=context.arch.caller_save
+        context, "float32_neg", c0, tree.pred, clobbers=context.arch.caller_save
     )
 
 # @isa.pattern("reg", "F64TOF32(reg)", size=10)
@@ -674,31 +689,36 @@ def pattern_float_to_int(context, tree, c0):
     Emits the 'ftoi' hardware instruction.
     """
     d = context.new_reg(TwigRegister)
-    context.emit(FtoI(d, c0))
+    p = tree.pred
+    context.emit(FtoI(d, c0, p))
     return d
 
 @isa.pattern("reg", "ADDF32(reg, reg)", size=2)
 def pattern_add_f32(context, tree, c0, c1):
     d = context.new_reg(TwigRegister)
-    context.emit(Addf(d, c0, c1))
+    p = tree.pred
+    context.emit(Addf(d, c0, c1, p))
     return d
 
 @isa.pattern("reg", "SUBF32(reg, reg)", size=2)
 def pattern_sub_f32(context, tree, c0, c1):
     d = context.new_reg(TwigRegister)
-    context.emit(Subf(d, c0, c1))
+    p = tree.pred
+    context.emit(Subf(d, c0, c1, p))
     return d
 
 @isa.pattern("reg", "MULF32(reg, reg)", size=4)
 def pattern_mul_f32(context, tree, c0, c1):
     d = context.new_reg(TwigRegister)
-    context.emit(Mulf(d, c0, c1))
+    p = tree.pred
+    context.emit(Mulf(d, c0, c1, p))
     return d
 
 @isa.pattern("reg", "DIVF32(reg, reg)", size=8)
 def pattern_div_f32(context, tree, c0, c1):
     d = context.new_reg(TwigRegister)
-    context.emit(Divf(d, c0, c1))
+    p = tree.pred
+    context.emit(Divf(d, c0, c1, p))
     return d
 
 @isa.pattern("reg", "LDRF32(mem)", size=2)
@@ -706,7 +726,8 @@ def pattern_ldr_f32_mem(context, tree, c0):
     """ Matches: float x = stack_var; """
     d = context.new_reg(TwigRegister)
     base_reg, offset = c0
-    Code = Lw(d, offset, base_reg)
+    p = tree.pred
+    Code = Lw(d, offset, base_reg, p)
     Code.fprel = True
     context.emit(Code)
     return d
@@ -716,7 +737,8 @@ def pattern_ldr_f32_reg(context, tree, c0):
     """ Matches: float x = *float_pointer; """
     d = context.new_reg(TwigRegister)
     base_reg = c0
-    Code = Lw(d, 0, base_reg)
+    p = tree.pred
+    Code = Lw(d, 0, base_reg, p)
     context.emit(Code)
     return d
 
@@ -778,9 +800,9 @@ def pattern_fprel_large(context, tree):
         upper_8 = (offset >> 24) & 0xFF
         middle_12 = (offset >> 12) & 0xFFF
         lower_12 = (offset) & 0xFFF
-        context.emit(Lui(t1, upper_8))
-        context.emit(Lmi(t1, middle_12))
-        context.emit(Lli(t1, lower_12))
+        context.emit(Lui(t1, upper_8, p))
+        context.emit(Lmi(t1, middle_12, p))
+        context.emit(Lli(t1, lower_12, p))
 
     d = context.new_reg(TwigRegister)
     context.emit(Add(d, FP, t1, p))
@@ -817,7 +839,8 @@ def pattern_sw32_reg(context, tree, c0, c1):
 @isa.pattern("stm", "STRU16(mem, reg)", size=2)
 def pattern_str16_mem(context, tree, c0, c1):
     base_reg, offset = c0
-    Code = Sh(c1, offset, base_reg)
+    p = tree.pred
+    Code = Sh(c1, offset, base_reg, p)
     Code.fprel = True
     context.emit(Code)
 
@@ -826,7 +849,8 @@ def pattern_str16_mem(context, tree, c0, c1):
 @isa.pattern("stm", "STRU16(reg, reg)", size=2)
 def pattern_str16_reg(context, tree, c0, c1):
     base_reg = c0
-    Code = Sh(c1, 0, base_reg)
+    p = tree.pred
+    Code = Sh(c1, 0, base_reg, p)
     context.emit(Code)
 
 
@@ -834,7 +858,8 @@ def pattern_str16_reg(context, tree, c0, c1):
 @isa.pattern("stm", "STRI8(mem, reg)", size=2)
 def pattern_sbi8_mem(context, tree, c0, c1):
     base_reg, offset = c0
-    Code = Sb(c1, offset, base_reg)
+    p = tree.pred
+    Code = Sb(c1, offset, base_reg, p)
     Code.fprel = True
     context.emit(Code)
 
@@ -843,7 +868,8 @@ def pattern_sbi8_mem(context, tree, c0, c1):
 @isa.pattern("stm", "STRI8(reg, reg)", size=2)
 def pattern_sbi8_reg(context, tree, c0, c1):
     base_reg = c0
-    Code = Sb(c1, 0, base_reg)
+    p = tree.pred
+    Code = Sb(c1, 0, base_reg, p)
     context.emit(Code)
 
 
@@ -859,9 +885,9 @@ def pattern_const(context, tree):
     upper_8 = (c0 >> 24) & 0xFF
     middle_12 = (c0 >> 12) & 0xFFF
     lower_12 = (c0) & 0xFFF
-    context.emit(Lui(d,upper_8))
-    context.emit(Lmi(d,middle_12))
-    context.emit(Lli(d,lower_12))
+    context.emit(Lui(d,upper_8, p))
+    context.emit(Lmi(d,middle_12, p))
+    context.emit(Lli(d,lower_12, p))
     return d
 
 @isa.pattern("stm", "MOVI32(reg)", size=2)
@@ -911,7 +937,8 @@ def pattern_movb(context, tree, c0, c1):
     src = c1
     tmp = context.new_reg(TwigRegister)
     size = tree.value
-    for instruction in context.arch.gen_twig_memcpy(dst, src, tmp, size):
+    p = tree.pred
+    for instruction in context.arch.gen_twig_memcpy(dst, src, tmp, size, pred=p):
         context.emit(instruction)
 
 @isa.pattern("reg", "U32TOU16(reg)", size=0)
@@ -930,31 +957,35 @@ def pattern_i32_to_i32(context, tree, c0):
 @isa.pattern("reg", "I8TOI16(reg)", size=4)
 @isa.pattern("reg", "I8TOI32(reg)", size=4)
 def pattern_i8_to_i32(context, tree, c0):
-    context.emit(Slli(c0, c0, 24))
-    context.emit(Srai(c0, c0, 24))
+    p = tree.pred
+    context.emit(Slli(c0, c0, 24, p))
+    context.emit(Srai(c0, c0, 24, p))
     return c0
 
 
 @isa.pattern("reg", "I16TOI32(reg)", size=4)
 def pattern_i16_to_i32(context, tree, c0):
-    context.emit(Slli(c0, c0, 16))
-    context.emit(Srai(c0, c0, 16))
+    p = tree.pred
+    context.emit(Slli(c0, c0, 16, p))
+    context.emit(Srai(c0, c0, 16, p))
     return c0
 
 @isa.pattern("reg", "I8TOU16(reg)", size=4)
 @isa.pattern("reg", "U8TOU16(reg)", size=4)
 @isa.pattern("reg", "U8TOI16(reg)", size=4)
 def pattern_8_to_16(context, tree, c0):
-    context.emit(Slli(c0, c0, 24))
-    context.emit(Srli(c0, c0, 24))
+    p = tree.pred
+    context.emit(Slli(c0, c0, 24, p))
+    context.emit(Srli(c0, c0, 24, p))
     return c0
 
 @isa.pattern("reg", "I8TOU32(reg)", size=4)
 @isa.pattern("reg", "U8TOU32(reg)", size=4)
 @isa.pattern("reg", "U8TOI32(reg)", size=4)
 def pattern_8_to_32(context, tree, c0):
-    context.emit(Slli(c0, c0, 24))
-    context.emit(Srli(c0, c0, 24))
+    p = tree.pred
+    context.emit(Slli(c0, c0, 24, p))
+    context.emit(Srli(c0, c0, 24, p))
     return c0
 
 
@@ -962,8 +993,9 @@ def pattern_8_to_32(context, tree, c0):
 @isa.pattern("reg", "U16TOU32(reg)", size=4)
 @isa.pattern("reg", "U16TOI32(reg)", size=4)
 def pattern_16_to_32(context, tree, c0):
-    context.emit(Slli(c0, c0, 16))
-    context.emit(Srli(c0, c0, 16))
+    p = tree.pred
+    context.emit(Slli(c0, c0, 16, p))
+    context.emit(Srli(c0, c0, 16, p))
     return c0
 
 @isa.pattern("reg", "I32TOI8(reg)", size=0)
@@ -983,14 +1015,15 @@ def pattern_32_to_8_16(context, tree, c0):
 # @isa.pattern("reg", "CONSTF64", size=10)
 def pattern_const_f32(context, tree):
     float_const = struct.pack("f", tree.value)
+    p = tree.pred
     (c0,) = struct.unpack("i", float_const)
     d = context.new_reg(TwigRegister)
     upper_8 = (c0 >> 24) & 0xFF
     middle_12 = (c0 >> 12) & 0xFFF
     lower_12 = (c0) & 0xFFF
-    context.emit(Lui(d,upper_8))
-    context.emit(Lmi(d,middle_12))
-    context.emit(Lli(d,lower_12))
+    context.emit(Lui(d,upper_8,p))
+    context.emit(Lmi(d,middle_12,p))
+    context.emit(Lli(d,lower_12,p))
     return d
 
 @isa.pattern("stm", "PJMP(reg, CONSTI32)", size=6)
@@ -1229,7 +1262,8 @@ def pattern_sub_i32(context, tree, c0, c1):
 @isa.pattern("reg", "NEGI32(reg)", size=2)
 @isa.pattern("reg", "NEGU32(reg)", size=2)
 def pattern_negi32(context, tree, c0):
-    context.emit(Sub(c0, R0, c0))
+    p = tree.pred
+    context.emit(Sub(c0, R0, c0, p))
     return c0
 
 @isa.pattern("reg", "INVI8(reg)", size=2)
@@ -1237,7 +1271,8 @@ def pattern_negi32(context, tree, c0):
 @isa.pattern("reg", "INVU32(reg)", size=2)
 @isa.pattern("reg", "INVI32(reg)", size=2)
 def pattern_inv(context, tree, c0):
-    context.emit(Xori(c0, c0, -1))
+    p = tree.pred
+    context.emit(Xori(c0, c0, -1, p))
     return c0
 
 @isa.pattern("reg", "ANDI8(reg, reg)", size=2)
@@ -1248,7 +1283,8 @@ def pattern_inv(context, tree, c0):
 @isa.pattern("reg", "ANDU32(reg, reg)", size=2)
 def pattern_and_i(context, tree, c0, c1):
     d = context.new_reg(TwigRegister)
-    context.emit(And(d, c0, c1))
+    p = tree.pred
+    context.emit(And(d, c0, c1, p))
     return d
 
 @isa.pattern("reg", "ORU32(reg, reg)", size=2)
@@ -1259,7 +1295,8 @@ def pattern_and_i(context, tree, c0, c1):
 @isa.pattern("reg", "ORI8(reg, reg)", size=2)
 def pattern_or_i32(context, tree, c0, c1):
     d = context.new_reg(TwigRegister)
-    context.emit(Or(d, c0, c1))
+    p = tree.pred
+    context.emit(Or(d, c0, c1, p))
     return d
 
 
@@ -1272,7 +1309,8 @@ def pattern_or_i32(context, tree, c0, c1):
 def pattern_or_i32_reg_const(context, tree, c0):
     d = context.new_reg(TwigRegister)
     c1 = tree.children[1].value
-    context.emit(Ori(d, c0, c1))
+    p = tree.pred
+    context.emit(Ori(d, c0, c1, p))
     return d
 
 @isa.pattern(
@@ -1284,7 +1322,8 @@ def pattern_or_i32_reg_const(context, tree, c0):
 def pattern_or_i32_const_reg(context, tree, c0):
     d = context.new_reg(TwigRegister)
     c1 = tree.children[0].value
-    context.emit(Ori(d, c0, c1))
+    p = tree.pred
+    context.emit(Ori(d, c0, c1, p))
     return d
 
 @isa.pattern("reg", "SHRU8(reg, reg)", size=2)
@@ -1292,32 +1331,36 @@ def pattern_or_i32_const_reg(context, tree, c0):
 @isa.pattern("reg", "SHRU32(reg, reg)", size=2)
 def pattern_shr_u32(context, tree, c0, c1):
     d = context.new_reg(TwigRegister)
-    context.emit(Srl(d, c0, c1))
+    p = tree.pred
+    context.emit(Srl(d, c0, c1, p))
     return d
 
 
 @isa.pattern("reg", "SHRI8(reg, reg)", size=2)
 def pattern_shr_i8(context, tree, c0, c1):
     d = context.new_reg(TwigRegister)
-    context.emit(Slli(c0, c0, 24))
-    context.emit(Srai(c0, c0, 24))
-    context.emit(Sra(d, c0, c1))
+    p = tree.pred
+    context.emit(Slli(c0, c0, 24, p))
+    context.emit(Srai(c0, c0, 24, p))
+    context.emit(Sra(d, c0, c1, p))
     return d
 
 
 @isa.pattern("reg", "SHRI16(reg, reg)", size=2)
 def pattern_shr_i16(context, tree, c0, c1):
     d = context.new_reg(TwigRegister)
-    context.emit(Slli(c0, c0, 16))
-    context.emit(Srai(c0, c0, 16))
-    context.emit(Sra(d, c0, c1))
+    p = tree.pred
+    context.emit(Slli(c0, c0, 16, p))
+    context.emit(Srai(c0, c0, 16, p))
+    context.emit(Sra(d, c0, c1, p))
     return d
 
 
 @isa.pattern("reg", "SHRI32(reg, reg)", size=2)
 def pattern_shr_i32(context, tree, c0, c1):
     d = context.new_reg(TwigRegister)
-    context.emit(Sra(d, c0, c1))
+    p = tree.pred
+    context.emit(Sra(d, c0, c1, p))
     return d
 
 
@@ -1330,7 +1373,8 @@ def pattern_shr_i32(context, tree, c0, c1):
 def pattern_shr_i32_reg_const(context, tree, c0):
     d = context.new_reg(TwigRegister)
     c1 = tree.children[1].value
-    context.emit(Srai(d, c0, c1))
+    p = tree.pred
+    context.emit(Srai(d, c0, c1, p))
     return d
 
 
@@ -1342,7 +1386,8 @@ def pattern_shr_i32_reg_const(context, tree, c0):
 @isa.pattern("reg", "SHLI32(reg, reg)", size=2)
 def pattern_shl_i32(context, tree, c0, c1):
     d = context.new_reg(TwigRegister)
-    context.emit(Sll(d, c0, c1))
+    p = tree.pred
+    context.emit(Sll(d, c0, c1, p))
     return d
 
 @isa.pattern(
@@ -1354,7 +1399,8 @@ def pattern_shl_i32(context, tree, c0, c1):
 def pattern_shl_i32_reg_const(context, tree, c0):
     d = context.new_reg(TwigRegister)
     c1 = tree.children[1].value
-    context.emit(Slli(d, c0, c1))
+    p = tree.pred
+    context.emit(Slli(d, c0, c1, p))
     return d
 
 @isa.pattern("reg", "MULI8(reg, reg)", size=10)
@@ -1364,13 +1410,15 @@ def pattern_shl_i32_reg_const(context, tree, c0):
 @isa.pattern("reg", "MULU32(reg, reg)", size=10)
 def pattern_mul_i32(context, tree, c0, c1):
     d = context.new_reg(TwigRegister)
-    context.emit(Mul(d, c0, c1))
+    p = tree.pred
+    context.emit(Mul(d, c0, c1, p))
     return d
 
 @isa.pattern("reg", "DIVI32(reg, reg)", size=10)
 def pattern_div_i32(context, tree, c0, c1):
     d = context.new_reg(TwigRegister)
-    context.emit(Div(d, c0, c1))
+    p = tree.pred
+    context.emit(Div(d, c0, c1, p))
     return d
 
 #there better not be unsigned division
@@ -1378,7 +1426,8 @@ def pattern_div_i32(context, tree, c0, c1):
 @isa.pattern("reg", "DIVU32(reg, reg)", size=10)
 def pattern_div_u32(context, tree, c0, c1):
     d = context.new_reg(TwigRegister)
-    context.emit(Div(d, c0, c1))
+    p = tree.pred
+    context.emit(Div(d, c0, c1, p))
     return d
 
 #if there is many modulo maybe separate instruction would be good
@@ -1390,18 +1439,20 @@ def pattern_rem32(context, tree, c0, c1):
     d = c0 - (c1 * (c0 / c1))
     """
     t1 = context.new_reg(TwigRegister)
-    context.emit(Div(t1, c0, c1))
+    p = tree.pred
+    context.emit(Div(t1, c0, c1, p))
     t2 = context.new_reg(TwigRegister)
-    context.emit(Mul(t2, c1, t1))
+    context.emit(Mul(t2, c1, t1, p))
     d = context.new_reg(TwigRegister)
-    context.emit(Sub(d, c0, t2))
+    context.emit(Sub(d, c0, t2, p))
     return d
 
 @isa.pattern("reg", "XORU32(reg, reg)", size=2)
 @isa.pattern("reg", "XORI32(reg, reg)", size=2)
 def pattern_xor_i32(context, tree, c0, c1):
     d = context.new_reg(TwigRegister)
-    context.emit(Xor(d, c0, c1))
+    p = tree.pred
+    context.emit(Xor(d, c0, c1, p))
     return d
 
 @isa.pattern(
@@ -1413,7 +1464,8 @@ def pattern_xor_i32(context, tree, c0, c1):
 def pattern_xor_i32_reg_const(context, tree, c0):
     d = context.new_reg(TwigRegister)
     c1 = tree.children[1].value
-    context.emit(Xori(d, c0, c1))
+    p = tree.pred
+    context.emit(Xori(d, c0, c1, p))
     return d
 
 @isa.pattern(
@@ -1425,7 +1477,8 @@ def pattern_xor_i32_reg_const(context, tree, c0):
 def pattern_xor_i32_const_reg(context, tree, c0):
     d = context.new_reg(TwigRegister)
     c1 = tree.children[0].value
-    context.emit(Xori(d, c0, c1))
+    p = tree.pred
+    context.emit(Xori(d, c0, c1, p))
     return d
 
 

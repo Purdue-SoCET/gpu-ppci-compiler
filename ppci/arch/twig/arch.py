@@ -333,9 +333,9 @@ class TwigArch(Architecture):
             upper_8 = (offset>>24) & 0xff
             middle_12 = (offset>>12) & 0xfff
             lower_12 = (offset) & 0xfff
-            yield Lui(R11, upper_8)
-            yield Lmi(R11, middle_12)
-            yield Lli(R11, lower_12)
+            yield Lui(R11, upper_8, pred)
+            yield Lmi(R11, middle_12, pred)
+            yield Lli(R11, lower_12, pred)
             if instruction == "addi":
                 yield Add(r1, r2, R11, pred)
             if instruction == "lw":
@@ -347,11 +347,11 @@ class TwigArch(Architecture):
                 yield Sw(r1, 0, R11, pred)
         return
 
-    def gen_twig_memcpy(self, dst, src, tmp, size):
+    def gen_twig_memcpy(self, dst, src, tmp, size, pred=0):
         # Called before register allocation
         for i in range(0, size, 4):
-            yield from self.immUsed(tmp, src, i, "lw")
-            yield from self.immUsed(tmp, dst, i, "sw")
+            yield from self.immUsed(tmp, src, i, "lw", pred=pred)
+            yield from self.immUsed(tmp, dst, i, "sw", pred=pred)
 
     def peephole(self, frame):
         """
@@ -453,7 +453,7 @@ class TwigArch(Architecture):
         yield Align(4)
         return
 
-    def gen_call(self, frame, label, args, rv):
+    def gen_call(self, frame, label, args, rv, pred=0):
         """Implement actual call and save / restore live registers"""
         name = str(getattr(label, "name", label))
         impl = BUILTIN_TABLE.get(name)
@@ -462,19 +462,19 @@ class TwigArch(Architecture):
                 return  # raise or log here if want stricter behavior
             src = args[0][1]
             dst = rv[1]
-            yield impl(dst, src)
+            yield impl(dst, src, pred)
             return
         if label == 'threadIdx':
             ret_vreg = rv[1]
-            yield Csrr(ret_vreg, 1)
+            yield Csrr(ret_vreg, 1, pred)
             return
         if label == 'blockIdx':
             ret_vreg = rv[1]
-            yield Csrr(ret_vreg, 2)
+            yield Csrr(ret_vreg, 2, pred)
             return
         if label == 'blockDim':
             ret_vreg = rv[1]
-            yield Csrr(ret_vreg, 3)
+            yield Csrr(ret_vreg, 3, pred)
             return
         # --- If not custom calls, proceed with a standard function call ---
         arg_types = [a[0] for a in args]
