@@ -666,15 +666,22 @@ def call_internal1(context, name, a, pred, clobbers=()):
     context.emit(Global(name))
     context.emit(Bl(LR, name, clobbers=clobbers))
     context.emit(RegisterUseDef(uses=(R10,)))
-    context.move(Addi(d, R10, 0, pred))
+    context.emit(Addi(d, R10, 0, pred))
     return d
 
 # @isa.pattern("reg", "NEGF64(reg)", size=20)
-@isa.pattern("reg", "NEGF32(reg)", size=20)
+@isa.pattern("reg", "NEGF32(reg)", size=2)
 def pattern_neg_f32(context, tree, c0):
-    return call_internal1(
-        context, "float32_neg", c0, tree.pred, clobbers=context.arch.caller_save
-    )
+    d = context.new_reg(TwigRegister)
+    p = tree.pred
+    mask_reg = context.new_reg(TwigRegister)
+    context.emit(Lui(mask_reg, 0x80, p)) # Load 0x80 into top byte (0x80000000)
+    context.emit(Xor(d, c0, mask_reg, p))
+    return d
+
+    # return call_internal1(
+    #     context, "float32_neg", c0, tree.pred, clobbers=context.arch.caller_save
+    # )
 
 # @isa.pattern("reg", "F64TOF32(reg)", size=10)
 def pattern_i32_to_i32(context, tree, c0):
