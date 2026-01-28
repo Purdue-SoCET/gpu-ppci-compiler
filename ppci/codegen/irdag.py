@@ -207,7 +207,7 @@ class SelectionGraphBuilder:
             # In case of last statement, first perform phi-lifting:
             if instruction.is_terminator:
                 self.copy_phis_of_successors(ir_block)
-
+            self.curr_ins_pred = getattr(instruction, "pred", 0)
             # Dispatch the handler depending on type:
             self.f_map[type(instruction)](self, instruction)
 
@@ -229,7 +229,7 @@ class SelectionGraphBuilder:
             sgnode.add_input(self.current_token)
         self.current_token = sgnode.new_output("ctrl", kind=SGValue.CONTROL)
 
-    def new_node(self, name, ty, *args, value=None):
+    def new_node(self, name, ty, *args, value=None, predicate=None):
         """Create a new selection graph node, and add it to the graph"""
         assert isinstance(name, str)
         assert isinstance(ty, ir.Typ) or ty is None
@@ -240,6 +240,9 @@ class SelectionGraphBuilder:
         sgnode.add_inputs(*args)
         sgnode.value = value
         sgnode.group = self.current_block
+        if predicate is None:
+            predicate = getattr(self, "curr_ins_pred", 0)
+        sgnode.pred = predicate
         self.sgraph.add_node(sgnode)
         return sgnode
 
@@ -256,6 +259,71 @@ class SelectionGraphBuilder:
 
     def get_value(self, node):
         return self.function_info.value_map[node]
+
+    def do_predicate_annotation(self, node):
+        """ Ignore predicate annotations during DAG building. """
+        pass  # This is purely an annotation, do not add to DAG
+
+    def do_p_jump(self, node):
+        """ Process predicated jump (PJump) into the DAG.
+        This is a terminal instruction.
+        """
+
+        # if node.lab_yes not in self.function_info.label_map:
+        #     print(f"WARNING: {node.lab_yes} was missing. Creating placeholder.")
+        #     # You must verify what object type 'label_map' expects.
+        #     # Usually it is a Label object from ppci.ir or similar.
+        #     self.function_info.label_map[node.lab_yes] = node.lab_yes
+
+        # # Check if the 'no' label exists (good practice to check both)
+        # if node.lab_no not in self.function_info.label_map:
+        #     print(f"WARNING: {node.lab_no} was missing. Creating placeholder.")
+        #     self.function_info.label_map[node.lab_no] = node.lab_no
+
+        sgnode = self.new_node("PJMP", None) # (main_blockX == 0 ?)
+        sgnode.value = (
+            node.pred_yes_id,
+            self.function_info.label_map[node.lab_yes],
+            self.function_info.label_map[node.lab_no],
+        )
+        self.chain(sgnode)
+        self.debug_db.map(node, sgnode)
+
+    def do_s_jump(self, node):
+        """ Process predicated jump (SJump) into the DAG.
+        This is a terminal instruction.
+        """
+        lhs = self.get_value(node.a)
+        rhs = self.get_value(node.b)
+        sgnode = self.new_node("SJMP", node.a.ty, lhs, rhs)
+        sgnode.value = (
+            node.cond,
+            self.function_info.label_map[node.lab_yes],
+            node.pred_yes_id,
+            getattr(node, 'pred', 0)
+        )
+
+        self.chain(sgnode)
+        self.debug_db.map(node, sgnode)
+
+    def do_b_jump(self, node):
+        """ Process predicated jump (BJump) into the DAG.
+        This is a terminal instruction.
+        """
+        lhs = self.get_value(node.a)
+        rhs = self.get_value(node.b)
+        sgnode = self.new_node("BJMP", node.a.ty, lhs, rhs)
+        sgnode.value = (
+            node.cond,
+            self.function_info.label_map[node.lab_yes],
+            self.function_info.label_map[node.lab_no],
+            node.pred_yes_id,
+            node.pred_no_id,
+            getattr(node, 'pred', 0)
+        )
+
+        self.chain(sgnode)
+        self.debug_db.map(node, sgnode)
 
     def do_return(self, node):
         """Move result into result register and jump to epilog"""
@@ -424,7 +492,7 @@ class SelectionGraphBuilder:
         self.debug_db.map(node, sgnode)
         sgnode.value = value
         output = sgnode.new_output(node.name)
-        output.wants_vreg = False
+        # output.wants_vreg = False
         self.add_map(node, output)
 
     def do_literal_data(self, node):

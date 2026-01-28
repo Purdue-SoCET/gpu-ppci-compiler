@@ -1,0 +1,96 @@
+       .section data
+       .section data
+       .section code
+       global main
+       type main func
+ main:
+       lui, x11, 255
+       lmi, x11, 4095
+       lli, x11, 2672
+       add x2, x2, x11
+       lui, x11, 0
+       lmi, x11, 0
+       lli, x11, 128
+       add x11, x2, x11
+       sw x1, 0(x11)
+       sw x8, 0(x2)
+       lui, x11, 0
+       lmi, x11, 0
+       lli, x11, 256
+       add x8, x2, x11
+       sw x9, 0(x8)
+ main_block0:
+       jal x0, main_block1
+ main_block1:
+       addi x9, x0, 10
+       lui, x11, 0
+       lmi, x11, 0
+       lli, x11, 512
+       add x11, x8, x11
+       sw x9, 0(x11)
+       addi x9, x0, 0
+       lui, x11, 0
+       lmi, x11, 0
+       lli, x11, 384
+       add x11, x8, x11
+       sw x9, 0(x11)
+       jal x0, main_block2
+ main_block2:
+       lui, x11, 0
+       lmi, x11, 0
+       lli, x11, 384
+       add x11, x8, x11
+       lw x9, 0(x11)
+       addi x10, x0, 10
+       blt 0, x9, x10
+       jal x0, main_block3
+ main_block3:
+       lui, x11, 0
+       lmi, x11, 0
+       lli, x11, 512
+       add x11, x8, x11
+       lw x9, 0(x11)
+       addi x10, x0, 1
+       sub x9, x9, x10
+       lui, x11, 0
+       lmi, x11, 0
+       lli, x11, 512
+       add x11, x8, x11
+       sw x9, 0(x11)
+       jal x0, main_block5
+ main_block4:
+       addi x10, x0, 0
+       jal x0, main_epilog
+ main_block5:
+       lui, x11, 0
+       lmi, x11, 0
+       lli, x11, 384
+       add x11, x8, x11
+       lw x9, 0(x11)
+       addi x9, x9, 1
+       lui, x11, 0
+       lmi, x11, 0
+       lli, x11, 384
+       add x11, x8, x11
+       sw x9, 0(x11)
+       lui, x11, 0
+       lmi, x11, 0
+       lli, x11, 384
+       add x11, x8, x11
+       lw x9, 0(x11)
+       jpnz p0, main_block4
+       jal x0, main_block2
+ main_epilog:
+       lw x9, 0(x8)
+       lui, x11, 0
+       lmi, x11, 0
+       lli, x11, 128
+       add x11, x2, x11
+       lw x1, 0(x11)
+       lw x8, 0(x2)
+       lui, x11, 0
+       lmi, x11, 0
+       lli, x11, 1424
+       add x2, x2, x11
+       jalr x0,x1, 0
+       .align 4

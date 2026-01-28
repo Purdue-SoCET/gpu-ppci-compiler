@@ -1,0 +1,84 @@
+Compilation unit with 5 declarations
+    Function storage=extern typ=Function-type name=threadId
+        Function-type
+            Basic type int
+    Function storage=None typ=Function-type name=main
+        Function-type
+            Basic type int
+        Compound
+            Declaration statement
+                Variable [storage=None typ=Basic type float name=a]
+                    Basic type float
+                    BinaryOperator / <Basic type float>
+                        Cast Basic type float
+                            Basic type float
+                            Numeric literal 3.14 <Basic type double>
+                                Basic type double
+                        Cast Basic type float
+                            Basic type float
+                            Numeric literal 2 <Basic type int>
+                                Basic type int
+                        Basic type float
+            Declaration statement
+                Variable [storage=None typ=Basic type float name=b]
+                    Basic type float
+                    FunctionCall
+                        Cast Pointer-type
+                            Pointer-type
+                                Function-type
+                                    Parameter [typ=Basic type float name=None]
+                                        Basic type float
+                                    Basic type float
+                            Id cos <Function-type>
+                        Id a <Basic type float>
+            Declaration statement
+                Variable [storage=None typ=Basic type float name=c]
+                    Basic type float
+                    FunctionCall
+                        Cast Pointer-type
+                            Pointer-type
+                                Function-type
+                                    Parameter [typ=Basic type float name=None]
+                                        Basic type float
+                                    Basic type float
+                            Id sin <Function-type>
+                        Id a <Basic type float>
+            Declaration statement
+                Variable [storage=None typ=Basic type float name=d]
+                    Basic type float
+                    FunctionCall
+                        Cast Pointer-type
+                            Pointer-type
+                                Function-type
+                                    Parameter [typ=Basic type float name=None]
+                                        Basic type float
+                                    Basic type float
+                            Id isqrt <Function-type>
+                        Id a <Basic type float>
+            Declaration statement
+                Variable [storage=None typ=Basic type int name=x]
+                    Basic type int
+                    FunctionCall
+                        Cast Pointer-type
+                            Pointer-type
+                                Function-type
+                                    Basic type int
+                            Id threadId <Function-type>
+            Return
+                Numeric literal 0 <Basic type int>
+                    Basic type int
+    Function storage=extern typ=Function-type name=cos
+        Function-type
+            Parameter [typ=Basic type float name=None]
+                Basic type float
+            Basic type float
+    Function storage=extern typ=Function-type name=sin
+        Function-type
+            Parameter [typ=Basic type float name=None]
+                Basic type float
+            Basic type float
+    Function storage=extern typ=Function-type name=isqrt
+        Function-type
+            Parameter [typ=Basic type float name=None]
+                Basic type float
+            Basic type float

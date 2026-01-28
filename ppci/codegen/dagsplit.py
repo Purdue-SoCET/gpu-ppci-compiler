@@ -82,35 +82,40 @@ class DagSplitter:
         trees = []
         node_map = {}
 
-        def mk_tr(inp):
+        def mk_tr(inp, inherited_pred):
             if inp.vreg:
                 # If the input value has a vreg, use it
                 child_tree = Tree(self.make_op("REG", inp.ty), value=inp.vreg)
+                child_tree.pred = inherited_pred
             elif inp.node in node_map:
                 child_tree = node_map[inp.node]
             elif inp.node.name.op == "LABEL":
                 child_tree = Tree(str(inp.node.name), value=inp.node.value)
+                child_tree.pred = inherited_pred
             else:  # inp.node.name.startswith('CONST'):
                 # If the node is a constant, use that
                 if inp.wants_vreg:
                     raise ValueError(f"{inp} does require vreg")
-                children = [mk_tr(i) for i in inp.node.data_inputs]
+                children = [mk_tr(i, inherited_pred) for i in inp.node.data_inputs]
                 child_tree = Tree(
                     str(inp.node.name), *children, value=inp.node.value
                 )
+                child_tree.pred = inherited_pred
             return child_tree
 
         for node in sorted_nodes:
             assert len(node.data_outputs) <= 1
 
             # Determine data dependencies:
+            curr_pred = getattr(node, 'pred', 0)
             children = []
             for inp in node.data_inputs:
-                child_tree = mk_tr(inp)
+                child_tree = mk_tr(inp, curr_pred)
                 children.append(child_tree)
 
             # Create a tree node:
             tree = Tree(str(node.name), *children, value=node.value)
+            tree.pred = curr_pred
             self.debug_db.map(node, tree)
 
             # Handle outputs:
@@ -127,9 +132,12 @@ class DagSplitter:
                     if typ is None:
                         print(node)
                     tree = Tree(self.make_op("MOV", typ), tree, value=vreg)
+                    tree.pred = curr_pred
                     trees.append(tree)
                     tree = Tree(self.make_op("REG", typ), value=vreg)
+                    tree.pred = curr_pred
                 elif node.volatile:
+                    tree.pred = curr_pred
                     trees.append(tree)
 
             # Store for later:

@@ -100,6 +100,8 @@ ops = [
     "F64TO",
     "FPREL",
     "SPREL",  # Frame/stack pointer relative
+    "BJMP",
+    "SJMP",
 ]
 
 # Add all possible terminals:
@@ -114,6 +116,9 @@ terminals = tuple(x + y for x in ops for y in data_types) + (
     "ALLOCA",
     "FREEA",
     "ASM",  # Inline assembly
+    "BJMP", #maybe these two (bjmp and sjmp) should not be in terminals since they are in ops
+    "SJMP",
+    "PJMP"
 )
 
 
@@ -163,6 +168,7 @@ class TreeSelector:
         patterns and the corresponding code will be emitted"""
         self.sys.check_tree_defined(tree)
         self.burm_label(tree)
+        # print(tree)   # Twig Debug
 
         if not tree.state.has_goal("stm"):  # pragma: no cover
             raise RuntimeError(f"Tree {tree} not covered")
@@ -210,12 +216,21 @@ class TreeSelector:
     def apply_rules(self, context, tree, goal):
         """Apply all selected instructions to the tree"""
         rule = tree.state.get_rule(goal)
+        kid_goals = self.nts(rule)
+        # if len(kid_goals) != len(tree.children):
+        #     raise RuntimeError(f"Rule/Tree mismatch: {tree.name} has {len(tree.children)} children but rule expects {len(kid_goals)}")
         results = [
             self.apply_rules(context, kid_tree, kid_goal)
             for kid_tree, kid_goal in zip(
-                self.kids(tree, rule), self.nts(rule)
+                tree.children, kid_goals
             )
         ]
+        # results = [
+        #     self.apply_rules(context, kid_tree, kid_goal)
+        #     for kid_tree, kid_goal in zip(
+        #         self.kids(tree, rule), self.nts(rule)
+        #     )
+        # ]
         # Get the function to call:
         rule_f = self.sys.get_rule(rule).template
         context.tree = tree
@@ -320,7 +335,7 @@ class InstructionSelector1:
 
     def call_function(self, context, tree):
         label, args, rv = tree.value
-        for instruction in self.arch.gen_call(context.frame, label, args, rv):
+        for instruction in self.arch.gen_call(context.frame, label, args, rv, pred=tree.pred):
             context.emit(instruction)
 
     def inline_asm(self, context, tree):

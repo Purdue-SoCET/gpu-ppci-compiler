@@ -25,7 +25,7 @@ from . import init, utils
 from .nodes import declarations, expressions, nodes, statements, types
 from .printer import expr_to_str, type_to_str
 from .scope import RootScope, Scope
-
+from .builtins import get_builtin_func  # for builtin functions
 
 class CSemantics:
     """This class handles the C semantics"""
@@ -1075,14 +1075,20 @@ class CSemantics:
 
     def on_call(self, callee, arguments, location):
         """Check function call for validity"""
+        # Builtin Functions
+        builtin_fty = None
+        callee_name = getattr(callee, "name", None)
+        if isinstance(callee_name, str):
+            builtin_fty = get_builtin_func(callee_name)
+
         callee = self.pointer(callee)
-        if callee.typ.is_pointer and isinstance(
-            callee.typ.element_type, types.FunctionType
-        ):
-            # Function pointer
+        if hasattr(callee, "typ") and callee.typ.is_pointer and isinstance(callee.typ.element_type, types.FunctionType):
             function_type = callee.typ.element_type
         else:
-            self.error("Calling a non-function", location)
+            if builtin_fty is not None:
+                function_type = builtin_fty
+            else:
+                self.error("Calling a non-function", location)
 
         # Check argument count:
         num_expected = len(function_type.argument_types)
@@ -1132,19 +1138,36 @@ class CSemantics:
 
     def on_variable_access(self, name, location):
         """Handle variable access"""
+        # Builtin Functions
         if not self.scope.is_defined(name):
-            defined_names = self.scope.get_defined_names()
-            suggestions = difflib.get_close_matches(name, defined_names)
-            hints = []
-            for suggestion in suggestions:
-                hints.append(
-                    f'"{name}" was not defined, did you mean "{suggestion}"?'
+            fty = get_builtin_func(name)  # FunctionType or None
+            if fty is not None:
+                gscope = self.scope
+                while gscope.parent is not None:
+                    gscope = gscope.parent
+
+                if not gscope.is_defined(name):
+                    decl = declarations.FunctionDeclaration(
+                        declarations.StorageClass.EXTERN,   # use extern
+                        fty,
+                        name,
+                        location
+                    )
+                    gscope.insert(decl)
+            else:
+                defined_names = self.scope.get_defined_names()
+                suggestions = difflib.get_close_matches(name, defined_names)
+                hints = []
+                for suggestion in suggestions:
+                    hints.append(
+                        f'"{name}" was not defined, did you mean "{suggestion}"?'
+                    )
+                self.error(
+                    f'Undeclared identifier: "{name}"',
+                    location,
+                    hints=hints,
                 )
-            self.error(
-                f'Undeclared identifier: "{name}"',
-                location,
-                hints=hints,
-            )
+
         symbol = self.scope.get_identifier(name)
         declaration = symbol.declaration
         typ = declaration.typ

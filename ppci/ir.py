@@ -704,6 +704,7 @@ class Instruction:
         self._var_map = {}
         self.block = None
         self.uses = OrderedSet()
+        self.pred = 0
 
     @property
     def function(self):
@@ -833,6 +834,34 @@ class Undefined(LocalValue):
     def __str__(self):
         return f"{self.name} = undefined"
 
+
+class PredicateAnnotation(Instruction):
+    """GPU-style predicate annotation for control flow divergence tracking.
+
+    This instruction annotates a basic block with predicate register information
+    to track which threads are active in GPU-style SIMT execution.
+
+    For backend code generation, the assembly will compute:
+        pred[dest_pred_reg] = pred[parent_pred_reg] AND condition_mask
+
+    Where:
+    - parent_pred_reg: Source predicate (active threads from parent context)
+    - dest_pred_reg: Destination predicate (active threads in this block)
+    - condition_mask: Computed from the branch condition
+    """
+
+    def __init__(self, pred_reg, pred_mask, context_name="", parent_pred_reg=None):
+        super().__init__()
+        self.pred_reg = pred_reg
+        self.pred_mask = pred_mask
+        self.context_name = context_name
+        self.parent_pred_reg = parent_pred_reg if parent_pred_reg is not None else 0
+
+    def __str__(self):
+        # Show destination pred and parent pred for assembly generation
+        if self.context_name:
+            return f"pred{self.pred_reg} = pred{self.parent_pred_reg} AND <condition> // {self.context_name}"
+        return f"pred{self.pred_reg} = pred{self.parent_pred_reg} // root (all ones)"
 
 class Const(LocalValue):
     """Represents a constant value"""
@@ -1354,6 +1383,55 @@ class CJump(JumpBase):
             f"cjmp {self.a.name} {self.cond} {self.b.name} ? "
             + f"{self.lab_yes.name} : {self.lab_no.name}"
         )
+
+class SJump(CJump):
+    """Conditional jump to true or false labels."""
+
+    def __init__(self, a, cond, b, lab_yes, pred_yes):
+        """
+        pred_yes and pred_no are the *integer IDs* of the
+        predicate registers to be written.
+        """
+        super().__init__(a, cond, b, lab_yes, lab_yes)
+        self.pred_yes_id = pred_yes
+
+    def __str__(self):
+        return (
+            f"sjmp {self.a.name} {self.cond} {self.b.name} : "
+            f"{self.lab_yes.name} (p{self.pred_yes_id})"
+        )
+
+class PJump(CJump):
+    """Conditional jump to true or false labels."""
+    def __init__(self, a, cond, b, lab_yes, lab_no, pred_yes, pred_no, pred_parent):
+        super().__init__(a, cond, b, lab_yes, lab_no)
+        self.pred_yes_id = pred_yes
+        self.pred_no_id = pred_no
+
+    def __str__(self):
+        return (
+            f"pjmp p{self.pred_yes_id} == 0 ? "
+            + f"{self.lab_yes.name} : {self.lab_no.name}"
+        )
+
+class BJump(CJump):
+    """Conditional jump to true or false labels."""
+
+    def __init__(self, a, cond, b, lab_yes, lab_no, pred_yes, pred_no, pred_parent):
+        """
+        pred_yes and pred_no are the *integer IDs* of the
+        predicate registers to be written.
+        """
+        super().__init__(a, cond, b, lab_yes, lab_no)
+        self.pred_yes_id = pred_yes
+        self.pred_no_id = pred_no
+
+    def __str__(self):
+        return (
+            f"bjmp {self.a.name} {self.cond} {self.b.name} ? "
+            f"{self.lab_yes.name} (p{self.pred_yes_id}) : {self.lab_no.name} (p{self.pred_no_id})"
+        )
+
 
 
 class JumpTable(JumpBase):
