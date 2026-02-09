@@ -1,6 +1,6 @@
 from ...utils.bitfun import BitView, wrap_negative
 from ..encoding import Relocation
-from .tokens import TwigIToken, TwigSToken, TwigJToken
+from .tokens import TwigIToken, TwigSToken, TwigJToken, TwigPToken
 
 #our btype doesn't jump, we can use it for 'jal' 17imm and jalr?
 class JImm17Relocation(Relocation):
@@ -34,3 +34,25 @@ class JImm17Relocation(Relocation):
 
 #AbsAddr32Relocation for dcd2 pseudo instr
 #this is for labels not sure if we need
+
+class PBImm11Reloc(Relocation):
+    name = "pb_imm11"
+    token = TwigPToken
+
+    def calc(self, sym_value, reloc_value):
+        assert sym_value % 2 == 0
+        assert reloc_value % 2 == 0
+        off = (sym_value - reloc_value) // 2   # PC-relative
+        return wrap_negative(off, 11)
+
+    def apply(self, sym_value, data, reloc_value):
+        value = self.calc(sym_value, reloc_value)
+        assert 0 <= value < (1 << 11)
+
+        imm_lo6 = value & 0x3F
+        imm_hi5 = (value >> 6) & 0x1F
+
+        tok = self.token.from_data(data)
+        tok.rs2 = imm_lo6
+        tok.imm = imm_hi5
+        return tok.encode()
