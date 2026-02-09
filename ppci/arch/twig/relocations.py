@@ -35,7 +35,7 @@ class JImm17Relocation(Relocation):
 #AbsAddr32Relocation for dcd2 pseudo instr
 #this is for labels not sure if we need
 
-class PBImm11Reloc(Relocation):
+class PBImm11Relocation(Relocation):
     name = "pb_imm11"
     token = TwigPToken
 

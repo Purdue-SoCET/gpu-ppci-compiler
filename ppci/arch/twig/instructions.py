@@ -19,7 +19,7 @@ import struct
 isa = Isa()
 
 isa.register_relocation(JImm17Relocation)
-isa.register_relocation(PBImm11Reloc)
+isa.register_relocation(PBImm11Relocation)
 
 class TwigRInstruction(Instruction):
     tokens = [TwigRToken]
@@ -447,7 +447,7 @@ def make_pb(mnemonic, opcode):
         "patterns": patterns,
         "tokens": tokens,
         "opcode": opcode,
-        "relocations": lambda self: [PBImm11Reloc(self.target)],
+        "relocations": lambda self: [PBImm11Relocation(self.target)],
     }
     return type(mnemonic + "_ins", (TwigBInstruction,), members)
 
