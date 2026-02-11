@@ -51,6 +51,9 @@ from .instructions import (
     Sw,
     Sh,
     Sb,
+    #predicate memory
+    Prsw,
+    Prlw,
     #branch
     Beq,
     Bne,
@@ -194,6 +197,11 @@ BUILTIN_TABLE = {
 #     return bool(val <= (msb - 1) and (val >= ll))
 
 NUM_THREADS = 32
+# Fixed space for saving predicate registers during function calls.
+# 32 pred regs * 4 bytes each = 128 bytes. Predicates are shared masks
+# (not per-thread), so this is NOT multiplied by NUM_THREADS.
+PRED_SAVE_SPACE = 128
+
 class TwigAssembler(BaseAssembler):
     def __init__(self):
         super().__init__()
@@ -276,7 +284,10 @@ class TwigArch(Architecture):
             R26,
             R27,
         )
-        self.caller_save = (R10, R11, R12, R13, R14, R15, R16, R17) #+ tuple(predregisters)
+        self.caller_save = (R10, R11, R12, R13, R14, R15, R16, R17,
+                            R28, R29, R30, R31, R32, R33, R34, R35, R36, R37, R38, R39,
+                            R40, R41, R42, R43, R44, R45, R46, R47, R48, R49, R50, R51,
+                            R52, R53, R54, R55, R56, R57, R58, R59, R60, R61, R62, R63) #+ tuple(predregisters)
 
     def branch(self, reg, lab):
         if isinstance(lab, TwigRegister):
@@ -400,7 +411,8 @@ class TwigArch(Architecture):
         return Addi(dst, src, 0, 4, ismove=True)
 
     def gen_prologue(self, frame):
-        """TODO idk, adjust sp, save lr and lp(?), save callee saves on stack"""
+        """Adjust sp, save lr and fp, save callee saves on stack,
+        and reserve space for predicate saves during calls."""
         yield Label(frame.name)
         stack_size = round_up(frame.stacksize)
         stack_size *= NUM_THREADS
@@ -409,10 +421,10 @@ class TwigArch(Architecture):
         savespace = NUM_THREADS*4*len(calleeregs)
         extras = max(frame.out_calls) if frame.out_calls else 0
         outspace = round_up(extras)*NUM_THREADS
-        totalstack = round_up(stack_size+savespace+outspace + lrfpspace)
+        predsavespace = PRED_SAVE_SPACE
+        totalstack = round_up(stack_size+savespace+outspace+lrfpspace+predsavespace)
         if totalstack >0:
             yield from self.immUsed(SP, SP, -totalstack, "addi")
-        # yield from self.immUsed(SP, SP, -stack_size*NUM_THREADS, "addi")
 
         yield from self.immUsed(LR, SP, 4*NUM_THREADS, "sw")
         yield from self.immUsed(FP,SP,0*NUM_THREADS, "sw")
@@ -435,7 +447,8 @@ class TwigArch(Architecture):
         extras = max(frame.out_calls) if frame.out_calls else 0
         outspace = round_up(extras)*NUM_THREADS
         lrfpspace = 8*NUM_THREADS
-        totalstack = round_up(stack_size+savespace+outspace+lrfpspace)
+        predsavespace = PRED_SAVE_SPACE
+        totalstack = round_up(stack_size+savespace+outspace+lrfpspace+predsavespace)
 
         if savespace >0:
             offset = 0
@@ -453,8 +466,27 @@ class TwigArch(Architecture):
         yield Align(4)
         return
 
+    def _get_pred_save_offset(self, frame):
+        """Compute the byte offset from FP to the predicate save area.
+
+        Stack layout from FP upward:
+            FP+0:  callee-saved GPRs (savespace)
+            FP+savespace: local variables (stack_size)
+            FP+savespace+stack_size: outgoing call area (outspace)
+            FP+savespace+stack_size+outspace: predicate save area (128 bytes)
+        """
+        calleeregs = self.get_callee_saved(frame)
+        savespace = NUM_THREADS * 4 * len(calleeregs)
+        stack_size = round_up(frame.stacksize) * NUM_THREADS
+        extras = max(frame.out_calls) if frame.out_calls else 0
+        outspace = round_up(extras) * NUM_THREADS
+        return savespace + stack_size + outspace
+
     def gen_call(self, frame, label, args, rv, pred=0):
-        """Implement actual call and save / restore live registers"""
+        """Implement actual call and save / restore live registers.
+        For standard calls, saves active predicate registers (P0..P[pred])
+        before the call and restores them afterward. The callee's root
+        predicate P0 is initialized from the caller's active predicate."""
         name = str(getattr(label, "name", label))
         impl = BUILTIN_TABLE.get(name)
         if impl is not None:
@@ -514,7 +546,23 @@ class TwigArch(Architecture):
         }
         yield RegisterUseDef(uses=arg_regs)
 
+        # --- Save active predicates before call ---
+        # Save P0..P[pred] to the predicate save area on the stack.
+        # Compute base address of pred save area in R11.
+        pred_save_offset = self._get_pred_save_offset(frame)
+        yield from self.immUsed(R11, FP, pred_save_offset, "addi")
+        for i in range(pred + 1):
+            yield Prsw(i, R11, i * 4)
+        # Initialize callee's P0 from caller's active predicate
+        if pred != 0:
+            yield Prlw(0, R11, pred * 4)  # P0 = saved P[pred]
+
         yield self.branch(LR, label)
+
+        # --- Restore predicates after call returns ---
+        yield from self.immUsed(R11, FP, pred_save_offset, "addi")
+        for i in range(pred + 1):
+            yield Prlw(i, R11, i * 4)
 
         if rv:
             retval_loc = self.determine_rv_location(rv[0])

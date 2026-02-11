@@ -312,6 +312,27 @@ Sw = make_store("sw", 0b0110000)
 Sh = make_store("sh", 0b0110001)
 Sb = make_store("sb", 0b0110010)
 
+# Predicate memory instructions (prsw / prlw)
+class TwigPredMemInstruction(Instruction):
+    tokens = [TwigPredMemToken]
+    isa = isa
+
+class Prsw(TwigPredMemInstruction):
+    """Store predicate register to memory: Mem[R[rs2] + imm] = P[prd]"""
+    prd = Operand("prd", int)                        # pred register index (source)
+    rs2 = Operand("rs2", TwigRegister, read=True)    # base address GPR
+    imm = Operand("imm", int)                        # offset
+    syntax = Syntax(["prsw", " ", prd, ",", " ", rs2, ",", " ", imm])
+    patterns = {"opcode": 0b1101100, "prd": prd, "rs2": rs2, "imm": imm}
+
+class Prlw(TwigPredMemInstruction):
+    """Load predicate register from memory: P[prd] = Mem[R[rs2] + imm]"""
+    prd = Operand("prd", int)                        # pred register index (dest)
+    rs2 = Operand("rs2", TwigRegister, read=True)    # base address GPR
+    imm = Operand("imm", int)                        # offset
+    syntax = Syntax(["prlw", " ", prd, ",", " ", rs2, ",", " ", imm])
+    patterns = {"opcode": 0b1101101, "prd": prd, "rs2": rs2, "imm": imm}
+
 class TwigJInstruction(Instruction):
     tokens = [TwigJToken]
     isa = isa

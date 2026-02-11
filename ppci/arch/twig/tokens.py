@@ -124,6 +124,17 @@ class TwigPToken(Token):
     # pstart = bit(30)
     # pend = bit(31)
 
+class TwigPredMemToken(Token):
+    """Token for predicate memory instructions (prsw/prlw).
+    Stores/loads a predicate register to/from memory."""
+    class Info:
+        size = 32
+
+    opcode = bit_range(0, 7)
+    prd = bit_range(7, 12)     # 5 bits: pred register index (P0-P31)
+    rs2 = bit_range(13, 19)    # 6 bits: GPR base address
+    imm = bit_range(19, 25)    # 6 bits: signed offset
+
 #using halt token as nop token
 class TwigHToken(Token):
     class Info:
