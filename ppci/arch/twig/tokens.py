@@ -119,8 +119,13 @@ class TwigPToken(Token):
         size = 32
 
     opcode = bit_range(0,7)
-    rs1 = bit_range(13,19)
-    rs2 = bit_range(19,25)
+    rd = bit_range(7, 13)
+    rs1 = bit_range(13, 19)
+
+    # imm = {imm[29:25], rs2[24:19]}
+    rs2 = bit_range(19, 25)
+    imm = bit_range(25, 30)
+
     # pstart = bit(30)
     # pend = bit(31)
 

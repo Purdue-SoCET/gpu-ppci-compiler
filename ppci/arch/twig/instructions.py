@@ -19,6 +19,7 @@ import struct
 isa = Isa()
 
 isa.register_relocation(JImm17Relocation)
+isa.register_relocation(PBImm11Relocation)
 
 class TwigRInstruction(Instruction):
     tokens = [TwigRToken]
@@ -369,7 +370,6 @@ class Bl(TwigJInstruction):
         return tokens[0].encode()
 
     def relocations(self):
-
         return [JImm17Relocation(self.target)]
 
 class TwigJrInstruction(Instruction):
@@ -440,36 +440,39 @@ def make_b(mnemonic, opcode):
     return type(mnemonic + "_ins", (TwigBInstruction,), members)
 
 def make_pb(mnemonic, opcode):
-    # pred = Operand("pred", str) # CHANGE TO INT LATER
-    cur_pred = Operand("cur_pred", int)
+    rd = Operand("rd", int)
+    rs1 = Operand("rs1", int)
     target = Operand("target", str)
+
     # pred  = Operand("pred", TwigPredRegister, read=True)
     # pstart = Operand("pstart", int, read=True)
     # pend = Operand("pend", int, read=True)
     fprel = False
 
-    syntax = Syntax([mnemonic, " ", "p", cur_pred, ",", " ", target])
-        # syntax = Syntax([mnemonic, " ", pred, ",", " ", target])
+    syntax = Syntax([mnemonic, " ", "r", rd, ",", " ", "r", rs1, ",", " ", target])
 
-    tokens = [TwigBToken]
+    tokens = [TwigPToken]
     patterns = {
-        # "pred": pred,
-        "cur_pred": cur_pred,
-        "target": target
+        "opcode": opcode,
+        "rd": rd,
+        "rs1": rs1,
+        "rs2": 0,
+        "imm": 0,
         # "pstart": pstart,
         # "pend": pend
     }
     members = {
         "syntax": syntax,
         "fprel": fprel,
-        # "pred": pred,
-        "cur_pred": cur_pred,
+        "rd": rd,
+        "rs1": rs1,
         "target": target,
         # "pstart": pstart,
         # "pend": pend,
         "patterns": patterns,
         "tokens": tokens,
         "opcode": opcode,
+        "relocations": lambda self: [PBImm11Relocation(self.target)],
     }
     return type(mnemonic + "_ins", (TwigBInstruction,), members)
 
@@ -1060,9 +1063,13 @@ def pattern_const_f32(context, tree):
 
 @isa.pattern("stm", "PJMP(reg, CONSTI32)", size=6)
 def pattern_pjmp(context, tree):
-    cur_pred, lab_yes, lab_no = tree.value
-    context.emit(Jpnz(cur_pred, lab_yes.name))
-    context.emit(Bl(R0, lab_no.name, jumps=[lab_no]))
+    pred, lab_yes, lab_no = tree.value
+    pred_val = int(pred) if type(pred)==str else pred
+    lab_yes_name = str(lab_yes.name) if hasattr(lab_yes, 'name') else str(lab_yes)
+    lab_no_name = str(lab_no.name) if hasattr(lab_no, 'name') else str(lab_no)
+
+    context.emit(Jpnz(0, pred_val, lab_yes_name))
+    context.emit(Bl(R0, lab_no_name, jumps=[lab_no]))
 
 # @isa.pattern("stm", "BJMPF64(reg,reg)", size=10)
 @isa.pattern("stm", "BJMPF32(reg,reg)", size=10)
