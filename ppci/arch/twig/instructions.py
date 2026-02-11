@@ -313,19 +313,23 @@ Sh = make_store("sh", 0b0110001)
 Sb = make_store("sb", 0b0110010)
 
 # Predicate memory instructions (prsw / prlw)
-class TwigPredMemInstruction(Instruction):
-    tokens = [TwigPredMemToken]
+class TwigPredLWInstruction(Instruction):
+    tokens = [TwigPredLWToken]
     isa = isa
 
-class Prsw(TwigPredMemInstruction):
+class TwigPredSWInstruction(Instruction):
+    tokens = [TwigPredSWToken]
+    isa = isa
+
+class Prsw(TwigPredSWInstruction):
     """Store predicate register to memory: Mem[R[rs2] + imm] = P[prd]"""
-    prd = Operand("prd", int)                        # pred register index (source)
+    prs = Operand("prs", int)                        # pred register index (source)
     rs2 = Operand("rs2", TwigRegister, read=True)    # base address GPR
     imm = Operand("imm", int)                        # offset
-    syntax = Syntax(["prsw", " ", prd, ",", " ", rs2, ",", " ", imm])
-    patterns = {"opcode": 0b1101100, "prd": prd, "rs2": rs2, "imm": imm}
+    syntax = Syntax(["prsw", " ", prs, ",", " ", rs2, ",", " ", imm])
+    patterns = {"opcode": 0b1101100, "prd": prs, "rs2": rs2, "imm": imm}
 
-class Prlw(TwigPredMemInstruction):
+class Prlw(TwigPredLWInstruction):
     """Load predicate register from memory: P[prd] = Mem[R[rs2] + imm]"""
     prd = Operand("prd", int)                        # pred register index (dest)
     rs2 = Operand("rs2", TwigRegister, read=True)    # base address GPR
