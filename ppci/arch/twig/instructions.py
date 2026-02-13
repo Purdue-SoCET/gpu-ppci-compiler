@@ -152,12 +152,18 @@ class Cos(TwigFInstruction):
     rs1 = Operand("rs1", TwigRegister, read=True)
     pred = Operand("pred", int)
     syntax = Syntax(["cos", " ", rd, ",", " ", rs1, ",", " ", pred])
-
+    patterns = {
+        "opcode": 0b0101010,
+        "rd": rd,
+        "rs1": rs1,
+        "pred": pred
+    }
     def encode(self):
         tokens = self.get_tokens()
         tokens[0][0:7] = 0b0101010
         tokens[0][7:13] = self.rd.num
         tokens[0][13:19] = self.rs1.num
+        tokens[0][29:25] = self.pred
         return tokens[0].encode()
 
 class Sin(TwigFInstruction):
@@ -165,12 +171,18 @@ class Sin(TwigFInstruction):
     rs1 = Operand("rs1", TwigRegister, read=True)
     pred = Operand("pred", int)
     syntax = Syntax(["sin", " ", rd, ",", " ", rs1, ",", " ", pred])
-
+    patterns = {
+        "opcode": 0b0101001,
+        "rd": rd,
+        "rs1": rs1,
+        "pred": pred
+    }
     def encode(self):
         tokens = self.get_tokens()
         tokens[0][0:7] = 0b0101001
         tokens[0][7:13] = self.rd.num
         tokens[0][13:19] = self.rs1.num
+        tokens[0][29:25] = self.pred
         return tokens[0].encode()
 
 
@@ -179,12 +191,18 @@ class Isqrt(TwigFInstruction):
     rs1 = Operand("rs1", TwigRegister, read=True)
     pred = Operand("pred", int)
     syntax = Syntax(["isqrt", " ", rd, ",", " ", rs1, ",", " ", pred])
-
+    patterns = {
+        "opcode": 0b0101000,
+        "rd": rd,
+        "rs1": rs1,
+        "pred": pred
+    }
     def encode(self):
         tokens = self.get_tokens()
         tokens[0][0:7] = 0b0101000
         tokens[0][7:13] = self.rd.num
         tokens[0][13:19] = self.rs1.num
+        tokens[0][29:25] = self.pred
         return tokens[0].encode()
 
 class ItoF(TwigFInstruction):
@@ -192,12 +210,18 @@ class ItoF(TwigFInstruction):
     rs1 = Operand("rs1", TwigRegister, read=True)
     pred = Operand("pred", int)
     syntax = Syntax(["itof", " ", rd, ",", " ", rs1, ",", " ", pred])
-
+    patterns = {
+        "opcode": 0b0101011,
+        "rd": rd,
+        "rs1": rs1,
+        "pred": pred
+    }
     def encode(self):
         tokens = self.get_tokens()
         tokens[0][0:7] = 0b0101011
         tokens[0][7:13] = self.rd.num
         tokens[0][13:19] = self.rs1.num
+        tokens[0][29:25] = self.pred
         return tokens[0].encode()
 
 class FtoI(TwigFInstruction):
@@ -205,12 +229,18 @@ class FtoI(TwigFInstruction):
     rs1 = Operand("rs1", TwigRegister, read=True)
     pred = Operand("pred", int)
     syntax = Syntax(["ftoi", " ", rd, ",", " ", rs1, ",", " ", pred])
-
+    patterns = {
+        "opcode": 0b0101100,
+        "rd": rd,
+        "rs1": rs1,
+        "pred": pred
+    }
     def encode(self):
         tokens = self.get_tokens()
         tokens[0][0:7] = 0b0101100
         tokens[0][7:13] = self.rd.num
         tokens[0][13:19] = self.rs1.num
+        tokens[0][29:25] = self.pred
         return tokens[0].encode()
 
 class TwigCRInstruction(Instruction):
@@ -222,7 +252,12 @@ class Csrr(TwigCRInstruction):
     rs1 = Operand("rs1", int)
     pred = Operand("pred", int)
     syntax = Syntax(["csrr", " ", rd, ",", " ", rs1, ",", " ", pred])
-
+    patterns = {
+        "opcode": 0b1011000,
+        "rd": rd,
+        "rs1": rs1,
+        "pred": pred
+    }
     def encode(self):
         tokens = self.get_tokens()
         tokens[0][0:7] = 0b1011000
@@ -330,11 +365,35 @@ class TwigJInstruction(Instruction):
 #     def relocations(self):
 #         return [BImm20Relocation(self.target)]
 
+# For disassembly
+class Bl_disas(TwigJInstruction):
+    rd = Operand("rd", TwigRegister, write=True)
+    imm = Operand("imm", int)
+    syntax = Syntax(["jal", " ", rd, ",", " ", imm])
+    patterns = {"opcode": 0b1100000, "rd": rd, "imm": imm}
+    def encode(self):
+        return b''
+
+# Check if change to str
+# class Blr_disas(TwigJrInstruction):
+#     rd = Operand("rd", TwigRegister, write=True)
+#     rs1 = Operand("rs1", TwigRegister, read=True)
+#     imm = Operand("imm", int)
+#     syntax = Syntax(["jalr", " ", rd, ",", rs1, ",", " ", imm])
+#     patterns = {"opcode": 0b0100011, "rd": rd, "rs1": rs1, "imm": imm}
+#     def encode(self):
+#         return b''
+
 #jal
 class Bl(TwigJInstruction):
     rd = Operand("rd", TwigRegister, write=True)
-    target = Operand("target", str)
-    syntax = Syntax(["jal", " ", rd, ",", " ", target])
+    imm = Operand("imm", str)
+    syntax = Syntax(["jal", " ", rd, ",", " ", imm])
+    patterns = {
+        "opcode": 0b1100000,
+        "rd": rd,
+        "imm": imm
+    }
     def encode(self):
         tokens = self.get_tokens()
         tokens[0][0:7] = 0b1100000 #jal opcode
@@ -345,7 +404,7 @@ class Bl(TwigJInstruction):
         return tokens[0].encode()
 
     def relocations(self):
-        return [JImm17Relocation(self.target)]
+        return [JImm17Relocation(self.imm)]
 
 class TwigJrInstruction(Instruction):
     tokens = [TwigJrToken]
@@ -356,15 +415,20 @@ class Blr(TwigJrInstruction):
     target = Operand("target", str)
     rd = Operand("rd", TwigRegister, write=True)
     rs1 = Operand("rs1", TwigRegister, read=True)
-    offset = Operand("offset", int)
-    syntax = Syntax(["jalr", " ", rd, ",", rs1, ",", " ", offset])
-
+    imm = Operand("imm", int)   # TODO: int or str (jal take str)
+    syntax = Syntax(["jalr", " ", rd, ",", rs1, ",", " ", imm])
+    patterns = {
+        "opcode": 0b0100011,
+        "rd": rd,
+        "rs1": rs1,
+        "imm": imm
+    }
     def encode(self):
         tokens = self.get_tokens()
         tokens[0][0:7] = 0b0100011 #jalr opcode
         tokens[0][7:13] = self.rd.num
         tokens[0][13:19] = self.rs1.num
-        tokens[0][19:30] = self.offset
+        tokens[0][19:30] = self.imm
         # tokens[0][30] = 0b0 #start of new packet
         # tokens[0][31] = 0b1 #end of new packet
         return tokens[0].encode()
@@ -432,7 +496,7 @@ def make_pb(mnemonic, opcode):
         "rd": rd,
         "rs1": rs1,
         "rs2": 0,
-        "imm": 0,
+        "imm": 0,   # TODO: Update variables for disassembly
         # "pstart": pstart,
         # "pend": pend
     }
@@ -484,7 +548,7 @@ def make_sb(mnemonic, opcode):
     }
     return type(mnemonic + "_ins", (TwigBInstruction,), members)
 
-Jpnz = make_pb("jpnz", 0b1100000)
+Jpnz = make_pb("jpnz", 0b1101000)
 
 Beq = make_b("beq", 0b1000000)
 Bne = make_b("bne", 0b1000001)
