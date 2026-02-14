@@ -20,3 +20,7 @@ lib64
 /build/
 /GPUTest/**/build/
 /GPUTest/emulator/test_diffs/
+build/
+*.xml
+
+misc_artifacts/
