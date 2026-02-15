@@ -1,6 +1,8 @@
 # Variables
 PYTHON = python
 PIP = pip
+TWIG = twig
+TOOL = tool
 
 # Windows
 ifeq ($(OS),Windows_NT)
@@ -35,6 +37,12 @@ dev-install:
 
 test:
 	$(PYTHON) -m pytest
+
+link:
+	$(TWIG) test.c
+
+disasm:
+	$(TOOL) --disasm meminit.hex > disasm.S
 
 clean:
 	@echo Cleaning project...
