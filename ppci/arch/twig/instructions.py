@@ -163,7 +163,7 @@ class Cos(TwigFInstruction):
         tokens[0][0:7] = 0b0101010
         tokens[0][7:13] = self.rd.num
         tokens[0][13:19] = self.rs1.num
-        tokens[0][29:25] = self.pred
+        tokens[0][25:29] = self.pred
         return tokens[0].encode()
 
 class Sin(TwigFInstruction):
@@ -182,7 +182,7 @@ class Sin(TwigFInstruction):
         tokens[0][0:7] = 0b0101001
         tokens[0][7:13] = self.rd.num
         tokens[0][13:19] = self.rs1.num
-        tokens[0][29:25] = self.pred
+        tokens[0][25:29] = self.pred
         return tokens[0].encode()
 
 
@@ -202,7 +202,7 @@ class Isqrt(TwigFInstruction):
         tokens[0][0:7] = 0b0101000
         tokens[0][7:13] = self.rd.num
         tokens[0][13:19] = self.rs1.num
-        tokens[0][29:25] = self.pred
+        tokens[0][25:29] = self.pred
         return tokens[0].encode()
 
 class ItoF(TwigFInstruction):
@@ -221,7 +221,7 @@ class ItoF(TwigFInstruction):
         tokens[0][0:7] = 0b0101011
         tokens[0][7:13] = self.rd.num
         tokens[0][13:19] = self.rs1.num
-        tokens[0][29:25] = self.pred
+        tokens[0][25:29] = self.pred
         return tokens[0].encode()
 
 class FtoI(TwigFInstruction):
@@ -240,7 +240,7 @@ class FtoI(TwigFInstruction):
         tokens[0][0:7] = 0b0101100
         tokens[0][7:13] = self.rd.num
         tokens[0][13:19] = self.rs1.num
-        tokens[0][29:25] = self.pred
+        tokens[0][25:29] = self.pred
         return tokens[0].encode()
 
 class TwigCRInstruction(Instruction):
