@@ -37,8 +37,7 @@ def test_func0():
 
 def test_func1():
     # The canonical form
-    CODE0 = dedent(
-        """
+    CODE0 = dedent("""
     (module
       (type $0 (func (param i32)))
       (type $1 (func (param i32 i32) (result i32)))
@@ -58,8 +57,7 @@ def test_func1():
         local.get $foo
         call $print)
     )
-    """
-    )
+    """)
 
     # Test main code
     m0 = Module(CODE0)

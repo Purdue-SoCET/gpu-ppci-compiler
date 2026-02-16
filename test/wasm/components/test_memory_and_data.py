@@ -54,8 +54,7 @@ def tst_memory0():
 
 def test_memory1():
     # The canonical form
-    CODE0 = dedent(
-        r"""
+    CODE0 = dedent(r"""
     (module
       (type $print (func (param i32)))
       (type $2 (func))
@@ -71,8 +70,7 @@ def test_memory1():
         call $print)
       (data $0 i32.const 0 "\04\03\02")
     )
-    """
-    )
+    """)
 
     # Test main code
     m0 = Module(CODE0)
@@ -99,22 +97,18 @@ def test_memory1():
 
     # Abbreviation: imported memory
     m3 = Module('(module (memory $m1 (import "foo" "bar_mem1") 1) )')
-    assert m3.to_string() == dedent(
-        """
+    assert m3.to_string() == dedent("""
     (module
       (import "foo" "bar_mem1" (memory $m1 1))
     )
-    """
-    )
+    """)
 
     m3 = Module('(module (memory (import "foo" "bar_mem1") 2 3) )')
-    assert m3.to_string() == dedent(
-        """
+    assert m3.to_string() == dedent("""
     (module
       (import "foo" "bar_mem1" (memory 2 3))
     )
-    """
-    )
+    """)
 
     # Abbeviation: inline data and unspecified (default) alignment
     CODE1 = r"""

@@ -26,15 +26,18 @@ class TwigRegister(Register):
 class TwigProgramCounterRegister(Register):
     bitsize = 32
 
-#maybe this should not even extend Register and should have it's own class
-#TODO: add predicate logic after initial asm is generatable
-#TODO: add packeting after
-#TODO: add rfc after
+
+# maybe this should not even extend Register and should have it's own class
+# TODO: add predicate logic after initial asm is generatable
+# TODO: add packeting after
+# TODO: add rfc after
 class TwigPredRegister(Register):
     bitsize = 32
+
     @classmethod
     def from_num(cls, num):
         return num2predregmap[num]
+
     @classmethod
     def all_registers(cls):
         return predregisters
@@ -217,7 +220,7 @@ registers = [
     R60,
     R61,
     R62,
-    R63
+    R63,
 ]
 TwigRegister.registers = registers
 
@@ -253,7 +256,7 @@ predregisters = [
     P28,
     P29,
     P30,
-    P31
+    P31,
 ]
 
 
@@ -439,7 +442,7 @@ register_classes_swfp = [
             R60,
             R61,
             R62,
-            R63
+            R63,
         ],
     )
 ]

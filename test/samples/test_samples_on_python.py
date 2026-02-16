@@ -25,12 +25,10 @@ class TestSamplesOnPython(unittest.TestCase):
         sample_filename = base_filename.with_suffix(".py")
         list_filename = base_filename.with_suffix(".html")
 
-        bsp_c3 = io.StringIO(
-            """
+        bsp_c3 = io.StringIO("""
            module bsp;
            public function void putc(byte c);
-           """
-        )
+           """)
         march = "arm"
         with html_reporter(list_filename) as reporter:
             ir_modules = build_sample_to_ir(src, lang, bsp_c3, march, reporter)

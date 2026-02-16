@@ -46,8 +46,7 @@ def test_import0():
 
 def test_import1():
     # The canonical form
-    CODE0 = dedent(
-        """
+    CODE0 = dedent("""
     (module
       (type $bar_func (func))
       (import "foo" "bar_func" (func $bar_func (type $bar_func)))
@@ -56,8 +55,7 @@ def test_import1():
       (import "foo" "bar_mem2" (memory $m2 1 2))
       (import "foo" "bar_global" (global $bar_global i32))
     )
-    """
-    )
+    """)
     # (import "foo" "bar_table" (table $bar_table (type $bar_func)))
 
     # Test main code
@@ -71,8 +69,7 @@ def test_import1():
     # Import abbreviations: definitions of func/memory/table/global
     # that are really imports.
 
-    CODE1 = dedent(
-        """
+    CODE1 = dedent("""
     (module
         (type $bar_func (func))
         (func $bar_func (import "foo" "bar_func") (type $bar_func))
@@ -81,8 +78,7 @@ def test_import1():
         (memory $m2 (import "foo" "bar_mem2") 1 2)
         (global $bar_global (import "foo" "bar_global") i32)
     )
-    """
-    )
+    """)
 
     m1 = Module(CODE1)
     assert m1.to_string() == CODE0

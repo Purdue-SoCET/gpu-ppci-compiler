@@ -261,11 +261,11 @@ class SelectionGraphBuilder:
         return self.function_info.value_map[node]
 
     def do_predicate_annotation(self, node):
-        """ Ignore predicate annotations during DAG building. """
+        """Ignore predicate annotations during DAG building."""
         pass  # This is purely an annotation, do not add to DAG
 
     def do_p_jump(self, node):
-        """ Process predicated jump (PJump) into the DAG.
+        """Process predicated jump (PJump) into the DAG.
         This is a terminal instruction.
         """
 
@@ -280,7 +280,7 @@ class SelectionGraphBuilder:
         #     print(f"WARNING: {node.lab_no} was missing. Creating placeholder.")
         #     self.function_info.label_map[node.lab_no] = node.lab_no
 
-        sgnode = self.new_node("PJMP", None) # (main_blockX == 0 ?)
+        sgnode = self.new_node("PJMP", None)  # (main_blockX == 0 ?)
         sgnode.value = (
             node.pred_yes_id,
             self.function_info.label_map[node.lab_yes],
@@ -290,7 +290,7 @@ class SelectionGraphBuilder:
         self.debug_db.map(node, sgnode)
 
     def do_s_jump(self, node):
-        """ Process predicated jump (SJump) into the DAG.
+        """Process predicated jump (SJump) into the DAG.
         This is a terminal instruction.
         """
         lhs = self.get_value(node.a)
@@ -300,14 +300,14 @@ class SelectionGraphBuilder:
             node.cond,
             self.function_info.label_map[node.lab_yes],
             node.pred_yes_id,
-            getattr(node, 'pred', 0)
+            getattr(node, "pred", 0),
         )
 
         self.chain(sgnode)
         self.debug_db.map(node, sgnode)
 
     def do_b_jump(self, node):
-        """ Process predicated jump (BJump) into the DAG.
+        """Process predicated jump (BJump) into the DAG.
         This is a terminal instruction.
         """
         lhs = self.get_value(node.a)
@@ -319,7 +319,7 @@ class SelectionGraphBuilder:
             self.function_info.label_map[node.lab_no],
             node.pred_yes_id,
             node.pred_no_id,
-            getattr(node, 'pred', 0)
+            getattr(node, "pred", 0),
         )
 
         self.chain(sgnode)

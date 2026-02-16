@@ -850,18 +850,23 @@ class PredicateAnnotation(Instruction):
     - condition_mask: Computed from the branch condition
     """
 
-    def __init__(self, pred_reg, pred_mask, context_name="", parent_pred_reg=None):
+    def __init__(
+        self, pred_reg, pred_mask, context_name="", parent_pred_reg=None
+    ):
         super().__init__()
         self.pred_reg = pred_reg
         self.pred_mask = pred_mask
         self.context_name = context_name
-        self.parent_pred_reg = parent_pred_reg if parent_pred_reg is not None else 0
+        self.parent_pred_reg = (
+            parent_pred_reg if parent_pred_reg is not None else 0
+        )
 
     def __str__(self):
         # Show destination pred and parent pred for assembly generation
         if self.context_name:
             return f"pred{self.pred_reg} = pred{self.parent_pred_reg} AND <condition> // {self.context_name}"
         return f"pred{self.pred_reg} = pred{self.parent_pred_reg} // root (all ones)"
+
 
 class Const(LocalValue):
     """Represents a constant value"""
@@ -1384,6 +1389,7 @@ class CJump(JumpBase):
             + f"{self.lab_yes.name} : {self.lab_no.name}"
         )
 
+
 class SJump(CJump):
     """Conditional jump to true or false labels."""
 
@@ -1401,9 +1407,13 @@ class SJump(CJump):
             f"{self.lab_yes.name} (p{self.pred_yes_id})"
         )
 
+
 class PJump(CJump):
     """Conditional jump to true or false labels."""
-    def __init__(self, a, cond, b, lab_yes, lab_no, pred_yes, pred_no, pred_parent):
+
+    def __init__(
+        self, a, cond, b, lab_yes, lab_no, pred_yes, pred_no, pred_parent
+    ):
         super().__init__(a, cond, b, lab_yes, lab_no)
         self.pred_yes_id = pred_yes
         self.pred_no_id = pred_no
@@ -1414,10 +1424,13 @@ class PJump(CJump):
             + f"{self.lab_yes.name} : {self.lab_no.name}"
         )
 
+
 class BJump(CJump):
     """Conditional jump to true or false labels."""
 
-    def __init__(self, a, cond, b, lab_yes, lab_no, pred_yes, pred_no, pred_parent):
+    def __init__(
+        self, a, cond, b, lab_yes, lab_no, pred_yes, pred_no, pred_parent
+    ):
         """
         pred_yes and pred_no are the *integer IDs* of the
         predicate registers to be written.
@@ -1431,7 +1444,6 @@ class BJump(CJump):
             f"bjmp {self.a.name} {self.cond} {self.b.name} ? "
             f"{self.lab_yes.name} (p{self.pred_yes_id}) : {self.lab_no.name} (p{self.pred_no_id})"
         )
-
 
 
 class JumpTable(JumpBase):

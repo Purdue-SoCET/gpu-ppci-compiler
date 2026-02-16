@@ -85,7 +85,7 @@ class VcdLexer(BaseLexer):
                 datasection = True
             elif datasection:
                 if line[0] in ("b", "B", "r", "R"):
-                    (value, code) = line[1:].split()
+                    value, code = line[1:].split()
                     if code in data:
                         if "tv" not in data[code]:
                             data[code]["tv"] = []

@@ -22,8 +22,7 @@ def test_global0():
 
 
 def test_global1():
-    CODE0 = dedent(
-        r"""
+    CODE0 = dedent(r"""
     (module
       (type $print (func (param i32)))
       (type $2 (func))
@@ -34,8 +33,7 @@ def test_global1():
         global.get $foo
         call $print)
     )
-    """
-    )
+    """)
 
     # Test main code
     m0 = Module(CODE0)

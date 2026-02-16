@@ -24,8 +24,7 @@ def test_type1():
     """Test canoncocal form of import and func and inline typedefs."""
 
     # The canonical form
-    CODE0 = dedent(
-        """
+    CODE0 = dedent("""
     (module
       (type $0 (func (param i32)))
       (type $1 (func (param i32 i32) (result i32)))
@@ -42,8 +41,7 @@ def test_type1():
         call $add
         call $print)
     )
-    """
-    )
+    """)
 
     # Test main code
     m0 = Module(CODE0)
@@ -81,8 +79,7 @@ def test_type2():
     """Test inline typedefs with various number of args and results."""
 
     # Canonical form
-    CODE0 = dedent(
-        """
+    CODE0 = dedent("""
     (module
       (type $0 (func (param i32)))
       (type $1 (func (param i32) (result i32)))
@@ -114,8 +111,7 @@ def test_type2():
         drop
         call $test_00)
     )
-    """
-    )
+    """)
 
     # Test main code
     m0 = Module(CODE0)

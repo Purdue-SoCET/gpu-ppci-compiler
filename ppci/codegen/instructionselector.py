@@ -116,9 +116,9 @@ terminals = tuple(x + y for x in ops for y in data_types) + (
     "ALLOCA",
     "FREEA",
     "ASM",  # Inline assembly
-    "BJMP", #maybe these two (bjmp and sjmp) should not be in terminals since they are in ops
+    "BJMP",  # maybe these two (bjmp and sjmp) should not be in terminals since they are in ops
     "SJMP",
-    "PJMP"
+    "PJMP",
 )
 
 
@@ -221,9 +221,7 @@ class TreeSelector:
         #     raise RuntimeError(f"Rule/Tree mismatch: {tree.name} has {len(tree.children)} children but rule expects {len(kid_goals)}")
         results = [
             self.apply_rules(context, kid_tree, kid_goal)
-            for kid_tree, kid_goal in zip(
-                tree.children, kid_goals
-            )
+            for kid_tree, kid_goal in zip(tree.children, kid_goals)
         ]
         # results = [
         #     self.apply_rules(context, kid_tree, kid_goal)
@@ -335,7 +333,9 @@ class InstructionSelector1:
 
     def call_function(self, context, tree):
         label, args, rv = tree.value
-        for instruction in self.arch.gen_call(context.frame, label, args, rv, pred=tree.pred):
+        for instruction in self.arch.gen_call(
+            context.frame, label, args, rv, pred=tree.pred
+        ):
             context.emit(instruction)
 
     def inline_asm(self, context, tree):

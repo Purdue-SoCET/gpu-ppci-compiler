@@ -370,6 +370,7 @@ class UnionType(StructOrUnionType):
     def __repr__(self):
         return "Union-type"
 
+
 # TODO: Not all types are used
 class BasicType(CType):
     """This type is one of: int, unsigned int, float or void"""

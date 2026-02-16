@@ -46,8 +46,7 @@ def test_module1():
         )
     ]
 
-    CODE0 = dedent(
-        """
+    CODE0 = dedent("""
     (module
       (type $print (func (param f64)))
       (type $1 (func))
@@ -67,8 +66,7 @@ def test_module1():
           br_if 0
         end)
     )
-    """
-    )
+    """)
 
     # ----- Test main code
 
@@ -83,8 +81,7 @@ def test_module1():
 
     # ----- Abbreviated text
 
-    m1 = wasm.Module(
-        """
+    m1 = wasm.Module("""
         (module
             (import "js" "print_ln" (func $print (param f64)))
             (start $main)
@@ -98,8 +95,7 @@ def test_module1():
                     (f64.lt) (br_if 0)
                 )
             )
-        )"""
-    )
+        )""")
 
     assert m1.to_bytes() == b0
 

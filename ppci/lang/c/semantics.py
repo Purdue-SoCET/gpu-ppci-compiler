@@ -27,6 +27,7 @@ from .printer import expr_to_str, type_to_str
 from .scope import RootScope, Scope
 from .builtins import get_builtin_func  # for builtin functions
 
+
 class CSemantics:
     """This class handles the C semantics"""
 
@@ -1082,7 +1083,11 @@ class CSemantics:
             builtin_fty = get_builtin_func(callee_name)
 
         callee = self.pointer(callee)
-        if hasattr(callee, "typ") and callee.typ.is_pointer and isinstance(callee.typ.element_type, types.FunctionType):
+        if (
+            hasattr(callee, "typ")
+            and callee.typ.is_pointer
+            and isinstance(callee.typ.element_type, types.FunctionType)
+        ):
             function_type = callee.typ.element_type
         else:
             if builtin_fty is not None:
@@ -1148,10 +1153,10 @@ class CSemantics:
 
                 if not gscope.is_defined(name):
                     decl = declarations.FunctionDeclaration(
-                        declarations.StorageClass.EXTERN,   # use extern
+                        declarations.StorageClass.EXTERN,  # use extern
                         fty,
                         name,
-                        location
+                        location,
                     )
                     gscope.insert(decl)
             else:

@@ -3,14 +3,12 @@ import io
 from ppci.api import COptions, c_to_ir, get_arch, ir_to_python, optimize
 
 arch = get_arch("example")
-bsp = io.StringIO(
-    """
+bsp = io.StringIO("""
 module bsp;
 public function void sleep(int ms);
 public function void putc(byte c);
 public function bool get_key(int* key);
-"""
-)
+""")
 
 coptions = COptions()
 coptions.add_include_path("../../librt/libc/include")

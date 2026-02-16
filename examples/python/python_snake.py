@@ -5,14 +5,12 @@ from ppci.api import c3_to_ir, get_arch, ir_to_python
 
 def run_it():
     arch = get_arch("example")
-    bsp = io.StringIO(
-        """
+    bsp = io.StringIO("""
     module bsp;
     public function void sleep(int ms);
     public function void putc(byte c);
     public function bool get_key(int* key);
-    """
-    )
+    """)
 
     ircode = c3_to_ir(
         ["../src/snake/game.c3", "../src/snake/main.c3", "../../librt/io.c3"],

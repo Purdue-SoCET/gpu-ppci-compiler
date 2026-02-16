@@ -12,7 +12,7 @@ from ..stack import FramePointerLocation, StackLocation
 from . import instructions
 from .asm_printer import TwigAsmPrinter
 from .instructions import (
-    #rtype
+    # rtype
     Add,
     Csrr,
     Sub,
@@ -30,7 +30,7 @@ from .instructions import (
     Sll,
     Srl,
     Sra,
-    #itype
+    # itype
     Addi,
     Subi,
     Ori,
@@ -38,43 +38,43 @@ from .instructions import (
     Sltiu,
     Srli,
     Srai,
-    #ftype
+    # ftype
     Cos,
     Sin,
     Isqrt,
     ItoF,
     FtoI,
-    #memory
+    # memory
     Lw,
     Lh,
     Lb,
     Sw,
     Sh,
     Sb,
-    #predicate memory
+    # predicate memory
     Prsw,
     Prlw,
-    #branch
+    # branch
     Beq,
     Bne,
     Bge,
     Bgeu,
     Blt,
     Bltu,
-    #jump
+    # jump
     Bl,
     Blr,
-    #utype
+    # utype
     Lli,
     Lmi,
     Lui,
-    #htype,
+    # htype,
     Halt,
-    #isa
+    # isa
     isa,
     Align,
     Section,
-    dcd
+    dcd,
 )
 from .registers import (
     R0,
@@ -184,11 +184,11 @@ from .registers import (
 )
 
 BUILTIN_TABLE = {
-    "sin":   Sin,
-    "cos":   Cos,
+    "sin": Sin,
+    "cos": Cos,
     "isqrt": Isqrt,
-    "itof":  ItoF,
-    "ftoi":  FtoI,
+    "itof": ItoF,
+    "ftoi": FtoI,
 }
 
 # def isinsrange(bits, val) -> bool:
@@ -201,6 +201,7 @@ NUM_THREADS = 32
 # 32 pred regs * 4 bytes each = 128 bytes. Predicates are shared masks
 # (not per-thread), so this is NOT multiplied by NUM_THREADS.
 PRED_SAVE_SPACE = 128
+
 
 class TwigAssembler(BaseAssembler):
     def __init__(self):
@@ -270,7 +271,7 @@ class TwigArch(Architecture):
 
         self._arg_regs = [R12, R13, R14, R15, R16, R17]
         self._ret_reg = R10
-        #all should be callee saved? - besides predicate
+        # all should be callee saved? - besides predicate
         self.callee_save = (
             R9,
             R18,
@@ -284,10 +285,52 @@ class TwigArch(Architecture):
             R26,
             R27,
         )
-        self.caller_save = (R10, R11, R12, R13, R14, R15, R16, R17,
-                            R28, R29, R30, R31, R32, R33, R34, R35, R36, R37, R38, R39,
-                            R40, R41, R42, R43, R44, R45, R46, R47, R48, R49, R50, R51,
-                            R52, R53, R54, R55, R56, R57, R58, R59, R60, R61, R62, R63) #+ tuple(predregisters)
+        self.caller_save = (
+            R10,
+            R11,
+            R12,
+            R13,
+            R14,
+            R15,
+            R16,
+            R17,
+            R28,
+            R29,
+            R30,
+            R31,
+            R32,
+            R33,
+            R34,
+            R35,
+            R36,
+            R37,
+            R38,
+            R39,
+            R40,
+            R41,
+            R42,
+            R43,
+            R44,
+            R45,
+            R46,
+            R47,
+            R48,
+            R49,
+            R50,
+            R51,
+            R52,
+            R53,
+            R54,
+            R55,
+            R56,
+            R57,
+            R58,
+            R59,
+            R60,
+            R61,
+            R62,
+            R63,
+        )  # + tuple(predregisters)
 
     def branch(self, reg, lab):
         if isinstance(lab, TwigRegister):
@@ -331,9 +374,8 @@ class TwigArch(Architecture):
     #     """
     #     return asm(io.StringIO(asm_src), self)
 
-
     def immUsed(self, r1, r2, offset, instruction, pred=0):
-        if offset in range(-32,32):
+        if offset in range(-32, 32):
             if instruction == "addi":
                 yield Addi(r1, r2, offset, pred)
             if instruction == "lw":
@@ -341,16 +383,16 @@ class TwigArch(Architecture):
             if instruction == "sw":
                 yield Sw(r1, offset, r2, pred)
         else:
-            upper_8 = (offset>>24) & 0xff
-            middle_12 = (offset>>12) & 0xfff
-            lower_12 = (offset) & 0xfff
+            upper_8 = (offset >> 24) & 0xFF
+            middle_12 = (offset >> 12) & 0xFFF
+            lower_12 = (offset) & 0xFFF
             yield Lui(R11, upper_8, pred)
             yield Lmi(R11, middle_12, pred)
             yield Lli(R11, lower_12, pred)
             if instruction == "addi":
                 yield Add(r1, r2, R11, pred)
             if instruction == "lw":
-                #here r2 is the address so we can add the offset to the address for the new address
+                # here r2 is the address so we can add the offset to the address for the new address
                 yield Add(R11, r2, R11, pred)
                 yield Lw(r1, 0, R11, pred)
             if instruction == "sw":
@@ -378,27 +420,37 @@ class TwigArch(Architecture):
             if hasattr(ins, "fprel") and ins.fprel:
                 saved_registers = self.get_callee_saved(frame)
                 callee_save_space = (4 * len(saved_registers)) * NUM_THREADS
-                var_base_offset = callee_save_space # Base of vars is top of callee-saves
+                var_base_offset = (
+                    callee_save_space  # Base of vars is top of callee-saves
+                )
 
                 # 2. Get scalar offset of the variable
                 scalar_var_offset = scalar_stack_size + ins.offset
 
                 # 3. Final SIMT byte offset from FP
-                final_offset = var_base_offset + (scalar_var_offset * NUM_THREADS)
-                curr_pred = getattr(ins, 'pred', 0)
+                final_offset = var_base_offset + (
+                    scalar_var_offset * NUM_THREADS
+                )
+                curr_pred = getattr(ins, "pred", 0)
                 if isinstance(ins, Lw):
                     # immUsed(rd, FP, final_offset, "lw")
                     new_instructions.extend(
-                        self.immUsed(ins.rd, ins.rs1, final_offset, "lw", curr_pred)
+                        self.immUsed(
+                            ins.rd, ins.rs1, final_offset, "lw", curr_pred
+                        )
                     )
                 elif isinstance(ins, Sw):
                     # immUsed(rs2, FP, final_offset, "sw")
                     new_instructions.extend(
-                        self.immUsed(ins.rs2, ins.rs1, final_offset, "sw", curr_pred)
+                        self.immUsed(
+                            ins.rs2, ins.rs1, final_offset, "sw", curr_pred
+                        )
                     )
                 elif isinstance(ins, Addi):
                     new_instructions.extend(
-                        self.immUsed(ins.rd, ins.rs1, final_offset, "addi", curr_pred)
+                        self.immUsed(
+                            ins.rd, ins.rs1, final_offset, "addi", curr_pred
+                        )
                     )
                 else:
                     raise TypeError(f"Unhandled fprel instruction: {ins}")
@@ -416,20 +468,22 @@ class TwigArch(Architecture):
         yield Label(frame.name)
         stack_size = round_up(frame.stacksize)
         stack_size *= NUM_THREADS
-        lrfpspace = 8*NUM_THREADS
+        lrfpspace = 8 * NUM_THREADS
         calleeregs = self.get_callee_saved(frame)
-        savespace = NUM_THREADS*4*len(calleeregs)
+        savespace = NUM_THREADS * 4 * len(calleeregs)
         extras = max(frame.out_calls) if frame.out_calls else 0
-        outspace = round_up(extras)*NUM_THREADS
+        outspace = round_up(extras) * NUM_THREADS
         predsavespace = PRED_SAVE_SPACE
-        totalstack = round_up(stack_size+savespace+outspace+lrfpspace+predsavespace)
-        if totalstack >0:
+        totalstack = round_up(
+            stack_size + savespace + outspace + lrfpspace + predsavespace
+        )
+        if totalstack > 0:
             yield from self.immUsed(SP, SP, -totalstack, "addi")
 
-        yield from self.immUsed(LR, SP, 4*NUM_THREADS, "sw")
-        yield from self.immUsed(FP,SP,0*NUM_THREADS, "sw")
+        yield from self.immUsed(LR, SP, 4 * NUM_THREADS, "sw")
+        yield from self.immUsed(FP, SP, 0 * NUM_THREADS, "sw")
 
-        yield from self.immUsed(FP, SP, 8*NUM_THREADS, "addi")
+        yield from self.immUsed(FP, SP, 8 * NUM_THREADS, "addi")
 
         if savespace > 0:
             offset = 0
@@ -443,23 +497,25 @@ class TwigArch(Architecture):
         stack_size = round_up(frame.stacksize)
         stack_size *= NUM_THREADS
         calleeregs = self.get_callee_saved(frame)
-        savespace = NUM_THREADS*4*len(calleeregs)
+        savespace = NUM_THREADS * 4 * len(calleeregs)
         extras = max(frame.out_calls) if frame.out_calls else 0
-        outspace = round_up(extras)*NUM_THREADS
-        lrfpspace = 8*NUM_THREADS
+        outspace = round_up(extras) * NUM_THREADS
+        lrfpspace = 8 * NUM_THREADS
         predsavespace = PRED_SAVE_SPACE
-        totalstack = round_up(stack_size+savespace+outspace+lrfpspace+predsavespace)
+        totalstack = round_up(
+            stack_size + savespace + outspace + lrfpspace + predsavespace
+        )
 
-        if savespace >0:
+        if savespace > 0:
             offset = 0
             for register in calleeregs:
                 yield from self.immUsed(register, FP, offset, "lw")
                 offset += 128
 
-        yield from self.immUsed(LR, SP, 4*NUM_THREADS, "lw")
+        yield from self.immUsed(LR, SP, 4 * NUM_THREADS, "lw")
         yield from self.immUsed(FP, SP, 0, "lw")
         if totalstack > 0:
-            yield from self.immUsed(SP,SP, totalstack, "addi")
+            yield from self.immUsed(SP, SP, totalstack, "addi")
 
         yield Blr(R0, LR, 0)
         # yield from self.litpool(frame)
@@ -496,15 +552,15 @@ class TwigArch(Architecture):
             dst = rv[1]
             yield impl(dst, src, pred)
             return
-        if label == 'threadIdx':
+        if label == "threadIdx":
             ret_vreg = rv[1]
             yield Csrr(ret_vreg, 1, pred)
             return
-        if label == 'blockIdx':
+        if label == "blockIdx":
             ret_vreg = rv[1]
             yield Csrr(ret_vreg, 2, pred)
             return
-        if label == 'blockDim':
+        if label == "blockDim":
             ret_vreg = rv[1]
             yield Csrr(ret_vreg, 3, pred)
             return
@@ -519,22 +575,30 @@ class TwigArch(Architecture):
             elif isinstance(arg_loc, StackLocation):
                 stack_size += arg_loc.size
                 if isinstance(arg, TwigRegister):
-                    yield from self.immUsed(arg, SP, arg_loc.offset*NUM_THREADS, "sw")
+                    yield from self.immUsed(
+                        arg, SP, arg_loc.offset * NUM_THREADS, "sw"
+                    )
                 elif isinstance(arg, StackLocation):
                     p1 = frame.new_reg(TwigRegister)
                     p2 = frame.new_reg(TwigRegister)
                     v3 = frame.new_reg(TwigRegister)
 
                     # Destination location:
-                    yield from self.immUsed(p1, SP, arg_loc.offset*NUM_THREADS, "addi")
+                    yield from self.immUsed(
+                        p1, SP, arg_loc.offset * NUM_THREADS, "addi"
+                    )
                     saved_registers = self.get_callee_saved(frame)
                     callee_save_space = 128 * len(saved_registers)
                     # 2. Get scalar offset of the variable
                     scalar_stack_size = round_up(frame.stacksize)
                     scalar_var_offset = scalar_stack_size + arg.offset
                     # 3. Calculate final SIMT byte offset from FP
-                    final_fp_offset = callee_save_space + (scalar_var_offset * NUM_THREADS)
-                    yield from self.immUsed(p2, self.fp, final_fp_offset, "addi")
+                    final_fp_offset = callee_save_space + (
+                        scalar_var_offset * NUM_THREADS
+                    )
+                    yield from self.immUsed(
+                        p2, self.fp, final_fp_offset, "addi"
+                    )
                     yield from self.gen_twig_memcpy(p1, p2, v3, arg.size)
                 else:  # pragma: no cover
                     raise NotImplementedError("Parameters in memory not impl")
@@ -584,8 +648,10 @@ class TwigArch(Architecture):
                 yield self.move(arg, arg_loc)
             elif isinstance(arg_loc, StackLocation):
                 if isinstance(arg, TwigRegister):
-                    yield from self.immUsed(R11, FP, -(8*NUM_THREADS), "lw")
-                    yield from self.immUsed(arg, R11, arg_loc.offset *NUM_THREADS, "lw")
+                    yield from self.immUsed(R11, FP, -(8 * NUM_THREADS), "lw")
+                    yield from self.immUsed(
+                        arg, R11, arg_loc.offset * NUM_THREADS, "lw"
+                    )
                     # Code.fprel = True
                     # yield Code
                 else:
@@ -627,7 +693,7 @@ class TwigArch(Architecture):
         return locations
 
     def determine_rv_location(self, ret_type):
-        #return x10
+        # return x10
         return self._ret_reg
 
     def litpool(self, frame):

@@ -10,14 +10,12 @@ from ..helper_util import examples_path
 
 class WasmGeneratorTestCase(unittest.TestCase):
     def test_single_sample(self):
-        src = io.StringIO(
-            """
+        src = io.StringIO("""
         int add(int a, int b) {
           int g = a+b+55+1-2;
           return g + a+8*b;
         }
-        """
-        )
+        """)
         mod = api.c_to_ir(src, "x86_64")
         # For now optimize to the allocation of a variable on heap:
         api.optimize(mod, level="2")

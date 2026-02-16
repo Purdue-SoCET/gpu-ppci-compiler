@@ -111,16 +111,14 @@ class LinuxTests(unittest.TestCase):
         ; exit with code 42:
         ; syscall 60 = exit, rax is first argument, rdi second
         """
-        src = io.StringIO(
-            """
+        src = io.StringIO("""
             section code
             global start
             start:
             mov rax, 60
             mov rdi, 42
             syscall
-            """
-        )
+            """)
         mmap = """
         ENTRY(start)
         MEMORY code LOCATION=0x40000 SIZE=0x10000 {

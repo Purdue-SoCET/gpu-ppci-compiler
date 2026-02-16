@@ -34,8 +34,7 @@ def tst_table0():
 
 def test_table1():
     # The canonical form
-    CODE0 = dedent(
-        r"""
+    CODE0 = dedent(r"""
     (module
       (type $print (func (param i32)))
       (type $2 (func))
@@ -55,8 +54,7 @@ def test_table1():
         i32.const 1
         call_indirect (type $2))
     )
-    """
-    )
+    """)
 
     # Test main code
     m0 = Module(CODE0)
@@ -101,22 +99,18 @@ def test_table1():
 
     # Abbreviation: imported table
     m3 = Module('(module (table $t1 (import "foo" "bar_table1") funcref) )')
-    assert m3.to_string() == dedent(
-        """
+    assert m3.to_string() == dedent("""
     (module
       (import "foo" "bar_table1" (table $t1 funcref))
     )
-    """
-    )
+    """)
 
     m3 = Module('(module (table (import "foo" "bar_table1") 2 3 funcref) )')
-    assert m3.to_string() == dedent(
-        """
+    assert m3.to_string() == dedent("""
     (module
       (import "foo" "bar_table1" (table 2 3 funcref))
     )
-    """
-    )
+    """)
 
     # Abbeviation: inline data and unspecified (default) alignment
     CODE1 = r"""
