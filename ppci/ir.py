@@ -862,6 +862,11 @@ class PredicateAnnotation(Instruction):
             parent_pred_reg if parent_pred_reg is not None else 0
         )
 
+    @property
+    def targets(self):
+        """No branch targets; this is a debug annotation."""
+        return []
+
     def __str__(self):
         # Show dest pred and parent pred for assembly gen
         if self.context_name:
@@ -1346,7 +1351,7 @@ class JumpBase(FinalInstruction):
         """Clear references"""
         while self._block_map:
             _, block = self._block_map.popitem()
-            block.references.remove(self)
+            block.references.discard(self)
 
     @property
     def targets(self):

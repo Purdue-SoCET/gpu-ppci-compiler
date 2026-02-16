@@ -1072,13 +1072,14 @@ class CCodeGenerator:
 
         if stmt.condition:
             self.gen_scondition(
-                stmt.condition, body_block, loop_pred_reg, parent_pred_reg
+                stmt.condition,
+                body_block,
+                loop_pred_reg,
+                parent_pred_reg,
             )
         else:
-            # Infinite loop: Predicate is always true (inherit parent)
-            # This requires manual handling if stmt.condition is None
-            # For now, we assume condition exists or parser handles it.
-            pass
+            # Infinite loop (for(;;)): always jump to body
+            self.builder.emit_jump(body_block)
 
         # 2. Body
         self.builder.set_block(body_block)
@@ -1330,18 +1331,24 @@ class CCodeGenerator:
             self.check_non_zero(condition, yes_block, no_block)
 
     def gen_scondition(self, condition, yes_block, pred_yes, pred_parent):
-        """Generate switch based on condition."""
-        lhs = self.gen_expr(condition.a, rvalue=True)
-        rhs = self.gen_expr(condition.b, rvalue=True)
-        op_map = {
-            ">": ">",
-            "<": "<",
-            "==": "==",
-            "!=": "!=",
-            "<=": "<=",
-            ">=": ">=",
-        }
-        op = op_map[condition.op]
+        """Generate split-jump based on condition.
+
+        For binary comparisons, emit the comparison directly.
+        For non-comparison expressions (e.g. while(1)),
+        compare the value against zero.
+        """
+        cmp_ops = {">", "<", "==", "!=", "<=", ">="}
+        if (
+            isinstance(condition, expressions.BinaryOperator)
+            and condition.op in cmp_ops
+        ):
+            lhs = self.gen_expr(condition.a, rvalue=True)
+            rhs = self.gen_expr(condition.b, rvalue=True)
+            op = condition.op
+        else:
+            lhs = self.gen_expr(condition, rvalue=True)
+            rhs = self.emit_const(0, condition.typ)
+            op = "!="
         self.emit(ir.SJump(lhs, op, rhs, yes_block, pred_yes))
 
     # def gen_pcondition(self, cur_pred, yes_block, no_block):

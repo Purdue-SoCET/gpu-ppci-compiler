@@ -217,22 +217,10 @@ class TreeSelector:
         """Apply all selected instructions to the tree"""
         rule = tree.state.get_rule(goal)
         kid_goals = self.nts(rule)
-        # if len(kid_goals) != len(tree.children):
-        #     raise RuntimeError(
-        #         f"Rule/Tree mismatch: {tree.name} has "
-        #         f"{len(tree.children)} children but rule "
-        #         f"expects {len(kid_goals)}"
-        #     )
         results = [
             self.apply_rules(context, kid_tree, kid_goal)
-            for kid_tree, kid_goal in zip(tree.children, kid_goals)
+            for kid_tree, kid_goal in zip(self.kids(tree, rule), kid_goals)
         ]
-        # results = [
-        #     self.apply_rules(context, kid_tree, kid_goal)
-        #     for kid_tree, kid_goal in zip(
-        #         self.kids(tree, rule), self.nts(rule)
-        #     )
-        # ]
         # Get the function to call:
         rule_f = self.sys.get_rule(rule).template
         context.tree = tree
@@ -337,9 +325,23 @@ class InstructionSelector1:
 
     def call_function(self, context, tree):
         label, args, rv = tree.value
-        for instruction in self.arch.gen_call(
-            context.frame, label, args, rv, pred=tree.pred
-        ):
+        try:
+            call_iter = self.arch.gen_call(
+                context.frame,
+                label,
+                args,
+                rv,
+                pred=tree.pred,
+            )
+        except TypeError:
+            # Architecture doesn't accept pred kwarg
+            call_iter = self.arch.gen_call(
+                context.frame,
+                label,
+                args,
+                rv,
+            )
+        for instruction in call_iter:
             context.emit(instruction)
 
     def inline_asm(self, context, tree):

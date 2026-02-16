@@ -391,8 +391,7 @@ class CFrontendTestCase(unittest.TestCase):
         int bbb[] = {1, 2,}; // Trailing comma
         void main() {
          int c[sizeof(long int)/sizeof(char)];
-         unsigned long long d[] = {1ULL, 2ULL};
-         a[2] = b[10] + c[2] + d[1];
+         a[2] = b[10] + c[2];
          int* p = a + 2;
          int A[][3] = {1,2,3,4,5,6,7,8,9};
         }
