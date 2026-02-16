@@ -558,9 +558,7 @@ def make_sb(mnemonic, opcode):
     rs1 = Operand("rs1", TwigRegister, read=True)
     rs2 = Operand("rs2", TwigRegister, read=True)
     fprel = False
-    syntax = Syntax(
-        [mnemonic, " ", pred, ",", " ", rs1, ",", " ", rs2]
-    )
+    syntax = Syntax([mnemonic, " ", pred, ",", " ", rs1, ",", " ", rs2])
     tokens = [TwigBToken]
     patterns = {
         "opcode": opcode,
@@ -1288,9 +1286,12 @@ def pattern_sjmp(context, tree, c0, c1):
 def pattern_sjmp_signed(context, tree, c0, c1):
     op, yes_label, yes_pred, parent_pred = tree.value
     opnames = {
-        "<": Blt, ">": Blt,
-        "==": Beq, "!=": Bne,
-        ">=": Bge, "<=": Bge,
+        "<": Blt,
+        ">": Blt,
+        "==": Beq,
+        "!=": Bne,
+        ">=": Bge,
+        "<=": Bge,
     }
     Bop = opnames[op]
     if op == ">" or op == "<=":
