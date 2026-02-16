@@ -270,15 +270,16 @@ class SelectionGraphBuilder:
         """
 
         # if node.lab_yes not in self.function_info.label_map:
-        #     print(f"WARNING: {node.lab_yes} was missing. Creating placeholder.")
-        #     # You must verify what object type 'label_map' expects.
-        #     # Usually it is a Label object from ppci.ir or similar.
-        #     self.function_info.label_map[node.lab_yes] = node.lab_yes
+        #     print(f"WARNING: {node.lab_yes} was missing.")
+        #     self.function_info.label_map[
+        #         node.lab_yes
+        #     ] = node.lab_yes
 
-        # # Check if the 'no' label exists (good practice to check both)
         # if node.lab_no not in self.function_info.label_map:
-        #     print(f"WARNING: {node.lab_no} was missing. Creating placeholder.")
-        #     self.function_info.label_map[node.lab_no] = node.lab_no
+        #     print(f"WARNING: {node.lab_no} was missing.")
+        #     self.function_info.label_map[
+        #         node.lab_no
+        #     ] = node.lab_no
 
         sgnode = self.new_node("PJMP", None)  # (main_blockX == 0 ?)
         sgnode.value = (

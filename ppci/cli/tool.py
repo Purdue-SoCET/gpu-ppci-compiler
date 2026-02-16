@@ -177,7 +177,8 @@ def do_asm(args):
 
 
 def do_disasm(args):
-    """Handles disassembly with a robust fallback for JAL/Label instructions."""
+    """Handles disassembly with a robust fallback for
+    JAL/Label instructions."""
     filename = args.disasm
     print(f"Disassembling {filename}...")
 
@@ -206,7 +207,6 @@ def do_disasm(args):
     addr = 0
 
     while f_stream.tell() < len(raw_data):
-        current_pos = f_stream.tell()
         chunk = f_stream.read(4)
         if len(chunk) < 4:
             break
@@ -237,7 +237,7 @@ def do_disasm(args):
                 # 17-bit immediate value
                 imm_val = (val >> 13) & 0x1FFFF
 
-                # Sign extension for 17-bit (optional but helpful for negative jumps)
+                # Sign extension for 17-bit
                 if imm_val & 0x10000:
                     imm_val -= 0x20000
 

@@ -116,7 +116,7 @@ terminals = tuple(x + y for x in ops for y in data_types) + (
     "ALLOCA",
     "FREEA",
     "ASM",  # Inline assembly
-    "BJMP",  # maybe these two (bjmp and sjmp) should not be in terminals since they are in ops
+    "BJMP",  # bjmp/sjmp may not belong in terminals
     "SJMP",
     "PJMP",
 )
@@ -218,7 +218,11 @@ class TreeSelector:
         rule = tree.state.get_rule(goal)
         kid_goals = self.nts(rule)
         # if len(kid_goals) != len(tree.children):
-        #     raise RuntimeError(f"Rule/Tree mismatch: {tree.name} has {len(tree.children)} children but rule expects {len(kid_goals)}")
+        #     raise RuntimeError(
+        #         f"Rule/Tree mismatch: {tree.name} has "
+        #         f"{len(tree.children)} children but rule "
+        #         f"expects {len(kid_goals)}"
+        #     )
         results = [
             self.apply_rules(context, kid_tree, kid_goal)
             for kid_tree, kid_goal in zip(tree.children, kid_goals)

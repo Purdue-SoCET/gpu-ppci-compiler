@@ -152,10 +152,6 @@ class CodeGenerator:
         self.reporter.heading(3, f"Log for {ir_function}")
         self.reporter.dump_ir(ir_function)
 
-        # TODO: this pass should remove compare&jump (cpu branch) from IR
-        # it will translate to cmp and select (hopefully) which is compatible with predication
-        # e.g. CJump --> ir.condition() & ir.select()
-        # then we can add patterns for this in arch/twig/instructions.py
         self.logger.debug("If-Conversion NOT implemented yet")
 
         # Split too large basic blocks in smaller chunks (for literal pools):

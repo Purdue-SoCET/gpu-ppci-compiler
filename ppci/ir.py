@@ -838,7 +838,8 @@ class Undefined(LocalValue):
 class PredicateAnnotation(Instruction):
     """GPU-style predicate annotation for control flow divergence tracking.
 
-    This instruction annotates a basic block with predicate register information
+    This instruction annotates a basic block with predicate
+    register information
     to track which threads are active in GPU-style SIMT execution.
 
     For backend code generation, the assembly will compute:
@@ -862,10 +863,18 @@ class PredicateAnnotation(Instruction):
         )
 
     def __str__(self):
-        # Show destination pred and parent pred for assembly generation
+        # Show dest pred and parent pred for assembly gen
         if self.context_name:
-            return f"pred{self.pred_reg} = pred{self.parent_pred_reg} AND <condition> // {self.context_name}"
-        return f"pred{self.pred_reg} = pred{self.parent_pred_reg} // root (all ones)"
+            return (
+                f"pred{self.pred_reg} = "
+                f"pred{self.parent_pred_reg} "
+                f"AND <condition> // {self.context_name}"
+            )
+        return (
+            f"pred{self.pred_reg} = "
+            f"pred{self.parent_pred_reg} "
+            f"// root (all ones)"
+        )
 
 
 class Const(LocalValue):
@@ -1442,7 +1451,8 @@ class BJump(CJump):
     def __str__(self):
         return (
             f"bjmp {self.a.name} {self.cond} {self.b.name} ? "
-            f"{self.lab_yes.name} (p{self.pred_yes_id}) : {self.lab_no.name} (p{self.pred_no_id})"
+            f"{self.lab_yes.name} (p{self.pred_yes_id}) : "
+            f"{self.lab_no.name} (p{self.pred_no_id})"
         )
 
 

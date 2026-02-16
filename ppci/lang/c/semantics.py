@@ -1165,7 +1165,8 @@ class CSemantics:
                 hints = []
                 for suggestion in suggestions:
                     hints.append(
-                        f'"{name}" was not defined, did you mean "{suggestion}"?'
+                        f'"{name}" was not defined, '
+                        f'did you mean "{suggestion}"?'
                     )
                 self.error(
                     f'Undeclared identifier: "{name}"',

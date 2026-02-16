@@ -1,4 +1,4 @@
-from ..token import Token, bit, bit_concat, bit_range
+from ..token import Token, bit_concat, bit_range
 
 
 class TwigRToken(Token):

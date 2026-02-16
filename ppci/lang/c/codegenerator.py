@@ -72,8 +72,8 @@ class CCodeGenerator:
         """Allocate a new predicate register number, reusing freed ones."""
         # Try to reuse a freed register first
         if self.freed_predicate_registers:
-            # FIX: Sort the list to ensure we always pick the lowest available index
-            # instead of just the oldest one freed (FIFO).
+            # Sort to always pick the lowest available index
+            # instead of just the oldest freed (FIFO).
             self.freed_predicate_registers.sort()
 
             pred_num = self.freed_predicate_registers.pop(0)
@@ -83,7 +83,10 @@ class CCodeGenerator:
         # Allocate new register
         if self.predicate_counter >= 32:
             raise Exception(
-                f"Predicate register exhaustion! Already allocated {self.predicate_counter} registers. Hardware limit is 32."
+                f"Predicate register exhaustion! "
+                f"Already allocated "
+                f"{self.predicate_counter} registers. "
+                f"Hardware limit is 32."
             )
 
         pred_num = self.predicate_counter
@@ -124,11 +127,12 @@ class CCodeGenerator:
             ):
                 self.freed_predicate_registers.append(pred_reg)
                 self.logger.info(
-                    f"FREED predicate register: pred{pred_reg} (available for reuse)"
+                    "FREED predicate register: "
+                    f"pred{pred_reg} (available for reuse)"
                 )
 
     def _format_predicate_binary(self, value):
-        """Format a predicate value as a binary string (5 bits for visualization)."""
+        """Format a predicate value as a binary string."""
         return format(value, "05b")
 
     def _annotate_block_with_predicate(
@@ -185,7 +189,10 @@ class CCodeGenerator:
 
         # Log for debugging
         self.logger.info(
-            f"Block {block.name}: predicate={pred_reg}, parent={parent_pred_reg}, mask={pred_mask_str}, context={context_name}"
+            f"Block {block.name}: predicate={pred_reg}, "
+            f"parent={parent_pred_reg}, "
+            f"mask={pred_mask_str}, "
+            f"context={context_name}"
         )
 
     def get_label_block(self, name):
@@ -768,7 +775,8 @@ class CCodeGenerator:
         self.builder.set_block(yes_block)
 
         # Compute yes predicate: parent_mask AND condition_true
-        # In hardware: pred[yes_pred_reg] = pred[parent_pred_reg] AND condition_mask
+        # In hardware: pred[yes_pred_reg] =
+        #   pred[parent_pred_reg] AND condition_mask
         yes_mask = parent_mask  # Simplified: inherit parent mask
 
         # Annotate block with predicate (includes parent info)
@@ -781,7 +789,8 @@ class CCodeGenerator:
 
         # Log predicate stack state
         self.logger.info(
-            f"PREDICATE STACK (entering then): {[c['pred_reg'] for c in self.predicate_stack]}"
+            "PREDICATE STACK (entering then): "
+            f"{[c['pred_reg'] for c in self.predicate_stack]}"
         )
 
         # Generate IR for 'then' branch
@@ -797,7 +806,8 @@ class CCodeGenerator:
             self.builder.set_block(no_block)
 
             # Compute no predicate: parent_mask AND condition_false
-            # In hardware: pred[no_pred_reg] = pred[parent_pred_reg] AND NOT(condition_mask)
+            # In hardware: pred[no_pred_reg] =
+            #   pred[parent_pred_reg] AND NOT(condition_mask)
             no_mask = parent_mask  # Simplified: inherit parent mask
 
             # Annotate block with predicate (includes parent info)
@@ -810,7 +820,8 @@ class CCodeGenerator:
 
             # Log predicate stack state
             self.logger.info(
-                f"PREDICATE STACK (entering else): {[c['pred_reg'] for c in self.predicate_stack]}"
+                "PREDICATE STACK (entering else): "
+                f"{[c['pred_reg'] for c in self.predicate_stack]}"
             )
 
             # Generate IR for 'else' branch
@@ -839,11 +850,12 @@ class CCodeGenerator:
         self._free_predicate_registers(yes_pred_reg, no_pred_reg)
 
         self.logger.info(
-            f"PREDICATE STACK (after reconverge): {[c['pred_reg'] for c in self.predicate_stack]}"
+            "PREDICATE STACK (after reconverge): "
+            f"{[c['pred_reg'] for c in self.predicate_stack]}"
         )
 
     def gen_switch(self, stmt: statements.Switch) -> None:
-        """Generate switch-case-statement code with GPU-style predicate tracking.
+        """Generate switch-case code with GPU predicate tracking.
 
         Switch is implemented as a series of if-else comparisons.
         Each case gets its own predicate register derived from parent.
@@ -893,7 +905,7 @@ class CCodeGenerator:
         for option, target_block in self.switch_options.items():
             if option != "default":
                 # Allocate predicate for this case
-                case_pred_reg = self._allocate_predicate_register()
+                self._allocate_predicate_register()
 
                 option_const = self.builder.emit_const(option, switch_ir_typ)
                 next_test_block = self.builder.new_block()

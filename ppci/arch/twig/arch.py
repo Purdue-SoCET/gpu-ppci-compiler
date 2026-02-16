@@ -1,76 +1,31 @@
 """TWIG architecture."""
 
-import io
-
 from ... import ir
 from ...binutils.assembler import BaseAssembler
 from ..arch import Architecture
 from ..arch_info import ArchInfo, TypeInfo
-from ..data_instructions import DByte, DZero, data_isa
+from ..data_instructions import DByte, data_isa
 from ..generic_instructions import Label, RegisterUseDef
 from ..stack import FramePointerLocation, StackLocation
-from . import instructions
 from .asm_printer import TwigAsmPrinter
 from .instructions import (
-    # rtype
     Add,
     Csrr,
-    Sub,
-    Mul,
-    Div,
-    And,
-    Or,
-    Xor,
-    Slt,
-    Sltu,
-    Addf,
-    Subf,
-    Mulf,
-    Divf,
-    Sll,
-    Srl,
-    Sra,
-    # itype
     Addi,
-    Subi,
-    Ori,
-    Slti,
-    Sltiu,
-    Srli,
-    Srai,
-    # ftype
     Cos,
     Sin,
     Isqrt,
     ItoF,
     FtoI,
-    # memory
     Lw,
-    Lh,
-    Lb,
     Sw,
-    Sh,
-    Sb,
-    # predicate memory
     Prsw,
     Prlw,
-    # branch
-    Beq,
-    Bne,
-    Bge,
-    Bgeu,
-    Blt,
-    Bltu,
-    # jump
     Bl,
     Blr,
-    # utype
     Lli,
     Lmi,
     Lui,
-    # htype,
-    Halt,
-    # isa
     isa,
     Align,
     Section,
@@ -80,11 +35,6 @@ from .registers import (
     R0,
     LR,
     SP,
-    R3,
-    R4,
-    R5,
-    R6,
-    R7,
     FP,
     R9,
     R10,
@@ -141,45 +91,9 @@ from .registers import (
     R61,
     R62,
     R63,
-    PC,
-    P0,
-    P1,
-    P2,
-    P3,
-    P4,
-    P5,
-    P6,
-    P7,
-    P8,
-    P9,
-    P10,
-    P11,
-    P12,
-    P13,
-    P14,
-    P15,
-    P16,
-    P17,
-    P18,
-    P19,
-    P20,
-    P21,
-    P22,
-    P23,
-    P24,
-    P25,
-    P26,
-    P27,
-    P28,
-    P29,
-    P30,
-    P31,
     Register,
     TwigRegister,
-    TwigPredRegister,
     gdb_registers,
-    predregisters,
-    # register_classes_hwfp,
     register_classes_swfp,
 )
 
@@ -392,7 +306,7 @@ class TwigArch(Architecture):
             if instruction == "addi":
                 yield Add(r1, r2, R11, pred)
             if instruction == "lw":
-                # here r2 is the address so we can add the offset to the address for the new address
+                # r2 is the address; add offset for new address
                 yield Add(R11, r2, R11, pred)
                 yield Lw(r1, 0, R11, pred)
             if instruction == "sw":
