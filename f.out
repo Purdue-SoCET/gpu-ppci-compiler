@@ -1,76 +1,374 @@
-       .section data
-       .section data
-       .section code
-       global main
-       type main func
- main:
-       lui, x11, 255
-       lmi, x11, 4095
-       lli, x11, 2672
-       add x2, x2, x11
-       lui, x11, 0
-       lmi, x11, 0
-       lli, x11, 128
-       add x11, x2, x11
-       sw x1, 0(x11)
-       sw x8, 0(x2)
-       lui, x11, 0
-       lmi, x11, 0
-       lli, x11, 256
-       add x8, x2, x11
-       sw x9, 0(x8)
- main_block0:
-       jal x0, main_block1
- main_block1:
-       addi x9, x0, 3
-       lui, x11, 0
-       lmi, x11, 0
-       lli, x11, 512
-       add x11, x8, x11
-       sw x9, 0(x11)
-       lui, x11, 0
-       lmi, x11, 0
-       lli, x11, 512
-       add x11, x8, x11
-       lw x9, 0(x11)
-       addi x10, x0, 3
-       blt 1, x9, x10, 0
-       bge 2, x9, x10, 0
-       jal x0, main_block3
- main_block2:
-       lui, x11, 0
-       lmi, x11, 0
-       lli, x11, 384
-       add x11, x8, x11
-       lw x10, 0(x11)
-       jal x0, main_epilog
- main_block3:
-       addi x9, x0, 4
-       lui, x11, 0
-       lmi, x11, 0
-       lli, x11, 384
-       add x11, x8, x11
-       sw x9, 0(x11)
-       jal x0, main_block4
- main_block4:
-       addi x9, x0, 6
-       lui, x11, 0
-       lmi, x11, 0
-       lli, x11, 384
-       add x11, x8, x11
-       sw x9, 0(x11)
-       jal x0, main_block2
- main_epilog:
-       lw x9, 0(x8)
-       lui, x11, 0
-       lmi, x11, 0
-       lli, x11, 128
-       add x11, x2, x11
-       lw x1, 0(x11)
-       lw x8, 0(x2)
-       lui, x11, 0
-       lmi, x11, 0
-       lli, x11, 1424
-       add x2, x2, x11
-       jalr x0,x1, 0
-       .align 4
+{
+  "arch": "twig",
+  "entry_symbol_id": 0,
+  "images": [
+    {
+      "address": "0x0",
+      "name": "mmio",
+      "sections": [
+        "_$mmio_base_"
+      ]
+    },
+    {
+      "address": "0x24",
+      "name": "code_mem",
+      "sections": [
+        "code"
+      ]
+    },
+    {
+      "address": "0x100000",
+      "name": "args_mem",
+      "sections": [
+        "data",
+        "rodata",
+        "bss"
+      ]
+    },
+    {
+      "address": "0x10000000",
+      "name": "heap_mem",
+      "sections": [
+        "_$heap_base_"
+      ]
+    },
+    {
+      "address": "0xf1000000",
+      "name": "stack_mem",
+      "sections": [
+        "_$stack_base_"
+      ]
+    }
+  ],
+  "relocations": [
+    {
+      "addend": "0x0",
+      "offset": "0x3c",
+      "section": "code",
+      "symbol_id": 3,
+      "type": "j_imm17"
+    },
+    {
+      "addend": "0x0",
+      "offset": "0x7c",
+      "section": "code",
+      "symbol_id": 4,
+      "type": "j_imm17"
+    },
+    {
+      "addend": "0x0",
+      "offset": "0xa0",
+      "section": "code",
+      "symbol_id": 5,
+      "type": "j_imm17"
+    },
+    {
+      "addend": "0x0",
+      "offset": "0x12c",
+      "section": "code",
+      "symbol_id": 6,
+      "type": "j_imm17"
+    },
+    {
+      "addend": "0x0",
+      "offset": "0x15c",
+      "section": "code",
+      "symbol_id": 8,
+      "type": "j_imm17"
+    },
+    {
+      "addend": "0x0",
+      "offset": "0x180",
+      "section": "code",
+      "symbol_id": 9,
+      "type": "j_imm17"
+    },
+    {
+      "addend": "0x0",
+      "offset": "0x228",
+      "section": "code",
+      "symbol_id": 6,
+      "type": "pb_imm11"
+    },
+    {
+      "addend": "0x0",
+      "offset": "0x22c",
+      "section": "code",
+      "symbol_id": 10,
+      "type": "j_imm17"
+    },
+    {
+      "addend": "0x0",
+      "offset": "0x248",
+      "section": "code",
+      "symbol_id": 4,
+      "type": "pb_imm11"
+    },
+    {
+      "addend": "0x0",
+      "offset": "0x24c",
+      "section": "code",
+      "symbol_id": 7,
+      "type": "j_imm17"
+    },
+    {
+      "addend": "0x0",
+      "offset": "0x2bc",
+      "section": "code",
+      "symbol_id": 12,
+      "type": "j_imm17"
+    },
+    {
+      "addend": "0x0",
+      "offset": "0x39c",
+      "section": "code",
+      "symbol_id": 1,
+      "type": "j_imm17"
+    },
+    {
+      "addend": "0x0",
+      "offset": "0x424",
+      "section": "code",
+      "symbol_id": 13,
+      "type": "j_imm17"
+    }
+  ],
+  "sections": [
+    {
+      "address": "0x100000",
+      "alignment": "0x4",
+      "data": "",
+      "name": "data"
+    },
+    {
+      "address": "0x24",
+      "alignment": "0x4",
+      "data": [
+        "d3e51f00d2e5ff01d1054e0100415800d3050000d2050000d10510008045",
+        "58003060090030404000d3050000d2050000d10520000044580030004900",
+        "60400000d3050000d2050000d10540008005590030606100d3050000d205",
+        "0000d10530008005590030606900d3050000d2050000d105200080055900",
+        "3060710060400000d3050000d2050000d105300080055900c06401001025",
+        "010090040000c140490060400000d3050002d2050002d105300280055902",
+        "c0640102102501029004080281444902d3050002d2050002d10530028005",
+        "590230604902d3050002d2050002d105300280055902c064010290240102",
+        "d3050002d2050002d10520028005590230604902d3050002d2050002d105",
+        "300280055902c064010290240102ab24010290240102a924010290240102",
+        "60400300d3050000d2050000d105400080055900c064010090240100ab24",
+        "010090240100aa240100902401001025010060400f00d3050002d2050002",
+        "d105200280055902c064010210250102900400024141490260400000d305",
+        "0004d2050004d105200480055904c0640104102501049004080481444904",
+        "d3050004d2050004d10520048005590430604904d3050004d2050004d105",
+        "400480055904c06401049024010490240904d3050004d2050004d1054004",
+        "8005590430604904d3050004d2050004d105400480055904c06401049024",
+        "0104ab240104902401042a250104d3050004d2050004d105200480055904",
+        "c064010490240104104501046840e03c60400000d3050002d2050002d105",
+        "300280055902c0640102902401026820e0386040ee3fc0040100d3050000",
+        "d2050000d105100080455800c060010040440000d3050000d2050000d105",
+        "b2000041580023200000d3e51f00d2e5ff01d1050e0100415800d3050000",
+        "d2050000d1051000804558003060090030404000d3050000d2050000d105",
+        "2000004458003000490060400000530500005205000051050400d3040000",
+        "d2040000d104080000454900d3040000d2040000d104100080444900d305",
+        "0000d2050000d1058000800559003060490090041800d3050000d2050000",
+        "d1057000800559003060490090043800d3050000d2050000d10560008005",
+        "59003060490090041800d3050000d2050000d10550008005590030604900",
+        "d3050000d2050000d105700080055900c064010090250100d3050000d205",
+        "0000d105600080055900c064010010250100d3050000d2050000d1055000",
+        "80055900c064010090240100106601009046010010270100e040c63f1045",
+        "0100d3050000d2050000d10540008005590030605100d3050000d2050000",
+        "d105800080055900c064010090250100d3050000d2050000d10540008005",
+        "5900c064010010250100ab64010089444900d3050000d2050000d1054000",
+        "8005590030604900d3050000d2050000d105400080055900c06401009024",
+        "0100ac2401001025010060400000c0040100d3050000d2050000d1051000",
+        "80455800c060010040440000d3050000d2050000d105f200004158002320",
+        "0000"
+      ],
+      "name": "code"
+    },
+    {
+      "address": "0x0",
+      "alignment": "0x1",
+      "data": "",
+      "name": "_$mmio_base_"
+    },
+    {
+      "address": "0x100000",
+      "alignment": "0x4",
+      "data": "",
+      "name": "rodata"
+    },
+    {
+      "address": "0x100000",
+      "alignment": "0x4",
+      "data": "",
+      "name": "bss"
+    },
+    {
+      "address": "0x10000000",
+      "alignment": "0x1",
+      "data": "",
+      "name": "_$heap_base_"
+    },
+    {
+      "address": "0xf1000000",
+      "alignment": "0x1",
+      "data": "",
+      "name": "_$stack_base_"
+    }
+  ],
+  "symbols": [
+    {
+      "binding": "global",
+      "id": 0,
+      "name": "main",
+      "section": "code",
+      "size": 0,
+      "typ": "object",
+      "value": "0x280"
+    },
+    {
+      "binding": "global",
+      "id": 1,
+      "name": "test",
+      "section": "code",
+      "size": 0,
+      "typ": "func",
+      "value": "0x0"
+    },
+    {
+      "binding": "local",
+      "id": 2,
+      "name": "test_block0",
+      "section": "code",
+      "size": 0,
+      "typ": "object",
+      "value": "0x3c"
+    },
+    {
+      "binding": "local",
+      "id": 3,
+      "name": "test_block1",
+      "section": "code",
+      "size": 0,
+      "typ": "object",
+      "value": "0x40"
+    },
+    {
+      "binding": "local",
+      "id": 4,
+      "name": "test_block2",
+      "section": "code",
+      "size": 0,
+      "typ": "object",
+      "value": "0x80"
+    },
+    {
+      "binding": "local",
+      "id": 5,
+      "name": "test_block3",
+      "section": "code",
+      "size": 0,
+      "typ": "object",
+      "value": "0xa4"
+    },
+    {
+      "binding": "local",
+      "id": 6,
+      "name": "test_block5",
+      "section": "code",
+      "size": 0,
+      "typ": "object",
+      "value": "0x160"
+    },
+    {
+      "binding": "local",
+      "id": 7,
+      "name": "test_block4",
+      "section": "code",
+      "size": 0,
+      "typ": "object",
+      "value": "0x130"
+    },
+    {
+      "binding": "local",
+      "id": 8,
+      "name": "test_epilog",
+      "section": "code",
+      "size": 0,
+      "typ": "object",
+      "value": "0x250"
+    },
+    {
+      "binding": "local",
+      "id": 9,
+      "name": "test_block6",
+      "section": "code",
+      "size": 0,
+      "typ": "object",
+      "value": "0x184"
+    },
+    {
+      "binding": "local",
+      "id": 10,
+      "name": "test_block7",
+      "section": "code",
+      "size": 0,
+      "typ": "object",
+      "value": "0x230"
+    },
+    {
+      "binding": "local",
+      "id": 11,
+      "name": "main_block0",
+      "section": "code",
+      "size": 0,
+      "typ": "object",
+      "value": "0x2bc"
+    },
+    {
+      "binding": "local",
+      "id": 12,
+      "name": "main_block1",
+      "section": "code",
+      "size": 0,
+      "typ": "object",
+      "value": "0x2c0"
+    },
+    {
+      "binding": "local",
+      "id": 13,
+      "name": "main_epilog",
+      "section": "code",
+      "size": 0,
+      "typ": "object",
+      "value": "0x428"
+    },
+    {
+      "binding": "global",
+      "id": 14,
+      "name": "mmio_base",
+      "section": "_$mmio_base_",
+      "size": 0,
+      "typ": "object",
+      "value": "0x0"
+    },
+    {
+      "binding": "global",
+      "id": 15,
+      "name": "heap_base",
+      "section": "_$heap_base_",
+      "size": 0,
+      "typ": "object",
+      "value": "0x0"
+    },
+    {
+      "binding": "global",
+      "id": 16,
+      "name": "stack_base",
+      "section": "_$stack_base_",
+      "size": 0,
+      "typ": "object",
+      "value": "0x0"
+    }
+  ]
+}

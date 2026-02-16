@@ -54,6 +54,7 @@ ppci-wat2wasm = "ppci.cli.wat2wasm:wat2wasm"
 ppci-wabt = "ppci.cli.wabt:wabt"
 ppci-yacc = "ppci.cli.yacc:yacc"
 twig = "ppci.cli.twig:twig"
+tool = "ppci.cli.tool:tool"
 
 [build-system]
 requires = ["setuptools", "wheel", "flit_core >=3.11,<4"]
