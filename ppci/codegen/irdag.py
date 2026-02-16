@@ -511,6 +511,19 @@ class SelectionGraphBuilder:
         self.debug_db.map(node, sgnode)
         self.add_map(node, sgnode.new_output(node.name))
 
+    def do_compare_set(self, node):
+        """Process CompareSet into DAG as a CMPSET node.
+
+        Produces an integer 1/0 result from a comparison.
+        The comparison operator is stored in sgnode.value.
+        """
+        a = self.get_value(node.a)
+        b = self.get_value(node.b)
+        sgnode = self.new_node("CMPSET", node.ty, a, b)
+        sgnode.value = node.cond
+        self.debug_db.map(node, sgnode)
+        self.add_map(node, sgnode.new_output(node.name))
+
     def do_binop(self, node):
         """Visit a binary operator and create a DAG node"""
         names = {

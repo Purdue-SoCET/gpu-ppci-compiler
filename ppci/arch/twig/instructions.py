@@ -1158,6 +1158,93 @@ def pattern_const_f32(context, tree):
     return d
 
 
+@isa.pattern("reg", "CMPSETI32(reg, reg)", size=2)
+@isa.pattern("reg", "CMPSETI16(reg, reg)", size=2)
+@isa.pattern("reg", "CMPSETI8(reg, reg)", size=2)
+def pattern_cmpset_signed(context, tree, c0, c1):
+    """Compare two signed values, set rd = 1 if condition true, else 0."""
+    d = context.new_reg(TwigRegister)
+    p = tree.pred
+    op = tree.value
+    op_map = {"<": Slt, ">=": Sge}
+    if op in op_map:
+        context.emit(op_map[op](d, c0, c1, p))
+    elif op == ">":
+        context.emit(Slt(d, c1, c0, p))
+    elif op == "<=":
+        context.emit(Sge(d, c1, c0, p))
+    elif op == "==":
+        t = context.new_reg(TwigRegister)
+        context.emit(Slt(t, c0, c1, p))
+        context.emit(Sge(d, c0, c1, p))
+        context.emit(Xor(d, d, t, p))
+        context.emit(Xori(d, d, 1, p))
+    elif op == "!=":
+        t = context.new_reg(TwigRegister)
+        context.emit(Slt(t, c0, c1, p))
+        context.emit(Sge(d, c0, c1, p))
+        context.emit(Xor(d, d, t, p))
+    return d
+
+
+@isa.pattern("reg", "CMPSETU32(reg, reg)", size=2)
+@isa.pattern("reg", "CMPSETU16(reg, reg)", size=2)
+@isa.pattern("reg", "CMPSETU8(reg, reg)", size=2)
+def pattern_cmpset_unsigned(context, tree, c0, c1):
+    """Compare two unsigned values, set rd = 1 if condition true, else 0."""
+    d = context.new_reg(TwigRegister)
+    p = tree.pred
+    op = tree.value
+    op_map = {"<": Sltu, ">=": Sgeu}
+    if op in op_map:
+        context.emit(op_map[op](d, c0, c1, p))
+    elif op == ">":
+        context.emit(Sltu(d, c1, c0, p))
+    elif op == "<=":
+        context.emit(Sgeu(d, c1, c0, p))
+    elif op == "==":
+        t = context.new_reg(TwigRegister)
+        context.emit(Sltu(t, c0, c1, p))
+        context.emit(Sgeu(d, c0, c1, p))
+        context.emit(Xor(d, d, t, p))
+        context.emit(Xori(d, d, 1, p))
+    elif op == "!=":
+        t = context.new_reg(TwigRegister)
+        context.emit(Sltu(t, c0, c1, p))
+        context.emit(Sgeu(d, c0, c1, p))
+        context.emit(Xor(d, d, t, p))
+    return d
+
+
+@isa.pattern("reg", "CMPSETF32(reg, reg)", size=4)
+def pattern_cmpset_float(context, tree, c0, c1):
+    """Compare two float values, set rd = 1 if condition true, else 0."""
+    d = context.new_reg(TwigRegister)
+    p = tree.pred
+    op = tree.value
+    op_map = {"<": Sltf, ">=": Sgef}
+    if op in op_map:
+        context.emit(op_map[op](d, c0, c1, p))
+    elif op == ">":
+        context.emit(Sltf(d, c1, c0, p))
+    elif op == "<=":
+        context.emit(Sgef(d, c1, c0, p))
+    elif op == "==":
+        t1 = context.new_reg(TwigRegister)
+        t2 = context.new_reg(TwigRegister)
+        context.emit(Sltf(t1, c0, c1, p))
+        context.emit(Sltf(t2, c1, c0, p))
+        context.emit(Or(d, t1, t2, p))
+        context.emit(Xori(d, d, 1, p))
+    elif op == "!=":
+        t1 = context.new_reg(TwigRegister)
+        t2 = context.new_reg(TwigRegister)
+        context.emit(Sltf(t1, c0, c1, p))
+        context.emit(Sltf(t2, c1, c0, p))
+        context.emit(Or(d, t1, t2, p))
+    return d
+
+
 @isa.pattern("stm", "PJMP(reg, CONSTI32)", size=6)
 def pattern_pjmp(context, tree):
     pred, lab_yes, lab_no = tree.value

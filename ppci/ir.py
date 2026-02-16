@@ -1023,6 +1023,32 @@ class Binop(LocalValue):
         )
 
 
+class CompareSet(LocalValue):
+    """Compare two values, produce integer 1 (true) or 0 (false).
+
+    This is used for predicated architectures where compound conditionals
+    (||, &&) are flattened into set instructions combined with AND/OR.
+    """
+
+    conditions = ["==", "<", ">", ">=", "<=", "!="]
+    a = value_use("a")
+    b = value_use("b")
+
+    def __init__(self, a, cond, b, name, ty):
+        super().__init__(name, ty)
+        if cond not in self.conditions:
+            raise ValueError(f"Invalid condition {cond}")
+        self.a = a
+        self.cond = cond
+        self.b = b
+
+    def __str__(self):
+        return (
+            f"{self.ty} {self.name} = "
+            f"cmpset {self.a.name} {self.cond} {self.b.name}"
+        )
+
+
 def add(a, b, name, ty):
     """Substract b from a"""
     return Binop(a, "+", b, name, ty)

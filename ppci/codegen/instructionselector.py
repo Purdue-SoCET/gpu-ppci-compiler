@@ -102,6 +102,7 @@ ops = [
     "SPREL",  # Frame/stack pointer relative
     "BJMP",
     "SJMP",
+    "CMPSET",  # Compare and set (produces 1/0 integer)
 ]
 
 # Add all possible terminals:

@@ -1330,13 +1330,129 @@ class CCodeGenerator:
         else:
             self.check_non_zero(condition, yes_block, no_block)
 
+    # --- Compound condition helpers for predicated architecture ---
+
+    def _is_compound_condition(self, condition):
+        """Check if a condition contains || or && operators."""
+        if isinstance(condition, expressions.BinaryOperator):
+            if condition.op in ("||", "&&"):
+                return True
+        return False
+
+    def _count_leaves(self, condition):
+        """Count the number of leaf comparisons in a compound condition."""
+        if isinstance(condition, expressions.BinaryOperator):
+            if condition.op in ("||", "&&"):
+                return self._count_leaves(
+                    condition.a
+                ) + self._count_leaves(condition.b)
+        return 1
+
+    def _emit_condition_as_value(self, condition, negate=False):
+        """Recursively emit IR that evaluates a condition to an integer
+        value (1 = true, 0 = false) using CompareSet and AND/OR.
+
+        For leaf comparisons: emit CompareSet(lhs, op, rhs).
+        For ||: emit OR of sub-results.
+        For &&: emit AND of sub-results.
+        For !: recurse with flipped negate flag.
+
+        Args:
+            condition: the AST condition node.
+            negate: if True, invert the result.
+
+        Returns:
+            An IR value (integer 1/0).
+        """
+        if isinstance(condition, expressions.BinaryOperator):
+            if condition.op in ("||", "&&"):
+                left_val = self._emit_condition_as_value(
+                    condition.a, negate=negate
+                )
+                right_val = self._emit_condition_as_value(
+                    condition.b, negate=negate
+                )
+                ir_typ = left_val.ty
+                if (condition.op == "||" and not negate) or (
+                    condition.op == "&&" and negate
+                ):
+                    return self.builder.emit_binop(
+                        left_val, "|", right_val, ir_typ
+                    )
+                else:
+                    return self.builder.emit_binop(
+                        left_val, "&", right_val, ir_typ
+                    )
+            elif condition.op in ("<", ">", "==", "!=", "<=", ">="):
+                lhs = self.gen_expr(condition.a, rvalue=True)
+                rhs = self.gen_expr(condition.b, rvalue=True)
+                op = condition.op
+                if negate:
+                    neg_map = {
+                        "<": ">=",
+                        ">": "<=",
+                        "==": "!=",
+                        "!=": "==",
+                        "<=": ">",
+                        ">=": "<",
+                    }
+                    op = neg_map[op]
+                ir_typ = lhs.ty
+                return self.emit(
+                    ir.CompareSet(lhs, op, rhs, "cmpset", ir_typ)
+                )
+
+        if isinstance(condition, expressions.UnaryOperator):
+            if condition.op == "!":
+                return self._emit_condition_as_value(
+                    condition.a, negate=not negate
+                )
+
+        value = self.gen_expr(condition, rvalue=True)
+        ir_typ = value.ty
+        zero = self.builder.emit_const(0, ir_typ)
+        if negate:
+            return self.emit(
+                ir.CompareSet(value, "==", zero, "cmpset", ir_typ)
+            )
+        else:
+            return self.emit(
+                ir.CompareSet(value, "!=", zero, "cmpset", ir_typ)
+            )
+
+    MAX_JOINT_CONDITIONALS = 6
+
+    def _check_compound_limit(self, condition):
+        """Verify compound condition does not exceed the maximum number
+        of joint conditionals (leaf comparisons). Raises CompilerError
+        if the limit is exceeded."""
+        count = self._count_leaves(condition)
+        if count > self.MAX_JOINT_CONDITIONALS:
+            loc = getattr(condition, "location", None)
+            raise CompilerError(
+                f"Compound condition has {count} joint conditionals, "
+                f"maximum supported is {self.MAX_JOINT_CONDITIONALS}",
+                loc,
+            )
+
+    # --- End compound condition helpers ---
+
     def gen_scondition(self, condition, yes_block, pred_yes, pred_parent):
         """Generate split-jump based on condition.
 
         For binary comparisons, emit the comparison directly.
+        For compound conditions (|| / &&), flatten into CompareSet + AND/OR.
         For non-comparison expressions (e.g. while(1)),
         compare the value against zero.
         """
+        if self._is_compound_condition(condition):
+            self._check_compound_limit(condition)
+            result = self._emit_condition_as_value(condition)
+            ir_typ = result.ty
+            zero = self.builder.emit_const(0, ir_typ)
+            self.emit(ir.SJump(result, "!=", zero, yes_block, pred_yes))
+            return
+
         cmp_ops = {">", "<", "==", "!=", "<=", ">="}
         if (
             isinstance(condition, expressions.BinaryOperator)
@@ -1351,37 +1467,38 @@ class CCodeGenerator:
             op = "!="
         self.emit(ir.SJump(lhs, op, rhs, yes_block, pred_yes))
 
-    # def gen_pcondition(self, cur_pred, yes_block, no_block):
-    #     """Generate switch based on condition."""
-    #     self.emit(ir.PJump(cur_pred, yes_block, no_block))
-
     def gen_pcondition(
         self, condition, yes_block, no_block, pred_yes, pred_no, pred_parent
     ):
-        """Generate switch based on condition."""
+        """Generate switch based on condition.
+
+        For compound conditions (|| / &&), flatten into CompareSet + AND/OR
+        and emit a single PJump on the result.
+        """
+        if self._is_compound_condition(condition):
+            self._check_compound_limit(condition)
+            result = self._emit_condition_as_value(condition)
+            ir_typ = result.ty
+            zero = self.builder.emit_const(0, ir_typ)
+            self.emit(
+                ir.PJump(
+                    result,
+                    "!=",
+                    zero,
+                    yes_block,
+                    no_block,
+                    pred_yes,
+                    pred_no,
+                    pred_parent,
+                )
+            )
+            return
+
         if isinstance(condition, expressions.BinaryOperator):
-            if condition.op == "||":
-                middle_block = self.builder.new_block()
-                self.gen_condition(condition.a, yes_block, middle_block)
-                self.builder.set_block(middle_block)
-                self.gen_condition(condition.b, yes_block, no_block)
-            elif condition.op == "&&":
-                middle_block = self.builder.new_block()
-                self.gen_condition(condition.a, middle_block, no_block)
-                self.builder.set_block(middle_block)
-                self.gen_condition(condition.b, yes_block, no_block)
-            elif condition.op in ["<", ">", "==", "!=", "<=", ">="]:
+            if condition.op in ["<", ">", "==", "!=", "<=", ">="]:
                 lhs = self.gen_expr(condition.a, rvalue=True)
                 rhs = self.gen_expr(condition.b, rvalue=True)
-                op_map = {
-                    ">": ">",
-                    "<": "<",
-                    "==": "==",
-                    "!=": "!=",
-                    "<=": "<=",
-                    ">=": ">=",
-                }
-                op = op_map[condition.op]
+                op = condition.op
                 self.emit(
                     ir.PJump(
                         lhs,
@@ -1398,8 +1515,14 @@ class CCodeGenerator:
                 self.check_non_zero(condition, yes_block, no_block)
         elif isinstance(condition, expressions.UnaryOperator):
             if condition.op == "!":
-                # Simply swap yes and no here!
-                self.gen_condition(condition.a, no_block, yes_block)
+                self.gen_pcondition(
+                    condition.a,
+                    no_block,
+                    yes_block,
+                    pred_no,
+                    pred_yes,
+                    pred_parent,
+                )
             else:
                 self.check_non_zero(condition, yes_block, no_block)
         else:
@@ -1408,30 +1531,35 @@ class CCodeGenerator:
     def gen_bcondition(
         self, condition, yes_block, no_block, pred_yes, pred_no, pred_parent
     ):
-        """Generate switch based on condition."""
+        """Generate switch based on condition.
+
+        For compound conditions (|| / &&), flatten into CompareSet + AND/OR
+        and emit a single BJump on the result.
+        """
+        if self._is_compound_condition(condition):
+            self._check_compound_limit(condition)
+            result = self._emit_condition_as_value(condition)
+            ir_typ = result.ty
+            zero = self.builder.emit_const(0, ir_typ)
+            self.emit(
+                ir.BJump(
+                    result,
+                    "!=",
+                    zero,
+                    yes_block,
+                    no_block,
+                    pred_yes,
+                    pred_no,
+                    pred_parent,
+                )
+            )
+            return
+
         if isinstance(condition, expressions.BinaryOperator):
-            if condition.op == "||":
-                middle_block = self.builder.new_block()
-                self.gen_condition(condition.a, yes_block, middle_block)
-                self.builder.set_block(middle_block)
-                self.gen_condition(condition.b, yes_block, no_block)
-            elif condition.op == "&&":
-                middle_block = self.builder.new_block()
-                self.gen_condition(condition.a, middle_block, no_block)
-                self.builder.set_block(middle_block)
-                self.gen_condition(condition.b, yes_block, no_block)
-            elif condition.op in ["<", ">", "==", "!=", "<=", ">="]:
+            if condition.op in ["<", ">", "==", "!=", "<=", ">="]:
                 lhs = self.gen_expr(condition.a, rvalue=True)
                 rhs = self.gen_expr(condition.b, rvalue=True)
-                op_map = {
-                    ">": ">",
-                    "<": "<",
-                    "==": "==",
-                    "!=": "!=",
-                    "<=": "<=",
-                    ">=": ">=",
-                }
-                op = op_map[condition.op]
+                op = condition.op
                 self.emit(
                     ir.BJump(
                         lhs,
@@ -1448,8 +1576,14 @@ class CCodeGenerator:
                 self.check_non_zero(condition, yes_block, no_block)
         elif isinstance(condition, expressions.UnaryOperator):
             if condition.op == "!":
-                # Simply swap yes and no here!
-                self.gen_condition(condition.a, no_block, yes_block)
+                self.gen_bcondition(
+                    condition.a,
+                    no_block,
+                    yes_block,
+                    pred_no,
+                    pred_yes,
+                    pred_parent,
+                )
             else:
                 self.check_non_zero(condition, yes_block, no_block)
         else:
