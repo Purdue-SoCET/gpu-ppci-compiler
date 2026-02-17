@@ -11,3 +11,4 @@ build/
 
 *.out
 *.hex
+compiled_binaries/
