@@ -8,15 +8,15 @@ from .tokens import (
     TwigSToken,
     TwigPredLWToken,
     TwigPredSWToken,
+    TwigPDisasToken,
     TwigJToken,
     TwigJrToken,
     TwigBToken,
-    TwigPToken,
     TwigUToken,
     TwigHToken,
 )
 from .registers import TwigRegister, R0, FP
-from .relocations import JImm17Relocation, PBImm11Relocation
+from .relocations import JImm17Relocation, PBImm12Relocation
 from ..generic_instructions import (
     Alignment,
     ArtificialInstruction,
@@ -31,7 +31,7 @@ import struct
 isa = Isa()
 
 isa.register_relocation(JImm17Relocation)
-isa.register_relocation(PBImm11Relocation)
+isa.register_relocation(PBImm12Relocation)
 
 
 class TwigRInstruction(Instruction):
@@ -518,41 +518,27 @@ def make_b(mnemonic, opcode):
 
 
 def make_pb(mnemonic, opcode):
-    rd = Operand("rd", int)
     rs1 = Operand("rs1", int)
     target = Operand("target", str)
-
-    # pred  = Operand("pred", TwigPredRegister, read=True)
-    # pstart = Operand("pstart", int, read=True)
-    # pend = Operand("pend", int, read=True)
     fprel = False
 
-    syntax = Syntax(
-        [mnemonic, " ", "r", rd, ",", " ", "r", rs1, ",", " ", target]
-    )
+    syntax = Syntax([mnemonic, " ", rs1, ",", " ", target])
 
-    tokens = [TwigPToken]
+    tokens = [TwigPDisasToken]
     patterns = {
         "opcode": opcode,
-        "rd": rd,
         "rs1": rs1,
-        "rs2": 0,
-        "imm": 0,  # TODO: Update variables for disassembly
-        # "pstart": pstart,
-        # "pend": pend
+        "imm": 0,
     }
     members = {
         "syntax": syntax,
         "fprel": fprel,
-        "rd": rd,
         "rs1": rs1,
         "target": target,
-        # "pstart": pstart,
-        # "pend": pend,
         "patterns": patterns,
         "tokens": tokens,
         "opcode": opcode,
-        "relocations": lambda self: [PBImm11Relocation(self.target)],
+        "relocations": lambda self: [PBImm12Relocation(self.target)],
     }
     return type(mnemonic + "_ins", (TwigBInstruction,), members)
 
@@ -588,6 +574,24 @@ def make_sb(mnemonic, opcode):
 
 
 Jpnz = make_pb("jpnz", 0b1101000)
+
+
+# For disassembly: decode jpnz with correct ISA fields
+# jpnz rs1, imm  where rs1=predicate [12:7], imm=jump target [24:13]
+class Jpnz_disas(TwigBInstruction):
+    tokens = [TwigPDisasToken]
+    rs1 = Operand("rs1", int)
+    imm = Operand("imm", int)
+    syntax = Syntax(["jpnz", " ", rs1, ",", " ", imm])
+    patterns = {
+        "opcode": 0b1101000,
+        "rs1": rs1,
+        "imm": imm,
+    }
+
+    def encode(self):
+        return b""
+
 
 Beq = make_b("beq", 0b1000000)
 Bne = make_b("bne", 0b1000001)
@@ -1254,7 +1258,7 @@ def pattern_pjmp(context, tree):
     )
     lab_no_name = str(lab_no.name) if hasattr(lab_no, "name") else str(lab_no)
 
-    context.emit(Jpnz(0, pred_val, lab_yes_name))
+    context.emit(Jpnz(pred_val, lab_yes_name))
     context.emit(Bl(R0, lab_no_name, jumps=[lab_no]))
 
 

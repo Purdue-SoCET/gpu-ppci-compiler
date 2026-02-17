@@ -140,6 +140,18 @@ class TwigPToken(Token):
     # pend = bit(31)
 
 
+class TwigPDisasToken(Token):
+    """Token for jpnz disassembly with correct ISA field layout:
+    opcode [6:0], rs1/pred [12:7], imm/target [24:13]"""
+
+    class Info:
+        size = 32
+
+    opcode = bit_range(0, 7)
+    rs1 = bit_range(7, 13)
+    imm = bit_range(13, 25)
+
+
 class TwigPredLWToken(Token):
     """Token for predicate memory instructions (prsw/prlw).
     Stores/loads a predicate register to/from memory."""
