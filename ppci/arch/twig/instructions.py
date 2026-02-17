@@ -266,7 +266,7 @@ class Csrr(TwigCRInstruction):
         tokens = self.get_tokens()
         tokens[0][0:7] = 0b1011000
         tokens[0][7:13] = self.rd.num
-        tokens[0][13:19] = self.rs1.num
+        tokens[0][13:19] = self.rs1
         return tokens[0].encode()
 
 
