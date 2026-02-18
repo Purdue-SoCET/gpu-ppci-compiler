@@ -149,3 +149,4 @@ Addr     | Hex      | Instruction
 00000244 | 00C205D1 | lli, x11, 1552, 0
 00000248 | 00584100 | add x2, x2, x11, 0
 0000024C | 00002023 | jalr x0,x1, 0
+00000250 | FFFFFFFF | halt

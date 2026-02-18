@@ -1343,9 +1343,9 @@ class CCodeGenerator:
         """Count the number of leaf comparisons in a compound condition."""
         if isinstance(condition, expressions.BinaryOperator):
             if condition.op in ("||", "&&"):
-                return self._count_leaves(
-                    condition.a
-                ) + self._count_leaves(condition.b)
+                return self._count_leaves(condition.a) + self._count_leaves(
+                    condition.b
+                )
         return 1
 
     def _emit_condition_as_value(self, condition, negate=False):
@@ -1398,9 +1398,7 @@ class CCodeGenerator:
                     }
                     op = neg_map[op]
                 ir_typ = lhs.ty
-                return self.emit(
-                    ir.CompareSet(lhs, op, rhs, "cmpset", ir_typ)
-                )
+                return self.emit(ir.CompareSet(lhs, op, rhs, "cmpset", ir_typ))
 
         if isinstance(condition, expressions.UnaryOperator):
             if condition.op == "!":

@@ -879,3 +879,4 @@ Addr     | Hex      | Instruction
 00000DAC | 018205D1 | lli, x11, 3088, 0
 00000DB0 | 00584100 | add x2, x2, x11, 0
 00000DB4 | 00002023 | jalr x0,x1, 0
+00000DB8 | FFFFFFFF | halt

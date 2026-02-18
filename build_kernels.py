@@ -13,9 +13,7 @@ def main():
     os.makedirs(BINARIES_DIR, exist_ok=True)
     os.makedirs(DISASM_DIR, exist_ok=True)
 
-    sources = sorted(
-        f for f in os.listdir(KERNELS_DIR) if f.endswith(".c")
-    )
+    sources = sorted(f for f in os.listdir(KERNELS_DIR) if f.endswith(".c"))
 
     if not sources:
         print("No .c files found in kernels/")
@@ -33,9 +31,12 @@ def main():
         # Compile
         print(f"[compile] {src_path} --entry {entry}")
         compile_cmd = [
-            "twig", src_path,
-            "--entry", entry,
-            "--hex-output", hex_path,
+            "twig",
+            src_path,
+            "--entry",
+            entry,
+            "--hex-output",
+            hex_path,
         ]
         result = subprocess.run(compile_cmd, capture_output=True, text=True)
         if result.returncode != 0:
