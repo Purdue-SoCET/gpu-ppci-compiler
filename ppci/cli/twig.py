@@ -99,12 +99,17 @@ def twig(args=None):
                 )
             else:
                 # 2. Compile IR to Object (in-memory)
+                march.entry_symbol = args.entry
                 obj = api.ir_to_object(
                     ir_modules,
                     march,
                     reporter=log_setup.reporter,
                     debug=args.g,
                 )
+
+                # 2b. Append halt (0xFFFFFFFF) after entry function code
+                code_section = obj.get_section("code")
+                code_section.add_data(b"\xff\xff\xff\xff")
 
                 # 3. Prepare Layout
                 if args.layout:

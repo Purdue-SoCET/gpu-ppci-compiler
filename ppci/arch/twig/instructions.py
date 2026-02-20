@@ -8,15 +8,15 @@ from .tokens import (
     TwigSToken,
     TwigPredLWToken,
     TwigPredSWToken,
+    TwigPDisasToken,
     TwigJToken,
     TwigJrToken,
     TwigBToken,
-    TwigPToken,
     TwigUToken,
     TwigHToken,
 )
 from .registers import TwigRegister, R0, FP
-from .relocations import JImm17Relocation, PBImm11Relocation
+from .relocations import JImm17Relocation, PBImm12Relocation
 from ..generic_instructions import (
     Alignment,
     ArtificialInstruction,
@@ -31,7 +31,7 @@ import struct
 isa = Isa()
 
 isa.register_relocation(JImm17Relocation)
-isa.register_relocation(PBImm11Relocation)
+isa.register_relocation(PBImm12Relocation)
 
 
 class TwigRInstruction(Instruction):
@@ -91,6 +91,10 @@ Divf = make_r("divf", 12)
 Sll = make_r("sll", 13)
 Srl = make_r("srl", 14)
 Sra = make_r("sra", 15)
+Sltf = make_r("sltf", 0b1001011)
+Sge = make_r("sge", 0b1001101)
+Sgeu = make_r("sgeu", 0b1001110)
+Sgef = make_r("sgef", 0b1001111)
 
 # itype
 
@@ -262,7 +266,7 @@ class Csrr(TwigCRInstruction):
         tokens = self.get_tokens()
         tokens[0][0:7] = 0b1011000
         tokens[0][7:13] = self.rd.num
-        tokens[0][13:19] = self.rs1.num
+        tokens[0][13:19] = self.rs1
         return tokens[0].encode()
 
 
@@ -514,41 +518,27 @@ def make_b(mnemonic, opcode):
 
 
 def make_pb(mnemonic, opcode):
-    rd = Operand("rd", int)
     rs1 = Operand("rs1", int)
     target = Operand("target", str)
-
-    # pred  = Operand("pred", TwigPredRegister, read=True)
-    # pstart = Operand("pstart", int, read=True)
-    # pend = Operand("pend", int, read=True)
     fprel = False
 
-    syntax = Syntax(
-        [mnemonic, " ", "r", rd, ",", " ", "r", rs1, ",", " ", target]
-    )
+    syntax = Syntax([mnemonic, " ", rs1, ",", " ", target])
 
-    tokens = [TwigPToken]
+    tokens = [TwigPDisasToken]
     patterns = {
         "opcode": opcode,
-        "rd": rd,
         "rs1": rs1,
-        "rs2": 0,
-        "imm": 0,  # TODO: Update variables for disassembly
-        # "pstart": pstart,
-        # "pend": pend
+        "imm": 0,
     }
     members = {
         "syntax": syntax,
         "fprel": fprel,
-        "rd": rd,
         "rs1": rs1,
         "target": target,
-        # "pstart": pstart,
-        # "pend": pend,
         "patterns": patterns,
         "tokens": tokens,
         "opcode": opcode,
-        "relocations": lambda self: [PBImm11Relocation(self.target)],
+        "relocations": lambda self: [PBImm12Relocation(self.target)],
     }
     return type(mnemonic + "_ins", (TwigBInstruction,), members)
 
@@ -585,16 +575,34 @@ def make_sb(mnemonic, opcode):
 
 Jpnz = make_pb("jpnz", 0b1101000)
 
+
+# For disassembly: decode jpnz with correct ISA fields
+# jpnz rs1, imm  where rs1=predicate [12:7], imm=jump target [24:13]
+class Jpnz_disas(TwigBInstruction):
+    tokens = [TwigPDisasToken]
+    rs1 = Operand("rs1", int)
+    imm = Operand("imm", int)
+    syntax = Syntax(["jpnz", " ", rs1, ",", " ", imm])
+    patterns = {
+        "opcode": 0b1101000,
+        "rs1": rs1,
+        "imm": imm,
+    }
+
+    def encode(self):
+        return b""
+
+
 Beq = make_b("beq", 0b1000000)
 Bne = make_b("bne", 0b1000001)
-Bge = make_b("bge", 0b1000010)
-Bgeu = make_b("bgeu", 0b1000011)
-Blt = make_b("blt", 0b1000100)
-Bltu = make_b("bltu", 0b1000101)
-Beqf = make_b("beqf", 0b1001000)
-Bnef = make_b("bnef", 0b1001001)
-Bgef = make_b("bgef", 0b1001010)
-Bltf = make_b("bltf", 0b1001100)
+# Bge = make_b("bge", 0b1000010)
+# Bgeu = make_b("bgeu", 0b1000011)
+# Blt = make_b("blt", 0b1000100)
+# Bltu = make_b("bltu", 0b1000101)
+# Beqf = make_b("beqf", 0b1001000)
+# Bnef = make_b("bnef", 0b1001001)
+# Bgef = make_b("bgef", 0b1001010)
+# Bltf = make_b("bltf", 0b1001100)
 
 
 # u type
@@ -914,9 +922,12 @@ def pattern_fprel_large(context, tree):
         upper_8 = (offset >> 24) & 0xFF
         middle_12 = (offset >> 12) & 0xFFF
         lower_12 = (offset) & 0xFFF
-        context.emit(Lui(t1, upper_8, p))
-        context.emit(Lmi(t1, middle_12, p))
-        context.emit(Lli(t1, lower_12, p))
+        if upper_8 != 0:
+            context.emit(Lui(t1, upper_8, p))
+        if middle_12 != 0:
+            context.emit(Lmi(t1, middle_12, p))
+        if lower_12 != 0:
+            context.emit(Lli(t1, lower_12, p))
 
     d = context.new_reg(TwigRegister)
     context.emit(Add(d, FP, t1, p))
@@ -1002,9 +1013,12 @@ def pattern_const(context, tree):
     upper_8 = (c0 >> 24) & 0xFF
     middle_12 = (c0 >> 12) & 0xFFF
     lower_12 = (c0) & 0xFFF
-    context.emit(Lui(d, upper_8, p))
-    context.emit(Lmi(d, middle_12, p))
-    context.emit(Lli(d, lower_12, p))
+    if upper_8 != 0:
+        context.emit(Lui(d, upper_8, p))
+    if middle_12 != 0:
+        context.emit(Lmi(d, middle_12, p))
+    if lower_12 != 0:
+        context.emit(Lli(d, lower_12, p))
     return d
 
 
@@ -1148,9 +1162,100 @@ def pattern_const_f32(context, tree):
     upper_8 = (c0 >> 24) & 0xFF
     middle_12 = (c0 >> 12) & 0xFFF
     lower_12 = (c0) & 0xFFF
-    context.emit(Lui(d, upper_8, p))
-    context.emit(Lmi(d, middle_12, p))
-    context.emit(Lli(d, lower_12, p))
+    if upper_8 != 0:
+        context.emit(Lui(d, upper_8, p))
+    if middle_12 != 0:
+        context.emit(Lmi(d, middle_12, p))
+    if lower_12 != 0:
+        context.emit(Lli(d, lower_12, p))
+
+    return d
+
+
+@isa.pattern("reg", "CMPSETI32(reg, reg)", size=2)
+@isa.pattern("reg", "CMPSETI16(reg, reg)", size=2)
+@isa.pattern("reg", "CMPSETI8(reg, reg)", size=2)
+def pattern_cmpset_signed(context, tree, c0, c1):
+    """Compare two signed values, set rd = 1 if condition true, else 0."""
+    d = context.new_reg(TwigRegister)
+    p = tree.pred
+    op = tree.value
+    op_map = {"<": Slt, ">=": Sge}
+    if op in op_map:
+        context.emit(op_map[op](d, c0, c1, p))
+    elif op == ">":
+        context.emit(Slt(d, c1, c0, p))
+    elif op == "<=":
+        context.emit(Sge(d, c1, c0, p))
+    elif op == "==":
+        t = context.new_reg(TwigRegister)
+        context.emit(Slt(t, c0, c1, p))
+        context.emit(Sge(d, c0, c1, p))
+        context.emit(Xor(d, d, t, p))
+        context.emit(Xori(d, d, 1, p))
+    elif op == "!=":
+        t = context.new_reg(TwigRegister)
+        context.emit(Slt(t, c0, c1, p))
+        context.emit(Sge(d, c0, c1, p))
+        context.emit(Xor(d, d, t, p))
+    return d
+
+
+@isa.pattern("reg", "CMPSETU32(reg, reg)", size=2)
+@isa.pattern("reg", "CMPSETU16(reg, reg)", size=2)
+@isa.pattern("reg", "CMPSETU8(reg, reg)", size=2)
+def pattern_cmpset_unsigned(context, tree, c0, c1):
+    """Compare two unsigned values, set rd = 1 if condition true, else 0."""
+    d = context.new_reg(TwigRegister)
+    p = tree.pred
+    op = tree.value
+    op_map = {"<": Sltu, ">=": Sgeu}
+    if op in op_map:
+        context.emit(op_map[op](d, c0, c1, p))
+    elif op == ">":
+        context.emit(Sltu(d, c1, c0, p))
+    elif op == "<=":
+        context.emit(Sgeu(d, c1, c0, p))
+    elif op == "==":
+        t = context.new_reg(TwigRegister)
+        context.emit(Sltu(t, c0, c1, p))
+        context.emit(Sgeu(d, c0, c1, p))
+        context.emit(Xor(d, d, t, p))
+        context.emit(Xori(d, d, 1, p))
+    elif op == "!=":
+        t = context.new_reg(TwigRegister)
+        context.emit(Sltu(t, c0, c1, p))
+        context.emit(Sgeu(d, c0, c1, p))
+        context.emit(Xor(d, d, t, p))
+    return d
+
+
+@isa.pattern("reg", "CMPSETF32(reg, reg)", size=4)
+def pattern_cmpset_float(context, tree, c0, c1):
+    """Compare two float values, set rd = 1 if condition true, else 0."""
+    d = context.new_reg(TwigRegister)
+    p = tree.pred
+    op = tree.value
+    op_map = {"<": Sltf, ">=": Sgef}
+    if op in op_map:
+        context.emit(op_map[op](d, c0, c1, p))
+    elif op == ">":
+        context.emit(Sltf(d, c1, c0, p))
+    elif op == "<=":
+        context.emit(Sgef(d, c1, c0, p))
+    elif op == "==":
+        t1 = context.new_reg(TwigRegister)
+        t2 = context.new_reg(TwigRegister)
+        context.emit(Sltf(t1, c0, c1, p))
+        context.emit(Sltf(t2, c1, c0, p))
+        context.emit(Or(d, t1, t2, p))
+        context.emit(Xori(d, d, 1, p))
+    elif op == "!=":
+        t1 = context.new_reg(TwigRegister)
+        t2 = context.new_reg(TwigRegister)
+        context.emit(Sltf(t1, c0, c1, p))
+        context.emit(Sltf(t2, c1, c0, p))
+        context.emit(Or(d, t1, t2, p))
     return d
 
 
@@ -1163,7 +1268,7 @@ def pattern_pjmp(context, tree):
     )
     lab_no_name = str(lab_no.name) if hasattr(lab_no, "name") else str(lab_no)
 
-    context.emit(Jpnz(0, pred_val, lab_yes_name))
+    context.emit(Jpnz(pred_val, lab_yes_name))
     context.emit(Bl(R0, lab_no_name, jumps=[lab_no]))
 
 
@@ -1171,31 +1276,40 @@ def pattern_pjmp(context, tree):
 @isa.pattern("stm", "BJMPF32(reg,reg)", size=10)
 def pattern_bjmpf(context, tree, c0, c1):
     op, yes_label, no_label, yes_pred, no_pred, parent_pred = tree.value
+    p = parent_pred
 
-    opnames = {
-        "<": Bltf,
-        ">": Bltf,
-        "==": Beqf,
-        "!=": Bnef,
-        ">=": Bgef,
-        "<=": Bgef,
-    }
-    invops = {
-        "<": Bgef,
-        ">": Bgef,
-        "==": Bnef,
-        "!=": Beqf,
-        ">=": Bltf,
-        "<=": Bltf,
-    }
-    invBop = invops[op]
-    Bop = opnames[op]
     if op == ">" or op == "<=":
-        temp = c0
-        c0 = c1
-        c1 = temp
-    context.emit(Bop(yes_pred, c0, c1, parent_pred))
-    context.emit(invBop(no_pred, c0, c1, parent_pred))
+        c0, c1 = c1, c0
+
+    if op in ("<", ">"):
+        t = context.new_reg(TwigRegister)
+        context.emit(Sltf(t, c0, c1, p))
+        context.emit(Bne(yes_pred, t, R0, p))
+        context.emit(Beq(no_pred, t, R0, p))
+    elif op in (">=", "<="):
+        t = context.new_reg(TwigRegister)
+        context.emit(Sgef(t, c0, c1, p))
+        context.emit(Bne(yes_pred, t, R0, p))
+        context.emit(Beq(no_pred, t, R0, p))
+    elif op == "==":
+        t1 = context.new_reg(TwigRegister)
+        t2 = context.new_reg(TwigRegister)
+        t3 = context.new_reg(TwigRegister)
+        context.emit(Sltf(t1, c0, c1, p))
+        context.emit(Sltf(t2, c1, c0, p))
+        context.emit(Or(t3, t1, t2, p))
+        context.emit(Beq(yes_pred, t3, R0, p))
+        context.emit(Bne(no_pred, t3, R0, p))
+    elif op == "!=":
+        t1 = context.new_reg(TwigRegister)
+        t2 = context.new_reg(TwigRegister)
+        t3 = context.new_reg(TwigRegister)
+        context.emit(Sltf(t1, c0, c1, p))
+        context.emit(Sltf(t2, c1, c0, p))
+        context.emit(Or(t3, t1, t2, p))
+        context.emit(Bne(yes_pred, t3, R0, p))
+        context.emit(Beq(no_pred, t3, R0, p))
+
     tgt = yes_label
     context.emit(Bl(R0, tgt.name, jumps=[tgt]))
 
@@ -1204,19 +1318,29 @@ def pattern_bjmpf(context, tree, c0, c1):
 @isa.pattern("stm", "BJMPI16(reg, reg)", size=10)
 @isa.pattern("stm", "BJMPI32(reg, reg)", size=10)
 def pattern_bjmp(context, tree, c0, c1):
-    # print(tree.value)
-    # print((c0, c1))
     op, yes_label, no_label, yes_pred, no_pred, parent_pred = tree.value
-    opnames = {"<": Blt, ">": Blt, "==": Beq, "!=": Bne, ">=": Bge, "<=": Bge}
-    invops = {"<": Bge, ">": Bge, "==": Bne, "!=": Beq, ">=": Blt, "<=": Blt}
-    invBop = invops[op]
-    Bop = opnames[op]
+    p = parent_pred
+
     if op == ">" or op == "<=":
-        temp = c0
-        c0 = c1
-        c1 = temp
-    context.emit(Bop(yes_pred, c0, c1, parent_pred))
-    context.emit(invBop(no_pred, c0, c1, parent_pred))
+        c0, c1 = c1, c0
+
+    if op == "==":
+        context.emit(Beq(yes_pred, c0, c1, p))
+        context.emit(Bne(no_pred, c0, c1, p))
+    elif op == "!=":
+        context.emit(Bne(yes_pred, c0, c1, p))
+        context.emit(Beq(no_pred, c0, c1, p))
+    elif op in ("<", ">"):
+        t = context.new_reg(TwigRegister)
+        context.emit(Slt(t, c0, c1, p))
+        context.emit(Bne(yes_pred, t, R0, p))
+        context.emit(Beq(no_pred, t, R0, p))
+    elif op in (">=", "<="):
+        t = context.new_reg(TwigRegister)
+        context.emit(Sge(t, c0, c1, p))
+        context.emit(Bne(yes_pred, t, R0, p))
+        context.emit(Beq(no_pred, t, R0, p))
+
     tgt = yes_label
     context.emit(Bl(R0, tgt.name, jumps=[tgt]))
 
@@ -1225,33 +1349,29 @@ def pattern_bjmp(context, tree, c0, c1):
 @isa.pattern("stm", "BJMPU16(reg, reg)", size=10)
 @isa.pattern("stm", "BJMPU32(reg, reg)", size=10)
 def pattern_bjmp_unsigned(context, tree, c0, c1):
-    # print(tree.value)
-    # print((c0, c1))
     op, yes_label, no_label, yes_pred, no_pred, parent_pred = tree.value
-    opnames = {
-        "<": Bltu,
-        ">": Bltu,
-        "==": Beq,
-        "!=": Bne,
-        ">=": Bgeu,
-        "<=": Bgeu,
-    }
-    invops = {
-        "<": Bgeu,
-        ">": Bgeu,
-        "==": Bne,
-        "!=": Beq,
-        ">=": Bltu,
-        "<=": Bltu,
-    }
-    invBop = invops[op]
-    Bop = opnames[op]
+    p = parent_pred
+
     if op == ">" or op == "<=":
-        temp = c0
-        c0 = c1
-        c1 = temp
-    context.emit(Bop(yes_pred, c0, c1, parent_pred))
-    context.emit(invBop(no_pred, c0, c1, parent_pred))
+        c0, c1 = c1, c0
+
+    if op == "==":
+        context.emit(Beq(yes_pred, c0, c1, p))
+        context.emit(Bne(no_pred, c0, c1, p))
+    elif op == "!=":
+        context.emit(Bne(yes_pred, c0, c1, p))
+        context.emit(Beq(no_pred, c0, c1, p))
+    elif op in ("<", ">"):
+        t = context.new_reg(TwigRegister)
+        context.emit(Sltu(t, c0, c1, p))
+        context.emit(Bne(yes_pred, t, R0, p))
+        context.emit(Beq(no_pred, t, R0, p))
+    elif op in (">=", "<="):
+        t = context.new_reg(TwigRegister)
+        context.emit(Sgeu(t, c0, c1, p))
+        context.emit(Bne(yes_pred, t, R0, p))
+        context.emit(Beq(no_pred, t, R0, p))
+
     tgt = yes_label
     context.emit(Bl(R0, tgt.name, jumps=[tgt]))
 
@@ -1261,21 +1381,24 @@ def pattern_bjmp_unsigned(context, tree, c0, c1):
 @isa.pattern("stm", "SJMPU32(reg, reg)", size=10)
 def pattern_sjmp(context, tree, c0, c1):
     op, yes_label, yes_pred, parent_pred = tree.value
-    opnames = {
-        "<": Bltu,
-        ">": Bltu,
-        "==": Beq,
-        "!=": Bne,
-        ">=": Bgeu,
-        "<=": Bgeu,
-    }
-    Bop = opnames[op]
+    p = parent_pred
+
     if op == ">" or op == "<=":
-        temp = c0
-        c0 = c1
-        c1 = temp
-    context.emit(Bop(yes_pred, c0, c1, parent_pred))
-    # Jump to if-branch; else jump handled by gen_if
+        c0, c1 = c1, c0
+
+    if op == "==":
+        context.emit(Beq(yes_pred, c0, c1, p))
+    elif op == "!=":
+        context.emit(Bne(yes_pred, c0, c1, p))
+    elif op in ("<", ">"):
+        t = context.new_reg(TwigRegister)
+        context.emit(Sltu(t, c0, c1, p))
+        context.emit(Bne(yes_pred, t, R0, p))
+    elif op in (">=", "<="):
+        t = context.new_reg(TwigRegister)
+        context.emit(Sgeu(t, c0, c1, p))
+        context.emit(Bne(yes_pred, t, R0, p))
+
     tgt = yes_label
     context.emit(Bl(R0, tgt.name, jumps=[tgt]))
 
@@ -1285,20 +1408,24 @@ def pattern_sjmp(context, tree, c0, c1):
 @isa.pattern("stm", "SJMPI32(reg, reg)", size=10)
 def pattern_sjmp_signed(context, tree, c0, c1):
     op, yes_label, yes_pred, parent_pred = tree.value
-    opnames = {
-        "<": Blt,
-        ">": Blt,
-        "==": Beq,
-        "!=": Bne,
-        ">=": Bge,
-        "<=": Bge,
-    }
-    Bop = opnames[op]
+    p = parent_pred
+
     if op == ">" or op == "<=":
-        temp = c0
-        c0 = c1
-        c1 = temp
-    context.emit(Bop(yes_pred, c0, c1, parent_pred))
+        c0, c1 = c1, c0
+
+    if op == "==":
+        context.emit(Beq(yes_pred, c0, c1, p))
+    elif op == "!=":
+        context.emit(Bne(yes_pred, c0, c1, p))
+    elif op in ("<", ">"):
+        t = context.new_reg(TwigRegister)
+        context.emit(Slt(t, c0, c1, p))
+        context.emit(Bne(yes_pred, t, R0, p))
+    elif op in (">=", "<="):
+        t = context.new_reg(TwigRegister)
+        context.emit(Sge(t, c0, c1, p))
+        context.emit(Bne(yes_pred, t, R0, p))
+
     tgt = yes_label
     context.emit(Bl(R0, tgt.name, jumps=[tgt]))
 
@@ -1306,20 +1433,36 @@ def pattern_sjmp_signed(context, tree, c0, c1):
 @isa.pattern("stm", "SJMPF32(reg, reg)", size=10)
 def pattern_sjmp_float(context, tree, c0, c1):
     op, yes_label, yes_pred, parent_pred = tree.value
-    opnames = {
-        "<": Bltf,
-        ">": Bltf,
-        "==": Beqf,
-        "!=": Bnef,
-        ">=": Bgef,
-        "<=": Bgef,
-    }
-    Bop = opnames[op]
+    p = parent_pred
+
     if op == ">" or op == "<=":
-        temp = c0
-        c0 = c1
-        c1 = temp
-    context.emit(Bop(yes_pred, c0, c1, parent_pred))
+        c0, c1 = c1, c0
+
+    if op in ("<", ">"):
+        t = context.new_reg(TwigRegister)
+        context.emit(Sltf(t, c0, c1, p))
+        context.emit(Bne(yes_pred, t, R0, p))
+    elif op in (">=", "<="):
+        t = context.new_reg(TwigRegister)
+        context.emit(Sgef(t, c0, c1, p))
+        context.emit(Bne(yes_pred, t, R0, p))
+    elif op == "==":
+        t1 = context.new_reg(TwigRegister)
+        t2 = context.new_reg(TwigRegister)
+        t3 = context.new_reg(TwigRegister)
+        context.emit(Sltf(t1, c0, c1, p))
+        context.emit(Sltf(t2, c1, c0, p))
+        context.emit(Or(t3, t1, t2, p))
+        context.emit(Beq(yes_pred, t3, R0, p))
+    elif op == "!=":
+        t1 = context.new_reg(TwigRegister)
+        t2 = context.new_reg(TwigRegister)
+        t3 = context.new_reg(TwigRegister)
+        context.emit(Sltf(t1, c0, c1, p))
+        context.emit(Sltf(t2, c1, c0, p))
+        context.emit(Or(t3, t1, t2, p))
+        context.emit(Bne(yes_pred, t3, R0, p))
+
     tgt = yes_label
     context.emit(Bl(R0, tgt.name, jumps=[tgt]))
 

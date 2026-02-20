@@ -113,8 +113,8 @@ def do_convert(input_file, args):
     print(f"Converting {input_file}...")
 
     # 1. Read Input (Detect if it's a bit-string text file or raw binary)
-    # Usually .hex or .txt in this project refers to '0101' text
-    if input_file.endswith(".hex") or input_file.endswith(".txt"):
+    # .hex, .txt, and .bin in this project refer to '0101' bit-string text
+    if input_file.endswith((".hex", ".txt", ".bin")):
         raw_data = bit_str_to_bytes(input_file)
     else:
         with open(input_file, "rb") as f:
@@ -187,11 +187,12 @@ def do_disasm(args):
     arch = get_arch("twig")
     raw_data = b""
 
-    # 1. Input detection (Same as before)
-    is_hex_input = args.hex or filename.endswith(".hex")
+    # 1. Input detection
+    # .hex, .txt, and .bin in this project refer to '0101' bit-string text
+    is_bit_input = args.hex or filename.endswith((".hex", ".txt", ".bin"))
     is_obj_input = filename.endswith(".oj")
 
-    if is_hex_input:
+    if is_bit_input:
         raw_data = bit_str_to_bytes(filename)
     elif is_obj_input:
         # ... object file loading logic ...

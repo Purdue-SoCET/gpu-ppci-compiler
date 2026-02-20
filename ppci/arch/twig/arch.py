@@ -10,22 +10,26 @@ from ..stack import FramePointerLocation, StackLocation
 from .asm_printer import TwigAsmPrinter
 from .instructions import (
     Add,
-    Csrr,
     Addi,
+    And,
     Cos,
-    Sin,
+    Csrr,
     Isqrt,
     ItoF,
     FtoI,
+    Lli,
+    Lmi,
+    Lui,
     Lw,
-    Sw,
+    Mul,
     Prsw,
     Prlw,
     Bl,
     Blr,
-    Lli,
-    Lmi,
-    Lui,
+    Slli,
+    Srli,
+    Sw,
+    Sin,
     isa,
     Align,
     Section,
@@ -36,6 +40,11 @@ from .registers import (
     LR,
     SP,
     FP,
+    R3,
+    R4,
+    R5,
+    R6,
+    R7,
     R9,
     R10,
     R11,
@@ -115,6 +124,10 @@ NUM_THREADS = 32
 # 32 pred regs * 4 bytes each = 128 bytes. Predicates are shared masks
 # (not per-thread), so this is NOT multiplied by NUM_THREADS.
 PRED_SAVE_SPACE = 128
+
+# Base address for stack in entry function setup:
+# sp = w*stack_size + BASE_STACK + (tid%32)*4
+BASE_STACK = 0x1000
 
 
 class TwigAssembler(BaseAssembler):
@@ -300,9 +313,12 @@ class TwigArch(Architecture):
             upper_8 = (offset >> 24) & 0xFF
             middle_12 = (offset >> 12) & 0xFFF
             lower_12 = (offset) & 0xFFF
-            yield Lui(R11, upper_8, pred)
-            yield Lmi(R11, middle_12, pred)
-            yield Lli(R11, lower_12, pred)
+            if upper_8 != 0:
+                yield Lui(R11, upper_8, pred)
+            if middle_12 != 0:
+                yield Lmi(R11, middle_12, pred)
+            if lower_12 != 0:
+                yield Lli(R11, lower_12, pred)
             if instruction == "addi":
                 yield Add(r1, r2, R11, pred)
             if instruction == "lw":
@@ -376,10 +392,72 @@ class TwigArch(Architecture):
         """Generate a move from src to dst"""
         return Addi(dst, src, 0, 4, ismove=True)
 
+    def gen_entry_stack_setup(self, frame, pred=0):
+        """Emit instructions to set SP for all threads at entry.
+        sp = w*stack_size + BASE_STACK + (tid%32)*4
+        w = (tid//32) + Bid*((BlkDim+31)//32)
+        tid = csrr(0), Bid = csrr(1), BlkDim = csrr(2)
+
+        Uses only R3-R7, R9, R11 as temporaries so that R12-R17 (argument
+        registers per ABI) and R10 (return value) are preserved for the kernel.
+        """
+        stack_size = round_up(frame.stacksize)
+        stack_size *= NUM_THREADS
+        calleeregs = self.get_callee_saved(frame)
+        savespace = NUM_THREADS * 4 * len(calleeregs)
+        extras = max(frame.out_calls) if frame.out_calls else 0
+        outspace = round_up(extras) * NUM_THREADS
+        lrfpspace = 8 * NUM_THREADS
+        predsavespace = PRED_SAVE_SPACE
+        totalstack = round_up(
+            stack_size + savespace + outspace + lrfpspace + predsavespace
+        )
+        # R9=tid, R11=Bid, R3=BlkDim (avoid R10, R12-R17)
+        yield Csrr(R9, 0, pred)
+        yield Csrr(R11, 1, pred)
+        yield Csrr(R3, 2, pred)
+        # R4 = warps_per_block = (BlkDim+31)//32
+        yield Addi(R4, R3, 31, pred)
+        yield Srli(R4, R4, 5, pred)
+        # R5 = Bid * warps_per_block
+        yield Mul(R5, R11, R4, pred)
+        # R6 = tid//32
+        yield Srli(R6, R9, 5, pred)
+        # R7 = w = tid//32 + Bid*warps_per_block
+        yield Add(R7, R6, R5, pred)
+        # R4 = stack_size constant (totalstack)
+        if totalstack in range(-32, 32):
+            yield Addi(R4, R0, totalstack, pred)
+        else:
+            upper_8 = (totalstack >> 24) & 0xFF
+            middle_12 = (totalstack >> 12) & 0xFFF
+            lower_12 = totalstack & 0xFFF
+            if upper_8 != 0:
+                yield Lui(R4, upper_8, pred)
+            if middle_12 != 0:
+                yield Lmi(R4, middle_12, pred)
+            if lower_12 != 0:
+                yield Lli(R4, lower_12, pred)
+        # R5 = w * stack_size
+        yield Mul(R5, R7, R4, pred)
+        # R6 = BASE_STACK (0x1000)
+        yield Lli(R6, BASE_STACK & 0xFFF, pred)
+        # R5 = w*stack_size + BASE_STACK
+        yield Add(R5, R5, R6, pred)
+        # R3 = 31 for tid%32
+        yield Addi(R3, R0, 31, pred)
+        yield And(R4, R9, R3, pred)
+        yield Slli(R4, R4, 2, pred)
+        # SP = w*stack_size + BASE_STACK + (tid%32)*4
+        yield Add(SP, R5, R4, pred)
+
     def gen_prologue(self, frame):
         """Adjust sp, save lr and fp, save callee saves on stack,
         and reserve space for predicate saves during calls."""
         yield Label(frame.name)
+        entry_symbol = getattr(self, "entry_symbol", None)
+        if entry_symbol is not None and frame.name == entry_symbol:
+            yield from self.gen_entry_stack_setup(frame)
         stack_size = round_up(frame.stacksize)
         stack_size *= NUM_THREADS
         lrfpspace = 8 * NUM_THREADS
@@ -468,13 +546,17 @@ class TwigArch(Architecture):
             return
         if label == "threadIdx":
             ret_vreg = rv[1]
-            yield Csrr(ret_vreg, 1, pred)
+            yield Csrr(ret_vreg, 0, pred)
             return
         if label == "blockIdx":
             ret_vreg = rv[1]
-            yield Csrr(ret_vreg, 2, pred)
+            yield Csrr(ret_vreg, 1, pred)
             return
         if label == "blockDim":
+            ret_vreg = rv[1]
+            yield Csrr(ret_vreg, 2, pred)
+            return
+        if label == "argPtr":
             ret_vreg = rv[1]
             yield Csrr(ret_vreg, 3, pred)
             return

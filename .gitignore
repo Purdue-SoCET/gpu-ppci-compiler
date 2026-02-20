@@ -10,3 +10,5 @@ build/
 *.xml
 
 *.out
+*.hex
+compiled_binaries/
