@@ -2,22 +2,22 @@
 #include "include/vertexShader.h"
 #include "include/graphics_lib.h"
 
-void kernel_vertexShader(void* arg)
+void kernel_vertexShader()
 {
-    vertexShader_arg_t* args = (vertexShader_arg_t*) arg;
+    vertexShader_arg_t* args = (vertexShader_arg_t*) argPtr();
 
     int i = blockIdx * blockDim + threadIdx;
     if(i > 1023) return;
 
-    /****** ThreeD Rotation ******/ 
+    /****** ThreeD Rotation ******/
     // assuming radian
     // V3::RotateThisPointAboutArbitraryAxis and TM::RotateAboutArbitraryAxis
 
-    float lcs[9]; 
+    float lcs[9];
     float selAxis[3] = {0.0, 0.0, 0.0};
 
     if((args->a_dist->x*args->a_dist->x) < (args->a_dist->y*args->a_dist->y))
-    { 
+    {
         selAxis[0] = 1.0;
     }
     else
@@ -105,7 +105,7 @@ void kernel_vertexShader(void* arg)
     {
         for(int k = 0; k < 3; k++)
         {
-            p2[j] += rotMat[k*3 + j] * p1[k]; 
+            p2[j] += rotMat[k*3 + j] * p1[k];
         }
     }
 
@@ -115,7 +115,7 @@ void kernel_vertexShader(void* arg)
     {
         for(int k = 0; k < 3; k++)
         {
-            p_world[j] += lcs[k*3 + j] * p2[k]; 
+            p_world[j] += lcs[k*3 + j] * p2[k];
         }
 
         if(j == 0)
@@ -128,12 +128,12 @@ void kernel_vertexShader(void* arg)
     args->threeDVertTrans[i].s = args->threeDVert[i].s;
     args->threeDVertTrans[i].t = args->threeDVert[i].t;
 
-    
+
     /****** Projection ******/
     //PPC::Project
 
     /*Normalize 3D matrix w.r.t the camera*/
-    float threeD_norm[3] = { 
+    float threeD_norm[3] = {
         args->threeDVertTrans[i].coords.x - args->camera->x,
         args->threeDVertTrans[i].coords.y - args->camera->y,
         args->threeDVertTrans[i].coords.z - args->camera->z

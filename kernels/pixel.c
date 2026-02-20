@@ -2,15 +2,15 @@
 #include "include/pixel.h"
 #include "include/graphics_lib.h"
 
-void kernel_pixel(void* arg) {
-    pixel_arg_t* args = (pixel_arg_t*) arg;
-    
+void kernel_pixel() {
+    pixel_arg_t* args = (pixel_arg_t*) argPtr();
+
     int u, v;
     u = (((threadIdx)) - (args->buff_w)*(((threadIdx))/(args->buff_w)));
     // u = mod(threadIdx, args->buff_w);
     v = (((threadIdx) / args->buff_w) - (args->buff_h)*(((threadIdx) / args->buff_w)/(args->buff_h)));
     // v = mod(threadIdx / args->buff_w, args->buff_h);
-    
+
     int tag = args->tag_buff[threadIdx];
     if(tag < 0) return;
 
@@ -47,7 +47,7 @@ void kernel_pixel(void* arg) {
     float det = m00 * (m11 * m22 - m21 * m12) -
                 m01 * (m10 * m22 - m12 * m20) +
                 m02 * (m10 * m21 - m11 * m20);
-    
+
     float invDet = 1.0 / det;
 
     // Calculate Inverse Row 0 (only needed for Barycentric x/y/z)
@@ -79,7 +79,7 @@ void kernel_pixel(void* arg) {
 
     // args->color[threadIdx] = get_texture(args->texture, s, t);
     // REPLACE WITH INLINED LOGIC:
-    
+
     // 1. Abs function for s and t
     float s_abs;
     float t_abs;
@@ -100,11 +100,11 @@ void kernel_pixel(void* arg) {
     // Note: Breaking down math to avoid tree coverage errors
     float w_minus_1 = itof(args->texture.w - 1);
     float h_minus_1 = itof(args->texture.h - 1);
-    
+
     // (s - (int)s)
     float s_fract = s_abs - itof(ftoi(s_abs));
     float t_fract = t_abs - itof(ftoi(t_abs));
-    
+
     int texel_x = ftoi(s_fract * w_minus_1 + 0.5);
     int texel_y = ftoi(t_fract * h_minus_1 + 0.5);
 
