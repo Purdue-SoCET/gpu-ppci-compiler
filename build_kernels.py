@@ -11,7 +11,9 @@ DISASM_DIR = os.path.join(BINARIES_DIR, "disassembly")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Compile kernels and generate disassembly.")
+    parser = argparse.ArgumentParser(
+        description="Compile kernels and generate disassembly."
+    )
     parser.add_argument(
         "-O2",
         dest="opt_o2",

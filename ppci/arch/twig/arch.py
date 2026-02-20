@@ -125,7 +125,8 @@ NUM_THREADS = 32
 # (not per-thread), so this is NOT multiplied by NUM_THREADS.
 PRED_SAVE_SPACE = 128
 
-# Base address for stack in entry function setup: sp = w*stack_size + BASE_STACK + (tid%32)*4
+# Base address for stack in entry function setup:
+# sp = w*stack_size + BASE_STACK + (tid%32)*4
 BASE_STACK = 0x1000
 
 
@@ -398,7 +399,8 @@ class TwigArch(Architecture):
         tid = csrr(0), Bid = csrr(1), BlkDim = csrr(2)
 
         Uses only R3-R7, R9, R11 as temporaries so that R12-R17 (argument
-        registers per ABI) and R10 (return value) are preserved for the kernel."""
+        registers per ABI) and R10 (return value) are preserved for the kernel.
+        """
         stack_size = round_up(frame.stacksize)
         stack_size *= NUM_THREADS
         calleeregs = self.get_callee_saved(frame)
