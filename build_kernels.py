@@ -1,5 +1,6 @@
 """Compile all kernels and generate disassembly output."""
 
+import argparse
 import os
 import subprocess
 import sys
@@ -10,6 +11,15 @@ DISASM_DIR = os.path.join(BINARIES_DIR, "disassembly")
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Compile kernels and generate disassembly.")
+    parser.add_argument(
+        "-O2",
+        dest="opt_o2",
+        action="store_true",
+        help="Compile with -O2 and append O2 to output filenames",
+    )
+    args = parser.parse_args()
+
     os.makedirs(BINARIES_DIR, exist_ok=True)
     os.makedirs(DISASM_DIR, exist_ok=True)
 
@@ -23,13 +33,15 @@ def main():
 
     for src in sources:
         name = os.path.splitext(src)[0]
+        base_name = f"{name}O2" if args.opt_o2 else name
         src_path = os.path.join(KERNELS_DIR, src)
-        hex_path = os.path.join(BINARIES_DIR, f"{name}.bin")
-        disasm_path = os.path.join(DISASM_DIR, f"{name}.txt")
+        hex_path = os.path.join(BINARIES_DIR, f"{base_name}.bin")
+        disasm_path = os.path.join(DISASM_DIR, f"{base_name}.txt")
         entry = f"kernel_{name}"
 
         # Compile
-        print(f"[compile] {src_path} --entry {entry}")
+        opt = ["-O", "2"] if args.opt_o2 else []
+        print(f"[compile] {src_path} --entry {entry} " + " ".join(opt))
         compile_cmd = [
             "twig",
             src_path,
@@ -37,7 +49,7 @@ def main():
             entry,
             "--hex-output",
             hex_path,
-        ]
+        ] + opt
         result = subprocess.run(compile_cmd, capture_output=True, text=True)
         if result.returncode != 0:
             print(f"  FAILED: {result.stderr.strip()}")
