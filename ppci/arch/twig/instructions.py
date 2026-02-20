@@ -922,9 +922,12 @@ def pattern_fprel_large(context, tree):
         upper_8 = (offset >> 24) & 0xFF
         middle_12 = (offset >> 12) & 0xFFF
         lower_12 = (offset) & 0xFFF
-        context.emit(Lui(t1, upper_8, p))
-        context.emit(Lmi(t1, middle_12, p))
-        context.emit(Lli(t1, lower_12, p))
+        if upper_8 != 0:
+            context.emit(Lui(t1, upper_8, p))
+        if middle_12 != 0:
+            context.emit(Lmi(t1, middle_12, p))
+        if lower_12 != 0:
+            context.emit(Lli(t1, lower_12, p))
 
     d = context.new_reg(TwigRegister)
     context.emit(Add(d, FP, t1, p))
@@ -1010,9 +1013,12 @@ def pattern_const(context, tree):
     upper_8 = (c0 >> 24) & 0xFF
     middle_12 = (c0 >> 12) & 0xFFF
     lower_12 = (c0) & 0xFFF
-    context.emit(Lui(d, upper_8, p))
-    context.emit(Lmi(d, middle_12, p))
-    context.emit(Lli(d, lower_12, p))
+    if upper_8 != 0:
+        context.emit(Lui(d, upper_8, p))
+    if middle_12 != 0:
+        context.emit(Lmi(d, middle_12, p))
+    if lower_12 != 0:
+        context.emit(Lli(d, lower_12, p))
     return d
 
 
@@ -1156,9 +1162,13 @@ def pattern_const_f32(context, tree):
     upper_8 = (c0 >> 24) & 0xFF
     middle_12 = (c0 >> 12) & 0xFFF
     lower_12 = (c0) & 0xFFF
-    context.emit(Lui(d, upper_8, p))
-    context.emit(Lmi(d, middle_12, p))
-    context.emit(Lli(d, lower_12, p))
+    if upper_8 != 0:
+        context.emit(Lui(d, upper_8, p))
+    if middle_12 != 0:
+        context.emit(Lmi(d, middle_12, p))
+    if lower_12 != 0:
+        context.emit(Lli(d, lower_12, p))
+
     return d
 
 

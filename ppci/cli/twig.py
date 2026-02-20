@@ -99,6 +99,7 @@ def twig(args=None):
                 )
             else:
                 # 2. Compile IR to Object (in-memory)
+                march.entry_symbol = args.entry
                 obj = api.ir_to_object(
                     ir_modules,
                     march,
