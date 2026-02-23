@@ -306,9 +306,9 @@ def make_load(mnemonic, opcode):
     return type(mnemonic.title(), (TwigIInstruction,), members)
 
 
-Lw = make_load("lw", 0b01000000)
-Lh = make_load("lh", 0b01000001)
-Lb = make_load("lb", 0b01000010)
+Lw = make_load("lw", 0b0100000)
+Lh = make_load("lh", 0b0100001)
+Lb = make_load("lb", 0b0100010)
 
 
 class TwigSInstruction(Instruction):
