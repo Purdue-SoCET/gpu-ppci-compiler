@@ -656,7 +656,7 @@ def make_u_mod(mnemonic, opcode):
 Auipc = make_u("auipc", 0b1010000)
 Lli = make_u_mod("lli", 0b1010001)
 Lmi = make_u_mod("lmi", 0b1010010)
-Lui = make_u("lui", 0b1010011)
+Lui = make_u("lui", 0b1010100)
 
 
 # h type (halt)

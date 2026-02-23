@@ -14,6 +14,7 @@ from .instructions import (
     And,
     Cos,
     Csrr,
+    Halt,
     Isqrt,
     ItoF,
     FtoI,
@@ -504,12 +505,18 @@ class TwigArch(Architecture):
                 yield from self.immUsed(register, FP, offset, "lw")
                 offset += 128
 
+        entry_symbol = getattr(self, "entry_symbol", None)
+        is_entry = entry_symbol is not None and frame.name == entry_symbol
+
         yield from self.immUsed(LR, SP, 4 * NUM_THREADS, "lw")
         yield from self.immUsed(FP, SP, 0, "lw")
         if totalstack > 0:
             yield from self.immUsed(SP, SP, totalstack, "addi")
 
-        yield Blr(R0, LR, 0)
+        if is_entry:
+            yield Halt()
+        else:
+            yield Blr(R0, LR, 0)
         # yield from self.litpool(frame)
         yield Align(4)
         return
