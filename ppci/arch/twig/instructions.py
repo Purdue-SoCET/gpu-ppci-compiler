@@ -664,29 +664,13 @@ class TwigHInstruction(Instruction):
     tokens = [TwigHToken]
     isa = isa
 
+class Halt(TwigHInstruction):
+    """Halt instruction - encodes as 0xFFFFFFFF (all ones)."""
+    syntax = Syntax(["halt"])
+    patterns = {"opcode": 0b1111111}
 
-def make_nop(mnemonic, opcode):
-    syntax = Syntax([mnemonic])
-    tokens = [TwigHToken]
-    patterns = {
-        "opcode": opcode
-        # "pred": pred,
-        # "pstart": pstart,
-        # "pend": pend
-    }
-    members = {
-        "syntax": syntax,
-        "patterns": patterns,
-        "tokens": tokens,
-        "opcode": opcode,
-        # "pred": pred,
-        # "pstart": pstart,
-        # "pend": pend
-    }
-    return type(mnemonic + "_ins", (TwigHInstruction,), members)
-
-
-Halt = make_nop("halt", 0b1111111)
+    def encode(self):
+        return (0xFFFFFFFF).to_bytes(4, byteorder="little")
 
 
 class PseudoTwigInstruction(ArtificialInstruction):
