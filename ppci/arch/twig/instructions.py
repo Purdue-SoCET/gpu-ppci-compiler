@@ -1016,7 +1016,7 @@ def pattern_mov32(context, tree, c0):
     dst = tree.value
     src = c0
     p = tree.pred
-    context.emit(Addi(dst, src, 0, p))
+    context.emit(Addi(dst, src, 0, p, ismove=True))
     return dst
 
 
