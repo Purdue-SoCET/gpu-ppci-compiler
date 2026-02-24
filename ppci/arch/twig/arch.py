@@ -128,7 +128,7 @@ PRED_SAVE_SPACE = 128
 
 # Base address for stack in entry function setup:
 # sp = w*stack_size + BASE_STACK + (tid%32)*4
-BASE_STACK = 0x1000
+BASE_STACK = 0x100000
 
 
 class TwigAssembler(BaseAssembler):
@@ -314,10 +314,11 @@ class TwigArch(Architecture):
             upper_8 = (offset >> 24) & 0xFF
             middle_12 = (offset >> 12) & 0xFFF
             lower_12 = (offset) & 0xFFF
-            if upper_8 != 0:
-                yield Lui(R11, upper_8, pred)
-            if middle_12 != 0:
+            if middle_12 != 0 or upper_8 != 0:
                 yield Lmi(R11, middle_12, pred)
+                yield Lui(R11, upper_8, pred)
+            else:
+                yield Addi(R11, R0, 0, pred)
             if lower_12 != 0:
                 yield Lli(R11, lower_12, pred)
             if instruction == "addi":
@@ -433,6 +434,7 @@ class TwigArch(Architecture):
             upper_8 = (totalstack >> 24) & 0xFF
             middle_12 = (totalstack >> 12) & 0xFFF
             lower_12 = totalstack & 0xFFF
+            yield Addi(R4, R0, 0, pred)
             if upper_8 != 0:
                 yield Lui(R4, upper_8, pred)
             if middle_12 != 0:
@@ -441,8 +443,8 @@ class TwigArch(Architecture):
                 yield Lli(R4, lower_12, pred)
         # R5 = w * stack_size
         yield Mul(R5, R7, R4, pred)
-        # R6 = BASE_STACK (0x1000)
-        yield Lli(R6, BASE_STACK & 0xFFF, pred)
+        # R6 = BASE_STACK
+        yield from self.immUsed(R6, R0, BASE_STACK, "addi", pred)
         # R5 = w*stack_size + BASE_STACK
         yield Add(R5, R5, R6, pred)
         # R3 = 31 for tid%32

@@ -906,6 +906,7 @@ def pattern_fprel_large(context, tree):
         upper_8 = (offset >> 24) & 0xFF
         middle_12 = (offset >> 12) & 0xFFF
         lower_12 = (offset) & 0xFFF
+        context.emit(Addi(t1, R0, 0, p))
         if upper_8 != 0:
             context.emit(Lui(t1, upper_8, p))
         if middle_12 != 0:
@@ -997,6 +998,7 @@ def pattern_const(context, tree):
     upper_8 = (c0 >> 24) & 0xFF
     middle_12 = (c0 >> 12) & 0xFFF
     lower_12 = (c0) & 0xFFF
+    context.emit(Addi(d, R0, 0, p))
     if upper_8 != 0:
         context.emit(Lui(d, upper_8, p))
     if middle_12 != 0:
@@ -1146,6 +1148,7 @@ def pattern_const_f32(context, tree):
     upper_8 = (c0 >> 24) & 0xFF
     middle_12 = (c0 >> 12) & 0xFFF
     lower_12 = (c0) & 0xFFF
+    context.emit(Addi(d, R0, 0, p))
     if upper_8 != 0:
         context.emit(Lui(d, upper_8, p))
     if middle_12 != 0:
