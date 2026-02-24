@@ -453,6 +453,9 @@ class TwigArch(Architecture):
         yield Slli(R4, R4, 2, pred)
         # SP = w*stack_size + BASE_STACK + (tid%32)*4
         yield Add(SP, R5, R4, pred)
+        for r in [R9, R11, R3, R4, R5, R6, R7]:
+            yield Addi(r, R0, 0, pred)
+
 
     def gen_prologue(self, frame):
         """Adjust sp, save lr and fp, save callee saves on stack,
