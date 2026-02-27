@@ -738,11 +738,14 @@ class Instruction:
         """
         # TODO: update reference
         # assert old in self._var_map.values()
+        found = False
         for name in self._var_map:
             if self._var_map[name] is old:
-                self.del_use(old)
                 self._var_map[name] = new
-                self.add_use(new)
+                found = True
+        if found:
+            self.del_use(old)
+            self.add_use(new)
 
     def remove_from_block(self):
         for use in list(self.uses):
