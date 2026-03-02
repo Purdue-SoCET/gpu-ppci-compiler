@@ -77,8 +77,7 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
 
     def test_nranches(self):
         """Test several branch instructions"""
-        self.feed(
-            """b sjakie
+        self.feed("""b sjakie
         ble sjakie
         bgt sjakie
         beq sjakie
@@ -88,8 +87,7 @@ class ArmAssemblerTestCase(AsmTestCaseBase):
         ble sjakie
         bgt sjakie
         beq sjakie
-        bl sjakie"""
-        )
+        bl sjakie""")
         self.check(
             "030000ea 020000da 010000ca 0000000a ffffffeb feffffea"
             "fdffffda fcffffca fbffff0a faffffeb"

@@ -19,12 +19,10 @@ class TestSamplesOnWasm(unittest.TestCase):
         base_filename = make_filename(self.id())
         list_filename = base_filename + ".html"
 
-        bsp_c3 = io.StringIO(
-            """
+        bsp_c3 = io.StringIO("""
            module bsp;
            public function void putc(byte c);
-           """
-        )
+           """)
         march = "arm"  # TODO: this must be wasm!
         with html_reporter(list_filename) as reporter:
             ir_modules = build_sample_to_ir(src, lang, bsp_c3, march, reporter)

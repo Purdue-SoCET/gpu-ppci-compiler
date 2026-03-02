@@ -738,11 +738,14 @@ class Instruction:
         """
         # TODO: update reference
         # assert old in self._var_map.values()
+        found = False
         for name in self._var_map:
             if self._var_map[name] is old:
-                self.del_use(old)
                 self._var_map[name] = new
-                self.add_use(new)
+                found = True
+        if found:
+            self.del_use(old)
+            self.add_use(new)
 
     def remove_from_block(self):
         for use in list(self.uses):
@@ -838,7 +841,8 @@ class Undefined(LocalValue):
 class PredicateAnnotation(Instruction):
     """GPU-style predicate annotation for control flow divergence tracking.
 
-    This instruction annotates a basic block with predicate register information
+    This instruction annotates a basic block with predicate
+    register information
     to track which threads are active in GPU-style SIMT execution.
 
     For backend code generation, the assembly will compute:
@@ -850,18 +854,36 @@ class PredicateAnnotation(Instruction):
     - condition_mask: Computed from the branch condition
     """
 
-    def __init__(self, pred_reg, pred_mask, context_name="", parent_pred_reg=None):
+    def __init__(
+        self, pred_reg, pred_mask, context_name="", parent_pred_reg=None
+    ):
         super().__init__()
         self.pred_reg = pred_reg
         self.pred_mask = pred_mask
         self.context_name = context_name
-        self.parent_pred_reg = parent_pred_reg if parent_pred_reg is not None else 0
+        self.parent_pred_reg = (
+            parent_pred_reg if parent_pred_reg is not None else 0
+        )
+
+    @property
+    def targets(self):
+        """No branch targets; this is a debug annotation."""
+        return []
 
     def __str__(self):
-        # Show destination pred and parent pred for assembly generation
+        # Show dest pred and parent pred for assembly gen
         if self.context_name:
-            return f"pred{self.pred_reg} = pred{self.parent_pred_reg} AND <condition> // {self.context_name}"
-        return f"pred{self.pred_reg} = pred{self.parent_pred_reg} // root (all ones)"
+            return (
+                f"pred{self.pred_reg} = "
+                f"pred{self.parent_pred_reg} "
+                f"AND <condition> // {self.context_name}"
+            )
+        return (
+            f"pred{self.pred_reg} = "
+            f"pred{self.parent_pred_reg} "
+            f"// root (all ones)"
+        )
+
 
 class Const(LocalValue):
     """Represents a constant value"""
@@ -1001,6 +1023,32 @@ class Binop(LocalValue):
         return (
             f"{self.ty} {self.name} = "
             + f"{self.a.name} {self.operation} {self.b.name}"
+        )
+
+
+class CompareSet(LocalValue):
+    """Compare two values, produce integer 1 (true) or 0 (false).
+
+    This is used for predicated architectures where compound conditionals
+    (||, &&) are flattened into set instructions combined with AND/OR.
+    """
+
+    conditions = ["==", "<", ">", ">=", "<=", "!="]
+    a = value_use("a")
+    b = value_use("b")
+
+    def __init__(self, a, cond, b, name, ty):
+        super().__init__(name, ty)
+        if cond not in self.conditions:
+            raise ValueError(f"Invalid condition {cond}")
+        self.a = a
+        self.cond = cond
+        self.b = b
+
+    def __str__(self):
+        return (
+            f"{self.ty} {self.name} = "
+            f"cmpset {self.a.name} {self.cond} {self.b.name}"
         )
 
 
@@ -1332,7 +1380,7 @@ class JumpBase(FinalInstruction):
         """Clear references"""
         while self._block_map:
             _, block = self._block_map.popitem()
-            block.references.remove(self)
+            block.references.discard(self)
 
     @property
     def targets(self):
@@ -1384,6 +1432,7 @@ class CJump(JumpBase):
             + f"{self.lab_yes.name} : {self.lab_no.name}"
         )
 
+
 class SJump(CJump):
     """Conditional jump to true or false labels."""
 
@@ -1401,9 +1450,13 @@ class SJump(CJump):
             f"{self.lab_yes.name} (p{self.pred_yes_id})"
         )
 
+
 class PJump(CJump):
     """Conditional jump to true or false labels."""
-    def __init__(self, a, cond, b, lab_yes, lab_no, pred_yes, pred_no, pred_parent):
+
+    def __init__(
+        self, a, cond, b, lab_yes, lab_no, pred_yes, pred_no, pred_parent
+    ):
         super().__init__(a, cond, b, lab_yes, lab_no)
         self.pred_yes_id = pred_yes
         self.pred_no_id = pred_no
@@ -1414,10 +1467,13 @@ class PJump(CJump):
             + f"{self.lab_yes.name} : {self.lab_no.name}"
         )
 
+
 class BJump(CJump):
     """Conditional jump to true or false labels."""
 
-    def __init__(self, a, cond, b, lab_yes, lab_no, pred_yes, pred_no, pred_parent):
+    def __init__(
+        self, a, cond, b, lab_yes, lab_no, pred_yes, pred_no, pred_parent
+    ):
         """
         pred_yes and pred_no are the *integer IDs* of the
         predicate registers to be written.
@@ -1429,9 +1485,9 @@ class BJump(CJump):
     def __str__(self):
         return (
             f"bjmp {self.a.name} {self.cond} {self.b.name} ? "
-            f"{self.lab_yes.name} (p{self.pred_yes_id}) : {self.lab_no.name} (p{self.pred_no_id})"
+            f"{self.lab_yes.name} (p{self.pred_yes_id}) : "
+            f"{self.lab_no.name} (p{self.pred_no_id})"
         )
-
 
 
 class JumpTable(JumpBase):

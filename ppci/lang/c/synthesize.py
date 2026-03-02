@@ -129,5 +129,7 @@ class CSynthesizer:
             self.emit_statement(statements.Return(value, None))
         elif isinstance(instruction, ir.Jump):
             self.emit_statement(statements.Goto(instruction.target.name, None))
+        elif isinstance(instruction, ir.PredicateAnnotation):
+            pass  # Debug annotation, no C equivalent
         else:  # pragma: no cover
             raise NotImplementedError(str(instruction))

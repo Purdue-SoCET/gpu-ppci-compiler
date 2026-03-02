@@ -14,8 +14,7 @@ from ppci import wasm
 # automatically resolved (e.g. inline signatures and nested
 # instructions).
 
-wa1 = wasm.Module(
-    """
+wa1 = wasm.Module("""
     (module
         (import "js" "print_ln" (func $print (param f64)))
         (start $main)
@@ -29,8 +28,7 @@ wa1 = wasm.Module(
                 (f64.lt) (br_if 0)
             )
         )
-    )"""
-)
+    )""")
 
 # Show text and binary representation of the module
 wa1.show()
