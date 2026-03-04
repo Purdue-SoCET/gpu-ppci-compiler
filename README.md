@@ -30,8 +30,8 @@ Replace -S with other flags below can generate different files for debugging:
 ## Tool
 helpful tool command, generate corresponding file.
 `tool`
-- --asm: assembly -> binary
-- --disasm: binary -> assembly
-- --bin: 0101 text to raw binary
-- --hex: 0101 text to hex
-- -o: output file
+- `--asm`: assembly -> binary
+- `--disasm`: binary -> assembly
+- `--bin`: 0101 text to raw binary
+- `--hex`: 0101 text to hex
+- `-o`: output file
