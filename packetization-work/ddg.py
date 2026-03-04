@@ -1,6 +1,7 @@
 import sys
 from collections import defaultdict
 
+
 class Instruction:
     def __init__(self, id, text):
         self.id = id
@@ -14,55 +15,84 @@ class Instruction:
         self.parse()
 
     def parse(self):
-        clean_text = self.original_text.replace(',', ' ').replace('(', ' ').replace(')', ' ')
+        clean_text = (
+            self.original_text.replace(",", " ")
+            .replace("(", " ")
+            .replace(")", " ")
+        )
         parts = clean_text.split()
         if not parts:
             return
 
         self.opcode = parts[0]
 
-        if self.opcode in ['lui', 'lmi', 'lli']:
+        if self.opcode in ["lui", "lmi", "lli"]:
             if len(parts) >= 2:
                 self.dest = parts[1]
-        elif self.opcode in ['add', 'sub', 'mul', 'div', 'mulf', 'addf', 'subf', 'divf', 'and', 'or', 'xor', 'sll', 'srl', 'sra']:
+        elif self.opcode in [
+            "add",
+            "sub",
+            "mul",
+            "div",
+            "mulf",
+            "addf",
+            "subf",
+            "divf",
+            "and",
+            "or",
+            "xor",
+            "sll",
+            "srl",
+            "sra",
+        ]:
             if len(parts) >= 4:
                 self.dest = parts[1]
                 self.srcs.update([parts[2], parts[3]])
-        elif self.opcode in ['addi', 'subi', 'andi', 'ori', 'xori', 'slli', 'srli', 'srai']:
+        elif self.opcode in [
+            "addi",
+            "subi",
+            "andi",
+            "ori",
+            "xori",
+            "slli",
+            "srli",
+            "srai",
+        ]:
             if len(parts) >= 3:
                 self.dest = parts[1]
                 self.srcs.add(parts[2])
-        elif self.opcode == 'sw':
+        elif self.opcode == "sw":
             self.is_mem_write = True
             if len(parts) >= 4:
                 # typically `sw src offset base`
                 self.srcs.update([parts[1], parts[3]])
-        elif self.opcode == 'lw':
+        elif self.opcode == "lw":
             self.is_mem_read = True
             if len(parts) >= 4:
                 self.dest = parts[1]
                 self.srcs.add(parts[3])
-        elif self.opcode in ['beq', 'bne', 'blt', 'bge', 'bltu', 'bgeu']:
+        elif self.opcode in ["beq", "bne", "blt", "bge", "bltu", "bgeu"]:
             self.is_branch = True
             if len(parts) >= 4:
                 self.srcs.update([parts[2], parts[3]])
-        elif self.opcode in ['jal']:
+        elif self.opcode in ["jal"]:
             self.is_branch = True
             if len(parts) >= 2:
                 self.dest = parts[1]
-        elif self.opcode in ['jalr']:
+        elif self.opcode in ["jalr"]:
             self.is_branch = True
             if len(parts) >= 3:
                 self.dest = parts[1]
                 self.srcs.add(parts[2])
-        elif self.opcode == 'csrr':
+        elif self.opcode == "csrr":
             if len(parts) >= 2:
                 self.dest = parts[1]
 
         # register x0 is hardwired to 0, no data dependencies on it
-        if self.dest == 'x0':
+        if self.dest == "x0":
             self.dest = None
-        self.srcs.discard('x0')
+        self.srcs.discard("x0")
+
 
 class BasicBlock:
     def __init__(self, name):
@@ -96,14 +126,18 @@ class BasicBlock:
             # WAW and WAR edges
             if inst.dest:
                 if inst.dest in last_writer and last_writer[inst.dest] != i:
-                    self.add_edge(last_writer[inst.dest], i, f"WAW({inst.dest})")
+                    self.add_edge(
+                        last_writer[inst.dest], i, f"WAW({inst.dest})"
+                    )
                 for reader in last_readers[inst.dest]:
                     # WAR applies if a reader read the state before this write
                     if reader != i:
                         self.add_edge(reader, i, f"WAR({inst.dest})")
 
                 last_writer[inst.dest] = i
-                last_readers[inst.dest] = [] # clear readers for this reg after a write
+                last_readers[
+                    inst.dest
+                ] = []  # clear readers for this reg after a write
 
             # memory dependencies (for now we treat memory as a single resource)
             if inst.is_mem_read:
@@ -141,31 +175,36 @@ class BasicBlock:
                 ready.append(i)
         return ready
 
+
 def parse_asm(file_path):
     blocks = []
     current_block = None
     in_code_section = False
 
-    with open(file_path, 'r') as f:
+    with open(file_path, "r") as f:
         for line in f:
             line = line.strip()
             if not line:
                 continue
 
-            if line.startswith('section code'):
+            if line.startswith("section code"):
                 in_code_section = True
                 continue
-            elif line.startswith('section data'):
+            elif line.startswith("section data"):
                 in_code_section = False
                 continue
 
             if not in_code_section:
                 continue
 
-            if line.startswith('global ') or line.startswith('type ') or line.startswith('.align'):
+            if (
+                line.startswith("global ")
+                or line.startswith("type ")
+                or line.startswith(".align")
+            ):
                 continue
 
-            if line.endswith(':'):
+            if line.endswith(":"):
                 label = line[:-1]
                 current_block = BasicBlock(label)
                 blocks.append(current_block)
@@ -184,7 +223,8 @@ def parse_asm(file_path):
 
     return blocks
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python ddg.py <asm_file>")
         sys.exit(1)
@@ -199,7 +239,9 @@ if __name__ == '__main__':
             dep_str = ", ".join([f"[{src}]: {dtype}" for src, dtype in deps])
             if not dep_str:
                 dep_str = "None"
-            print(f"  {i:2d}: {inst.original_text:30} -> Depends on: {dep_str}")
+            print(
+                f"  {i:2d}: {inst.original_text:30} -> Depends on: {dep_str}"
+            )
 
         ready_init = b.get_ready_instructions([])
         print(f"  -- Ready to schedule (Level 0): {ready_init}")

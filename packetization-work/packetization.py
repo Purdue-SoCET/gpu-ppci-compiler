@@ -1,6 +1,7 @@
 import sys
 from ddg import parse_asm
 
+
 def greedy_packetize(block, max_packet_size=None):
     """
     greedily make packets from a basic block.
@@ -22,7 +23,7 @@ def greedy_packetize(block, max_packet_size=None):
             packet = ready_list
 
         if not packet:
-			# should never happen in a dag
+            # should never happen in a dag
             assert False
             break
 
@@ -31,6 +32,7 @@ def greedy_packetize(block, max_packet_size=None):
         scheduled.extend(packet)
 
     return packets
+
 
 def packetize_file(asm_file, max_packet_size=None):
     blocks = parse_asm(asm_file)
@@ -48,7 +50,8 @@ def packetize_file(asm_file, max_packet_size=None):
                 inst = b.instructions[inst_idx]
                 print(f"    [{inst_idx:2d}] {inst.original_text}")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python packetization.py <asm_file> [max_packet_size]")
         sys.exit(1)
