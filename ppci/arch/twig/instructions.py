@@ -570,7 +570,7 @@ def make_u(mnemonic, opcode):
     rd = Operand("rd", TwigRegister, write=True)
     imm = Operand("imm", int)
     pred = Operand("pred", int)
-    syntax = Syntax([mnemonic, ",", " ", rd, ",", " ", imm, ",", " ", pred])
+    syntax = Syntax([mnemonic, " ", rd, ",", " ", imm, ",", " ", pred])
     tokens = [TwigUToken]
     patterns = {
         "opcode": opcode,
@@ -597,7 +597,7 @@ def make_u_mod(mnemonic, opcode):
     rd = Operand("rd", TwigRegister, read=True, write=True)
     imm = Operand("imm", int)
     pred = Operand("pred", int)
-    syntax = Syntax([mnemonic, ",", " ", rd, ",", " ", imm, ",", " ", pred])
+    syntax = Syntax([mnemonic, " ", rd, ",", " ", imm, ",", " ", pred])
     tokens = [TwigUToken]
     patterns = {
         "opcode": opcode,
