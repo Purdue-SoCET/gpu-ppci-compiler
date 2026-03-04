@@ -29,6 +29,8 @@ def test_nos_on_riscv(benchmark):
 def test_compile_8cc(benchmark):
     benchmark(compile_8cc)
 
+def test_static_load_store_riscv(benchmark):
+    benchmark(count_nos_load_store_riscv)
 
 def compile_nos_for_riscv():
     """Compile nOS for riscv architecture."""
@@ -118,3 +120,39 @@ def compile_8cc():
             objs.append(api.cc(f, arch, coptions=coptions))
 
     # TODO: maybe link it?
+
+def count_nos_load_store_riscv():
+    """Compile nOS for riscv and count static load/store instructions."""
+    logging.basicConfig(level=logging.INFO)
+    murax_path = root_path / "examples" / "riscvmurax"
+    arch = api.get_arch("riscv")
+
+    # Gather sources
+    path = murax_path / "csrc" / "nos"
+    folders, srcs = get_sources(path, "*.c")
+    folders += [os.path.join(murax_path, "csrc")]
+
+    coptions = COptions()
+    coptions.add_include_paths(folders)
+
+    objs = []
+
+    # Assemble startup files
+    objs.append(api.asm(murax_path / "start.s", arch))
+    objs.append(api.asm(murax_path / "nOSPortasm.s", arch))
+
+    # Compile C sources
+    for src in srcs:
+        with open(src) as f:
+            objs.append(api.cc(f, arch, coptions=coptions, debug=True))
+
+    # Link
+    linked = api.link(
+        objs,
+        murax_path / "firmware.mmap",
+        use_runtime=True,
+        debug=True,
+    )
+
+    # Count loads/stores
+    return count_load_store_in_object(linked)
