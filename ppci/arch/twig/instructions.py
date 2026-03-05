@@ -615,7 +615,7 @@ def make_u(mnemonic, opcode):
     rd = Operand("rd", TwigRegister, write=True)
     imm = Operand("imm", int)
     pred = Operand("pred", int)
-    syntax = Syntax([mnemonic, ",", " ", rd, ",", " ", imm, ",", " ", pred])
+    syntax = Syntax([mnemonic, " ", rd, ",", " ", imm, ",", " ", pred])
     tokens = [TwigUToken]
     patterns = {"opcode": opcode, "rd": rd, "imm": imm, "pred": pred}
     members = {
@@ -638,7 +638,7 @@ def make_u_mod(mnemonic, opcode):
     rd = Operand("rd", TwigRegister, read=True, write=True)
     imm = Operand("imm", int)
     pred = Operand("pred", int)
-    syntax = Syntax([mnemonic, ",", " ", rd, ",", " ", imm, ",", " ", pred])
+    syntax = Syntax([mnemonic, " ", rd, ",", " ", imm, ",", " ", pred])
     tokens = [TwigUToken]
     patterns = {"opcode": opcode, "rd": rd, "imm": imm, "pred": pred}
     members = {
@@ -772,9 +772,8 @@ def pattern_neg_f32(context, tree, c0):
     d = context.new_reg(TwigRegister)
     p = tree.pred
     mask_reg = context.new_reg(TwigRegister)
-    context.emit(
-        Lui(mask_reg, 0x80, p)
-    )  # Load 0x80 into top byte (0x80000000)
+    context.emit(Addi(mask_reg, R0, 0x0, p))
+    context.emit(Lui(mask_reg, 0x80, p))
     context.emit(Xor(d, c0, mask_reg, p))
     return d
 
