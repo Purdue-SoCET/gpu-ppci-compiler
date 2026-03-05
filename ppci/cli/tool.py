@@ -162,8 +162,20 @@ def do_asm(args):
     """Assembles and outputs in the requested format."""
     print(f"Assembling {args.asm}...")
     try:
+        from ..api import asm, link
+        from ..binutils.layout import Layout, Memory, Section
+
         with open(args.asm, "r") as f:
             obj = asm(f, arch)
+
+        layout = Layout()
+        mem = Memory("flash")
+        mem.location = 0x0
+        mem.size = 0x400000  # Give it ample space
+        mem.add_input(Section("code"))
+        layout.add_memory(mem)
+
+        obj = link([obj], layout=layout)
     except Exception as e:
         print(f"Assembly failed: {e}")
         sys.exit(1)
