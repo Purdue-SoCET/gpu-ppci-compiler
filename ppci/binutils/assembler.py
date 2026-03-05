@@ -35,13 +35,13 @@ class AsmLexer(BaseLexer):
             ("NUMBER", r"\d+", self.handle_number),
             ("ID", id_regex, self.handle_id),
             ("SKIP", r"[ \t]", None),
+            ("COMMENT", r"[;#].*", None),
             (
                 "GLYPH",
                 "|".join(re.escape(c) for c in Syntax.GLYPHS),
                 lambda typ, val: (val, val),
             ),
             ("STRING", r"'.*?'", lambda typ, val: (typ, val[1:-1])),
-            ("COMMENT", r";.*", None),
         ]
         super().__init__(tok_spec)
         self.kws = set(kws)
@@ -185,10 +185,11 @@ class BaseAssembler:
         """
         assert isinstance(stx, Syntax)
 
-        rhs = self.resolve_rhs(stx.get_args())
+        stx_args = list(stx.get_args())
+        rhs = self.resolve_rhs(stx_args)
 
         prop_list = []
-        for idx, rhs_part in enumerate(stx.get_args()):
+        for idx, rhs_part in enumerate(stx_args):
             if isinstance(rhs_part, Operand):
                 prop_list.append(idx)
 
@@ -198,6 +199,35 @@ class BaseAssembler:
             return cls(*usable)
 
         self.add_rule(nt, rhs, cs, stx.priority)
+
+        # Automatically generate a shorter syntax rule if the last argument is 'pred'
+        if len(stx_args) >= 2 and isinstance(stx_args[-1], Operand) and stx_args[-1]._name == "pred" and stx_args[-2] == ",":
+            stx_args_short = stx_args[:-2]
+            rhs_short = self.resolve_rhs(stx_args_short)
+
+            # Map formal arguments to their index in the SHORTENED syntax rule
+            # If the formal argument is 'pred', we'll hardcode it to 0
+            def cs_short(args):
+                stx_operands_short = [x for x in stx_args_short if isinstance(x, Operand)]
+
+                # Assemble args respecting the formal parameter order
+                usable = []
+                for farg in stx.formal_arguments:
+                    if farg._name == 'pred':
+                        usable.append(0)
+                    else:
+                        # Find where this farg appears in the shortened syntax
+                        tok_idx = -1
+                        for idx, rhs_part in enumerate(stx_args_short):
+                            if isinstance(rhs_part, Operand) and rhs_part._name == farg._name:
+                                tok_idx = idx
+                                break
+                        assert tok_idx != -1, f"Missing non-pred operand {farg._name}"
+                        usable.append(args[tok_idx])
+
+                return cls(*usable)
+
+            self.add_rule(nt, rhs_short, cs_short, stx.priority)
 
     def resolve_rhs(self, rhs):
         """Determine what parts of rhs are non-string and resolve"""
