@@ -110,7 +110,8 @@ def bytes_to_bit_str(data):
 
 
 def do_convert(input_file, args):
-    """Handles format conversion between Bin, Bit-strings, Hex-strings, and .oj."""
+    """Handles format conversion between Bin,
+    Bit-strings, Hex-strings, and .oj."""
     print(f"Converting {input_file}...")
 
     # 1. Read Input

@@ -456,7 +456,6 @@ class TwigArch(Architecture):
         for r in [R9, R11, R3, R4, R5, R6, R7]:
             yield Addi(r, R0, 0, pred)
 
-
     def gen_prologue(self, frame):
         """Adjust sp, save lr and fp, save callee saves on stack,
         and reserve space for predicate saves during calls."""

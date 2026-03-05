@@ -664,8 +664,10 @@ class TwigHInstruction(Instruction):
     tokens = [TwigHToken]
     isa = isa
 
+
 class Halt(TwigHInstruction):
     """Halt instruction - encodes as 0xFFFFFFFF (all ones)."""
+
     syntax = Syntax(["halt"])
     patterns = {"opcode": 0b1111111}
 
