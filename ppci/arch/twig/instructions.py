@@ -306,9 +306,9 @@ def make_load(mnemonic, opcode):
     return type(mnemonic.title(), (TwigIInstruction,), members)
 
 
-Lw = make_load("lw", 0b01000000)
-Lh = make_load("lh", 0b01000001)
-Lb = make_load("lb", 0b01000010)
+Lw = make_load("lw", 0b0100000)
+Lh = make_load("lh", 0b0100001)
+Lb = make_load("lb", 0b0100010)
 
 
 class TwigSInstruction(Instruction):
@@ -615,7 +615,7 @@ def make_u(mnemonic, opcode):
     rd = Operand("rd", TwigRegister, write=True)
     imm = Operand("imm", int)
     pred = Operand("pred", int)
-    syntax = Syntax([mnemonic, ",", " ", rd, ",", " ", imm, ",", " ", pred])
+    syntax = Syntax([mnemonic, " ", rd, ",", " ", imm, ",", " ", pred])
     tokens = [TwigUToken]
     patterns = {"opcode": opcode, "rd": rd, "imm": imm, "pred": pred}
     members = {
@@ -638,7 +638,7 @@ def make_u_mod(mnemonic, opcode):
     rd = Operand("rd", TwigRegister, read=True, write=True)
     imm = Operand("imm", int)
     pred = Operand("pred", int)
-    syntax = Syntax([mnemonic, ",", " ", rd, ",", " ", imm, ",", " ", pred])
+    syntax = Syntax([mnemonic, " ", rd, ",", " ", imm, ",", " ", pred])
     tokens = [TwigUToken]
     patterns = {"opcode": opcode, "rd": rd, "imm": imm, "pred": pred}
     members = {
@@ -656,7 +656,7 @@ def make_u_mod(mnemonic, opcode):
 Auipc = make_u("auipc", 0b1010000)
 Lli = make_u_mod("lli", 0b1010001)
 Lmi = make_u_mod("lmi", 0b1010010)
-Lui = make_u("lui", 0b1010011)
+Lui = make_u("lui", 0b1010100)
 
 
 # h type (halt)
@@ -664,29 +664,13 @@ class TwigHInstruction(Instruction):
     tokens = [TwigHToken]
     isa = isa
 
+class Halt(TwigHInstruction):
+    """Halt instruction - encodes as 0xFFFFFFFF (all ones)."""
+    syntax = Syntax(["halt"])
+    patterns = {"opcode": 0b1111111}
 
-def make_nop(mnemonic, opcode):
-    syntax = Syntax([mnemonic])
-    tokens = [TwigHToken]
-    patterns = {
-        "opcode": opcode
-        # "pred": pred,
-        # "pstart": pstart,
-        # "pend": pend
-    }
-    members = {
-        "syntax": syntax,
-        "patterns": patterns,
-        "tokens": tokens,
-        "opcode": opcode,
-        # "pred": pred,
-        # "pstart": pstart,
-        # "pend": pend
-    }
-    return type(mnemonic + "_ins", (TwigHInstruction,), members)
-
-
-Halt = make_nop("halt", 0b1111111)
+    def encode(self):
+        return (0xFFFFFFFF).to_bytes(4, byteorder="little")
 
 
 class PseudoTwigInstruction(ArtificialInstruction):
@@ -788,9 +772,8 @@ def pattern_neg_f32(context, tree, c0):
     d = context.new_reg(TwigRegister)
     p = tree.pred
     mask_reg = context.new_reg(TwigRegister)
-    context.emit(
-        Lui(mask_reg, 0x80, p)
-    )  # Load 0x80 into top byte (0x80000000)
+    context.emit(Addi(mask_reg, R0, 0x0, p))
+    context.emit(Lui(mask_reg, 0x80, p))
     context.emit(Xor(d, c0, mask_reg, p))
     return d
 
@@ -922,6 +905,7 @@ def pattern_fprel_large(context, tree):
         upper_8 = (offset >> 24) & 0xFF
         middle_12 = (offset >> 12) & 0xFFF
         lower_12 = (offset) & 0xFFF
+        context.emit(Addi(t1, R0, 0, p))
         if upper_8 != 0:
             context.emit(Lui(t1, upper_8, p))
         if middle_12 != 0:
@@ -1013,6 +997,7 @@ def pattern_const(context, tree):
     upper_8 = (c0 >> 24) & 0xFF
     middle_12 = (c0 >> 12) & 0xFFF
     lower_12 = (c0) & 0xFFF
+    context.emit(Addi(d, R0, 0, p))
     if upper_8 != 0:
         context.emit(Lui(d, upper_8, p))
     if middle_12 != 0:
@@ -1030,7 +1015,7 @@ def pattern_mov32(context, tree, c0):
     dst = tree.value
     src = c0
     p = tree.pred
-    context.emit(Addi(dst, src, 0, p))
+    context.emit(Addi(dst, src, 0, p, ismove=True))
     return dst
 
 
@@ -1162,6 +1147,7 @@ def pattern_const_f32(context, tree):
     upper_8 = (c0 >> 24) & 0xFF
     middle_12 = (c0 >> 12) & 0xFFF
     lower_12 = (c0) & 0xFFF
+    context.emit(Addi(d, R0, 0, p))
     if upper_8 != 0:
         context.emit(Lui(d, upper_8, p))
     if middle_12 != 0:

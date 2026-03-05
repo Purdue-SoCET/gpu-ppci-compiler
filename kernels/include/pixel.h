@@ -22,6 +22,6 @@ typedef struct {
 
 } pixel_arg_t;
 
-void kernel_pixel(void*);
+void kernel_pixel();
 
 #endif

@@ -1,8 +1,8 @@
 #include "include/kernel.h"
 #include "include/triangle.h"
 
-void kernel_triangle(void* arg) {
-    triangle_arg_t* args = (triangle_arg_t*) arg;
+void kernel_triangle() {
+    triangle_arg_t* args = (triangle_arg_t*) argPtr();
     // int ix = mod(threadIdx, args->bb_size[0]);
     int ix = (((threadIdx)) - (args->bb_size[0])*(((threadIdx))/(args->bb_size[0])));
     // int iy = mod(threadIdx / args->bb_size[0], args->bb_size[1]);
@@ -29,7 +29,7 @@ void kernel_triangle(void* arg) {
 	} else if (l[1] < -.00001) {
         // Outside of triangle bounding box
 		return;
-    } else if (l[2] < -.00001) { 
+    } else if (l[2] < -.00001) {
         // Outside of triangle bounding box
 		return;
     } else if ((l[0] + l[1] + l[2]) > 1.01) {

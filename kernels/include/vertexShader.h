@@ -9,7 +9,7 @@ typedef struct {
 
     /*inputs*/
     vector_t* Oa;              //rotation origin
-    vector_t* a_dist;          //distane of one origin axes 
+    vector_t* a_dist;          //distane of one origin axes
     float* alpha_r;            //theta - angle for rotation matrix
     vertex_t* threeDVert;      //input 3D vectors
 
@@ -21,12 +21,12 @@ typedef struct {
     /*inputs*/
     vector_t* camera;          //camera location
     float* invTrans;        //inverse transformation matrix
-    // threeDVertTrans is also an input 
+    // threeDVertTrans is also an input
 
     /*output*/
     vertex_t* twoDVert;        //output 2D  vertors
 } vertexShader_arg_t;
 
-void kernel_vertexShader(void*);
+void kernel_vertexShader();
 
 #endif

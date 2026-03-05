@@ -24,6 +24,6 @@ typedef struct {
     int*    tag_buff;
 } triangle_arg_t;
 
-void kernel_triangle(void*);
+void kernel_triangle();
 
 #endif

@@ -8,6 +8,6 @@ typedef struct {
     float *y;
 } saxpy_arg_t;
 
-void kernel_saxpy(void*);
+void kernel_saxpy();
 
 #endif

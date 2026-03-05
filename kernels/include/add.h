@@ -6,4 +6,4 @@ typedef struct {
     int* out;
 } add_arg_t;
 
-void kernel_add(void*);
+void kernel_add();

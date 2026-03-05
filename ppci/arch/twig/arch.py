@@ -14,6 +14,7 @@ from .instructions import (
     And,
     Cos,
     Csrr,
+    Halt,
     Isqrt,
     ItoF,
     FtoI,
@@ -127,7 +128,7 @@ PRED_SAVE_SPACE = 128
 
 # Base address for stack in entry function setup:
 # sp = w*stack_size + BASE_STACK + (tid%32)*4
-BASE_STACK = 0x1000
+BASE_STACK = 0x100000
 
 
 class TwigAssembler(BaseAssembler):
@@ -313,10 +314,11 @@ class TwigArch(Architecture):
             upper_8 = (offset >> 24) & 0xFF
             middle_12 = (offset >> 12) & 0xFFF
             lower_12 = (offset) & 0xFFF
-            if upper_8 != 0:
-                yield Lui(R11, upper_8, pred)
-            if middle_12 != 0:
+            if middle_12 != 0 or upper_8 != 0:
                 yield Lmi(R11, middle_12, pred)
+                yield Lui(R11, upper_8, pred)
+            else:
+                yield Addi(R11, R0, 0, pred)
             if lower_12 != 0:
                 yield Lli(R11, lower_12, pred)
             if instruction == "addi":
@@ -390,7 +392,7 @@ class TwigArch(Architecture):
 
     def move(self, dst, src):
         """Generate a move from src to dst"""
-        return Addi(dst, src, 0, 4, ismove=True)
+        return Addi(dst, src, 0, 0, ismove=True)
 
     def gen_entry_stack_setup(self, frame, pred=0):
         """Emit instructions to set SP for all threads at entry.
@@ -432,6 +434,7 @@ class TwigArch(Architecture):
             upper_8 = (totalstack >> 24) & 0xFF
             middle_12 = (totalstack >> 12) & 0xFFF
             lower_12 = totalstack & 0xFFF
+            yield Addi(R4, R0, 0, pred)
             if upper_8 != 0:
                 yield Lui(R4, upper_8, pred)
             if middle_12 != 0:
@@ -440,8 +443,8 @@ class TwigArch(Architecture):
                 yield Lli(R4, lower_12, pred)
         # R5 = w * stack_size
         yield Mul(R5, R7, R4, pred)
-        # R6 = BASE_STACK (0x1000)
-        yield Lli(R6, BASE_STACK & 0xFFF, pred)
+        # R6 = BASE_STACK
+        yield from self.immUsed(R6, R0, BASE_STACK, "addi", pred)
         # R5 = w*stack_size + BASE_STACK
         yield Add(R5, R5, R6, pred)
         # R3 = 31 for tid%32
@@ -450,6 +453,9 @@ class TwigArch(Architecture):
         yield Slli(R4, R4, 2, pred)
         # SP = w*stack_size + BASE_STACK + (tid%32)*4
         yield Add(SP, R5, R4, pred)
+        for r in [R9, R11, R3, R4, R5, R6, R7]:
+            yield Addi(r, R0, 0, pred)
+
 
     def gen_prologue(self, frame):
         """Adjust sp, save lr and fp, save callee saves on stack,
@@ -504,12 +510,18 @@ class TwigArch(Architecture):
                 yield from self.immUsed(register, FP, offset, "lw")
                 offset += 128
 
+        entry_symbol = getattr(self, "entry_symbol", None)
+        is_entry = entry_symbol is not None and frame.name == entry_symbol
+
         yield from self.immUsed(LR, SP, 4 * NUM_THREADS, "lw")
         yield from self.immUsed(FP, SP, 0, "lw")
         if totalstack > 0:
             yield from self.immUsed(SP, SP, totalstack, "addi")
 
-        yield Blr(R0, LR, 0)
+        if is_entry:
+            yield Halt()
+        else:
+            yield Blr(R0, LR, 0)
         # yield from self.litpool(frame)
         yield Align(4)
         return

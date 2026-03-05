@@ -107,10 +107,6 @@ def twig(args=None):
                     debug=args.g,
                 )
 
-                # 2b. Append halt (0xFFFFFFFF) after entry function code
-                code_section = obj.get_section("code")
-                code_section.add_data(b"\xff\xff\xff\xff")
-
                 # 3. Prepare Layout
                 if args.layout:
                     with open(args.layout, "r") as f:

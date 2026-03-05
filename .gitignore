@@ -12,3 +12,9 @@ build/
 *.out
 *.hex
 compiled_binaries/
+
+bin
+venv
+lib
+lib64
+*pyvenv*
