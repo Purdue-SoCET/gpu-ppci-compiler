@@ -392,7 +392,7 @@ class TwigArch(Architecture):
 
     def move(self, dst, src):
         """Generate a move from src to dst"""
-        return Addi(dst, src, 0, 4, ismove=True)
+        return Addi(dst, src, 0, 0, ismove=True)
 
     def gen_entry_stack_setup(self, frame, pred=0):
         """Emit instructions to set SP for all threads at entry.
