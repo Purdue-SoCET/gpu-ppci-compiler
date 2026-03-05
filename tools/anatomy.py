@@ -1,41 +1,33 @@
 import sys
 from collections import defaultdict
 
-# ===============================
-# FULL ISA SPEC (From Your Card)
-# ===============================
+"""
+usage: "python anatomy.py <asm_filename>"
+
+Creates a table in asm_filename that shows the different types of instructions present in the compiled file for all instructions defined by twig ISA.
+"""
 
 ISA = {
 
-    # R Type
     "r-type": ["add", "sub", "mul", "div", "and", "or", "xor", "slt", "sltu", "addf", "subf", "mulf", "divf", "sll", "srl", "sra"],
 
-    # I Type
     "i-type": ["addi", "subi", "xori", "ori", "slti", "sltiu", "slli", "srli", "srai", "lw", "lh", "lb", "jalr"],
 
-    # F Type
     "f-type": ["isqrt", "sin", "cos", "itof", "ftoi"],
 
-    # S Type
     "s-type": ["sw", "sh", "sb"],
 
-    # B Type
     "b-type": ["beq", "bne", "bge", "bgeu", "blt", "bltu", "beqf", "bnef", "bgef", "bltf"],
 
-    # U Type
     "u-type": ["auipc", "lli", "lmi", "lui"],
 
-    # C Type
     "CSR": ["csrr"],
 
-    # J Type
     "j-type": ["jal"],
 
-    # P Type
     "p-type": ["jpnz", "prr", "prw"],
 
-    # H Type
-    "Halt": ["halt"],
+    "Halt": ["halt"]
 }
 
 # Flatten lookup for quick classification
