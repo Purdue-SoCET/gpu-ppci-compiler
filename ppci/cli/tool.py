@@ -2,7 +2,7 @@ import argparse
 import sys
 import struct
 import io
-from ..api import asm, get_arch
+from ..api import get_arch, asm
 from ..binutils.objectfile import ObjectFile
 
 parser = argparse.ArgumentParser(
@@ -162,7 +162,7 @@ def do_asm(args):
     """Assembles and outputs in the requested format."""
     print(f"Assembling {args.asm}...")
     try:
-        from ..api import asm, link
+        from ..api import link
         from ..binutils.layout import Layout, Memory, Section
 
         with open(args.asm, "r") as f:
