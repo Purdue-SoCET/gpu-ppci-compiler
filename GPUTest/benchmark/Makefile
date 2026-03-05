@@ -37,7 +37,7 @@ run: $(CPU_PPM)
 
 run32: #need gcc-multilib
 	$(CPU_CC) $(CPU_CFLAGS) $(CPU_32BIT_FLAGS) -o $(CPU_BUILD_DIR)$(CPU_TARGET) $(CPU_SRCS) $(CPU_LDFLAGS)
-	./$(CPU_BUILD_DIR)$(CPU_TARGET)
+	./$(CPU_BUILD_DIR)$(CPU_TARGET) && rm $(CPU_BUILD_DIR)$(CPU_TARGET)
 
 # Compiles all found kernels
 gpu_all: $(GPU_TARGETS)

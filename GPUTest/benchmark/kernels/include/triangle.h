@@ -24,10 +24,10 @@ typedef struct {
     int*    tag_buff;
 } triangle_arg_t;
 
-#ifdef GPU_SIM
-void main(void*);
-#else
+#ifdef CPU_SIM
 void kernel_triangle(void*);
+#else
+void kernel_triangle();
 #endif
 
 #endif

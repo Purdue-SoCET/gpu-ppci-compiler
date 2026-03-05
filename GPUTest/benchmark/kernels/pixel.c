@@ -2,33 +2,25 @@
 #include "include/pixel.h"
 #include "include/graphics_lib.h"
 
-#ifdef GPU_SIM
-void main(void* arg)
-#else
+#ifdef CPU_SIM
 void kernel_pixel(void* arg)
+#else
+void kernel_pixel()
 #endif
 {
     int u, v;
-    #ifdef GPU_SIM
-    pixel_arg_t* args = (pixel_arg_t*) argPtr();
-
-    u = (((threadIdx())) - (args->buff_w)*(((threadIdx()))/(args->buff_w)));
-    // u = mod(threadIdx, args->buff_w);
-    v = (((threadIdx()) / args->buff_w) - (args->buff_h)*(((threadIdx()) / args->buff_w)/(args->buff_h)));
-    // v = mod(threadIdx / args->buff_w, args->buff_h);
-    
-    int tag = args->tag_buff[threadIdx()];
-    #else
+    #ifdef CPU_SIM
     pixel_arg_t* args = (pixel_arg_t*) arg;
-
+    #else
+    pixel_arg_t* args = (pixel_arg_t*) argPtr();
+    #endif
+    
     u = (((threadIdx)) - (args->buff_w)*(((threadIdx))/(args->buff_w)));
     // u = mod(threadIdx, args->buff_w);
     v = (((threadIdx) / args->buff_w) - (args->buff_h)*(((threadIdx) / args->buff_w)/(args->buff_h)));
     // v = mod(threadIdx / args->buff_w, args->buff_h);
     
     int tag = args->tag_buff[threadIdx];
-    #endif
-    
 
     if(tag < 0) return;
 
@@ -132,8 +124,8 @@ void kernel_pixel(void* arg)
 
     // 3. Texture Lookup
     int idx = texel_y * args->texture.w + texel_x;
-    #ifdef GPU_SIM
-    args->color[threadIdx()] = args->texture.color_arr[idx];
+    #ifdef CPU_SIM
+    args->color[threadIdx] = args->texture.color_arr[idx];
     #else
     args->color[threadIdx] = args->texture.color_arr[idx];
     #endif

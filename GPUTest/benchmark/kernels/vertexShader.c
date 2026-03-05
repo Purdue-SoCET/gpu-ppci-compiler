@@ -3,20 +3,20 @@
 #include "include/graphics_lib.h"
 
 
-#ifdef GPU_SIM
-void main(void* arg)
-#else
+#ifdef CPU_SIM
 void kernel_vertexShader(void* arg)
+#else
+void kernel_vertexShader()
 #endif
 {
-    #ifdef GPU_SIM
-    vertexShader_arg_t* args = (vertexShader_arg_t*) argPtr();
-    int i = blockIdx() * blockDim() + threadIdx();
-    #else
+    #ifdef CPU_SIM
     vertexShader_arg_t* args = (vertexShader_arg_t*) arg;
-    int i = blockIdx * blockDim + threadIdx;
+    
+    #else
+    vertexShader_arg_t* args = (vertexShader_arg_t*) argPtr();
     #endif
-
+    
+    int i = blockIdx * blockDim + threadIdx;
     if(i >= args->num_verts) return;
 
     /****** ThreeD Rotation ******/
