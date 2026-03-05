@@ -66,10 +66,12 @@ def count_instructions(filename):
     return counts
 
 
-def write_table(counts, output_file):
+def write_table(counts, input_file, output_file):
     with open(output_file, "w") as out:
 
         total_instr = 0
+
+        out.write(f"{input_file}\n\n")
 
         #out.write("instr_type, instruction, count\n")
         #out.write("\n")
@@ -102,7 +104,7 @@ def main():
     output_file = "anatomy.out"
 
     counts = count_instructions(input_file)
-    write_table(counts, output_file)
+    write_table(counts, input_file, output_file)
 
     print(f"Results written to {output_file}")
 
