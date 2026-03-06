@@ -392,7 +392,7 @@ class Prsw(TwigPredSWInstruction):
     rs2 = Operand("rs2", TwigRegister, read=True)  # base address GPR
     imm = Operand("imm", int)  # offset
     syntax = Syntax(["prsw", " ", prs, ",", " ", rs2, ",", " ", imm])
-    patterns = {"opcode": 0b1101100, "prd": prs, "rs2": rs2, "imm": imm}
+    patterns = {"opcode": 0b1101100, "prs": prs, "rs2": rs2, "imm": imm}
 
 
 class Prlw(TwigPredLWInstruction):
@@ -568,7 +568,7 @@ def make_pb(mnemonic, opcode):
         "patterns": patterns,
         "tokens": tokens,
         "opcode": opcode,
-        "relocations": lambda self: [PBImm11Relocation(self.target)],
+        "relocations": lambda self: [PBImm12Relocation(self.target)],
         "is_mem_read": False,
         "is_mem_write": False,
         "is_branch": True,
