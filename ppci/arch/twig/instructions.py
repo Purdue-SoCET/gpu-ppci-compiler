@@ -25,6 +25,13 @@ class TwigRInstruction(Instruction):
     tokens = [TwigRToken]
     isa = isa
 
+
+    def encode(self):
+        tokens = self.get_tokens()
+        tokens[0].pstart = 1 if getattr(self, 'is_packet_start', False) else 0
+        tokens[0].pend = 1 if getattr(self, 'is_packet_end', False) else 0
+        return tokens.encode()
+
 def make_r(mnemonic, opcode):
     rd = Operand("rd", TwigRegister, write=True)
     rs1 = Operand("rs1", TwigRegister, read=True)
@@ -366,7 +373,7 @@ class TwigJInstruction(Instruction):
 #         return [BImm20Relocation(self.target)]
 
 # For disassembly
-class Bl_disas(TwigJInstruction):
+class Bl_disasm(TwigJInstruction):
     rd = Operand("rd", TwigRegister, write=True)
     imm = Operand("imm", int)
     syntax = Syntax(["jal", " ", rd, ",", " ", imm])
