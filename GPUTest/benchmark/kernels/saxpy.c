@@ -1,8 +1,17 @@
 #include "include/kernel.h"
 #include "include/saxpy.h"
 
-void kernel_saxpy(void* arg) {
+#ifdef CPU_SIM
+void kernel_saxpy(void* arg)
+#else
+void kernel_saxpy()
+#endif
+{
+    #ifdef CPU_SIM
     saxpy_arg_t* args = (saxpy_arg_t*) arg;
+    #else
+    saxpy_arg_t* args = (saxpy_arg_t*) argPtr();
+    #endif
 
     // Calculate the global thread index
     int i = blockIdx * blockDim + threadIdx;

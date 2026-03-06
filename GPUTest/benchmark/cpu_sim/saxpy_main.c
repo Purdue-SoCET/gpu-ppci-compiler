@@ -10,10 +10,10 @@
 #include "../kernels/include/saxpy.h"
 
 // Defines
-#define ARR_SIZE 1024
+#define ARR_SIZE 32
 #define BASE_Y_ADDRESS 0x00001074
-
-// for 32 bit: 
+#define CPU_SIM
+// for 32 bit:
 //gcc -o main cpu_sim/saxpy_main.c cpu_sim/kernel_run.c cpu_sim/include/* kernels/saxpy.c -DCPU_SIM -m32
 
 void print_line(FILE* f, uintptr_t addr, uint32_t data) {
@@ -33,7 +33,7 @@ void print_saxby_args(char* fname, saxpy_arg_t* args) {
         print_line(f, (uintptr_t)&args->x[i], args->x[i]);
         print_line(f, (uintptr_t)&args->y[i], args->y[i]);
     }
-    
+
     fclose(f);
 }
 
@@ -60,7 +60,7 @@ int main() {
     int block = ARR_SIZE;
 
     print_saxby_args("build/saxpyInput.txt", &arg);
-    
+
     run_kernel(kernel_saxpy, grid, block, (void*)&arg);
 
     for (int i = 0; i < ARR_SIZE; i++) {
