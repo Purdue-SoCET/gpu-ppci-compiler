@@ -85,8 +85,9 @@ class Instruction:
                 self.dest = parts[1]
                 self.srcs.add(parts[2])
         elif self.opcode == "csrr":
-            if len(parts) >= 2:
+            if len(parts) >= 3:
                 self.dest = parts[1]
+                self.srcs.add(parts[2])
 
         # register x0 is hardwired to 0, no data dependencies on it
         if self.dest == "x0":
