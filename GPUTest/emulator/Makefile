@@ -7,14 +7,32 @@ BLOCKS ?= 1
 START_PC ?= 0
 INPUT ?= meminit.hex
 FORMAT ?= hex
+O ?= 0
 
 # The Interface
 run:
 	$(PYTHON) $(EMULATOR) -t $(THREADS) -b $(BLOCKS) --start-pc $(START_PC) --mem-format $(FORMAT) $(INPUT)
 
+compile-%:
+	mkdir -p build
+	twig ../benchmark/kernels/$*.c --hex-output build/$*.bin --entry kernel_$* -O$(O)
+
+disasm-%: compile-%
+	tool --disasm build/$*.bin > build/$*_disasm.txt
+
+build-%: disasm-%
+	mkdir -p tests/complex_tests/$*
+	awk 'NR>2 && $$3 != "" {print $$3}' build/$*_disasm.txt > tests/complex_tests/$*/$*.hex
+
+test-%:
+	@TEST_ARGS=""; \
+	if [ -n "$(t)" ]; then TEST_ARGS="$$TEST_ARGS -t $(t)"; fi; \
+	if [ -n "$(l)" ]; then TEST_ARGS="$$TEST_ARGS -l $(l)"; fi; \
+	./test_hex.sh $$TEST_ARGS tests/complex_tests/$*/$*.hex
+
 clean:
 	rm -f *.out *.log *.hex
-	rm -rf test_diffs/*
+	rm -rf test_diffs/* build/*
 
 dataclean:
 	find tests/complex_tests -type f \( -name "*_data*" -o -name "*_exp*" \) -name "*.hex" -delete
