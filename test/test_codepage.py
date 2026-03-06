@@ -17,8 +17,7 @@ def has_numpy() -> bool:
 @unittest.skipUnless(is_platform_supported(), "skipping codepage tests")
 class CodePageTestCase(unittest.TestCase):
     def test_add(self):
-        source_file = io.StringIO(
-            """
+        source_file = io.StringIO("""
               module main;
               function int add(int a, int b) {
                 return a + b;
@@ -27,8 +26,7 @@ class CodePageTestCase(unittest.TestCase):
               function int sub(int a, int b) {
                 return a - b;
               }
-            """
-        )
+            """)
         m = load_code_as_module(source_file)
 
         # Cross fingers
@@ -37,14 +35,12 @@ class CodePageTestCase(unittest.TestCase):
 
     def test_floated(self):
         """Test floating point function"""
-        source_file = io.StringIO(
-            """
+        source_file = io.StringIO("""
             module main;
             function double add(double a, int b) {
                 return a + b;
             }
-            """
-        )
+            """)
         m = load_code_as_module(source_file)
         x = m.add(3.14, 101)
         # print(x, type(x))
@@ -61,14 +57,12 @@ class CodePageTestCase(unittest.TestCase):
 
     def test_callback_from_c(self):
         """Test calling a python function from C code"""
-        source = io.StringIO(
-            """
+        source = io.StringIO("""
             int add(int x, int y);
             int x(int a) {
                 return add(a + 1, 13);
             }
-            """
-        )
+            """)
         arch = get_current_arch()
         obj = cc(source, arch, debug=True)
 
@@ -82,8 +76,7 @@ class CodePageTestCase(unittest.TestCase):
 
     def test_jit_example(self):
         """Test loading of C code from jit example"""
-        source = io.StringIO(
-            """
+        source = io.StringIO("""
         int mega_complex_stuff(int* a, int* b, int count) {
           int sum = 0;
           int i;
@@ -91,8 +84,7 @@ class CodePageTestCase(unittest.TestCase):
             sum += a[i] * b[i];
           return sum;
         }
-        """
-        )
+        """)
         arch = get_current_arch()
         html_filename = make_filename(self.id()).with_suffix(".html")
         with html_reporter(html_filename) as reporter:
@@ -114,8 +106,7 @@ class CodePageTestCase(unittest.TestCase):
 )
 class NumpyCodePageTestCase(unittest.TestCase):
     def test_numpy(self):
-        source_file = io.StringIO(
-            """
+        source_file = io.StringIO("""
             module main;
             function int find_first(int *a, int b, int size, int stride) {
                 var int i = 0;
@@ -129,8 +120,7 @@ class NumpyCodePageTestCase(unittest.TestCase):
 
                 return 0xff;
             }
-            """
-        )
+            """)
         html_filename = make_filename(self.id()).with_suffix(".html")
         with html_reporter(html_filename) as reporter:
             m = load_code_as_module(source_file, reporter=reporter)
@@ -149,8 +139,7 @@ class NumpyCodePageTestCase(unittest.TestCase):
 
     def test_numpy_floated(self):
         # TODO: add '10.2' instead of '10'. Somehow, adding 10.2 does not work
-        source_file = io.StringIO(
-            """
+        source_file = io.StringIO("""
             module main;
             function void mlt(double* a, double *b, int size, int stride) {
                 var int i = 0;
@@ -160,8 +149,7 @@ class NumpyCodePageTestCase(unittest.TestCase):
                   ptr += stride;
                 }
             }
-            """
-        )
+            """)
         html_filename = make_filename(self.id()).with_suffix(".html")
         with html_reporter(html_filename) as r:
             m = load_code_as_module(source_file, reporter=r)

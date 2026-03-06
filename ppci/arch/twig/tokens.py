@@ -1,4 +1,4 @@
-from ..token import Token, bit, bit_concat, bit_range
+from ..token import Token, bit_concat, bit_range
 
 
 class TwigRToken(Token):
@@ -13,6 +13,7 @@ class TwigRToken(Token):
     pstart = bit_range(30, 31)
     pend = bit_range(31, 32)
 
+
 class TwigIToken(Token):
     class Info:
         size = 32
@@ -25,6 +26,7 @@ class TwigIToken(Token):
     pstart = bit_range(30, 31)
     pend = bit_range(31, 32)
 
+
 class TwigFToken(Token):
     class Info:
         size = 32
@@ -35,6 +37,7 @@ class TwigFToken(Token):
     pred = bit_range(25, 30)
     pstart = bit_range(30, 31)
     pend = bit_range(31, 32)
+
 
 class TwigSToken(Token):
     class Info:
@@ -48,6 +51,7 @@ class TwigSToken(Token):
     pstart = bit_range(30, 31)
     pend = bit_range(31, 32)
 
+
 class TwigBToken(Token):
     class Info:
         size = 32
@@ -60,6 +64,7 @@ class TwigBToken(Token):
     pstart = bit_range(30, 31)
     pend = bit_range(31, 32)
 
+
 class TwigUToken(Token):
     class Info:
         size = 32
@@ -71,16 +76,18 @@ class TwigUToken(Token):
     pstart = bit_range(30, 31)
     pend = bit_range(31, 32)
 
+
 class TwigCWToken(Token):
     class Info:
         size = 32
 
-    opcode = bit_range(0,7)
-    rd = bit_concat(bit_range(19,23), bit_range(7,13))
-    rs1 = bit_range(13,19)
+    opcode = bit_range(0, 7)
+    rd = bit_concat(bit_range(19, 23), bit_range(7, 13))
+    rs1 = bit_range(13, 19)
     # pred = bit_range(25,30)
     pstart = bit_range(30, 31)
     pend = bit_range(31, 32)
+
 
 class TwigCRToken(Token):
     class Info:
@@ -93,6 +100,7 @@ class TwigCRToken(Token):
     pstart = bit_range(30, 31)
     pend = bit_range(31, 32)
 
+
 class TwigJToken(Token):
     class Info:
         size = 32
@@ -102,6 +110,7 @@ class TwigJToken(Token):
     imm = bit_range(13, 30)
     pstart = bit_range(30, 31)
     pend = bit_range(31, 32)
+
 
 class TwigJrToken(Token):
     class Info:
@@ -114,11 +123,12 @@ class TwigJrToken(Token):
     pstart = bit_range(30, 31)
     pend = bit_range(31, 32)
 
+
 class TwigPToken(Token):
     class Info:
         size = 32
 
-    opcode = bit_range(0,7)
+    opcode = bit_range(0, 7)
     rd = bit_range(7, 13)
     rs1 = bit_range(13, 19)
 
@@ -129,12 +139,51 @@ class TwigPToken(Token):
     pstart = bit_range(30, 31)
     pend = bit_range(31, 32)
 
-#using halt token as nop token
+
+class TwigPDisasToken(Token):
+    """Token for jpnz disassembly with correct ISA field layout:
+    opcode [6:0], rs1/pred [12:7], imm/target [24:13]"""
+
+    class Info:
+        size = 32
+
+    opcode = bit_range(0, 7)
+    rs1 = bit_range(7, 13)
+    imm = bit_range(13, 25)
+
+
+class TwigPredLWToken(Token):
+    """Token for predicate memory instructions (prsw/prlw).
+    Stores/loads a predicate register to/from memory."""
+
+    class Info:
+        size = 32
+
+    opcode = bit_range(0, 7)
+    prd = bit_range(7, 12)
+    rs2 = bit_range(19, 25)  # 6 bits: GPR base address
+    imm = bit_range(13, 19)  # 6 bits: signed offset
+
+
+class TwigPredSWToken(Token):
+    """Token for predicate memory instructions (prsw/prlw).
+    Stores/loads a predicate register to/from memory."""
+
+    class Info:
+        size = 32
+
+    opcode = bit_range(0, 7)
+    prs = bit_range(25, 30)  # 5 bits: pred register index (P0-P31)
+    rs2 = bit_range(19, 25)  # 6 bits: GPR base address
+    imm = bit_range(13, 19)  # 6 bits: signed offset
+
+
+# using halt token as nop token
 class TwigHToken(Token):
     class Info:
         size = 32
 
-    opcode = bit_range(0,7)
+    opcode = bit_range(0, 7)
     # pred = bit_range(25, 30)
     pstart = bit_range(30, 31)
     pend = bit_range(31, 32)

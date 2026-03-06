@@ -3,7 +3,6 @@
 import logging
 import struct
 
-from ... import ir
 from ...arch.arch_info import Endianness
 from ...common import CompilerError
 from .eval import ConstantExpressionEvaluator

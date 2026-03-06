@@ -96,7 +96,9 @@ class DagSplitter:
                 # If the node is a constant, use that
                 if inp.wants_vreg:
                     raise ValueError(f"{inp} does require vreg")
-                children = [mk_tr(i, inherited_pred) for i in inp.node.data_inputs]
+                children = [
+                    mk_tr(i, inherited_pred) for i in inp.node.data_inputs
+                ]
                 child_tree = Tree(
                     str(inp.node.name), *children, value=inp.node.value
                 )
@@ -107,7 +109,7 @@ class DagSplitter:
             assert len(node.data_outputs) <= 1
 
             # Determine data dependencies:
-            curr_pred = getattr(node, 'pred', 0)
+            curr_pred = getattr(node, "pred", 0)
             children = []
             for inp in node.data_inputs:
                 child_tree = mk_tr(inp, curr_pred)

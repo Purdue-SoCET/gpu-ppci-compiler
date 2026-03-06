@@ -8,3 +8,13 @@ __pycache__/
 dist
 build/
 *.xml
+
+*.out
+*.hex
+compiled_binaries/
+
+bin
+venv
+lib
+lib64
+*pyvenv*

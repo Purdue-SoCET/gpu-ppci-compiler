@@ -72,12 +72,10 @@ def c_to_wasm(filename: Path, verbose=False):
 
 def c3_to_wasm(filename: Path, verbose=False):
     """Take c3 to wasm"""
-    bsp = io.StringIO(
-        """
+    bsp = io.StringIO("""
        module bsp;
        public function void putc(byte c);
-       """
-    )
+       """)
     ir_module = c3_to_ir([bsp, libio_filename, filename], [], arch)
 
     # ir_modules.insert(0, ir_modules.pop(-1))  # Shuffle bsp forwards

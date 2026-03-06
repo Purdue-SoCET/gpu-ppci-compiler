@@ -20,8 +20,7 @@ coptions.add_include_path(libc_dir)
 # with open(os.path.join(libc_dir, 'lib.c')) as f:
 #    x = c_to_ir(f, arch, coptions=coptions)
 # Simple C program:
-f = io.StringIO(
-    """
+f = io.StringIO("""
 extern void print_ln(int);
 
 void w00t(int x)
@@ -49,8 +48,7 @@ int sub(int a, int b) {
   return add(a, b) - 133;
 }
 
-"""
-)
+""")
 x = c_to_ir(f, arch, coptions=coptions)
 print(x, x.stats())
 # optimize(x, level='2')

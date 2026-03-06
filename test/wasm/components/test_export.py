@@ -41,8 +41,7 @@ def test_export0():
 
 def test_export1():
     # The canonical form
-    CODE0 = dedent(
-        """
+    CODE0 = dedent("""
     (module
       (type $sig (func))
       (table $t1 2 funcref)
@@ -56,8 +55,7 @@ def test_export1():
       (func $f1 (type $sig)
       )
     )
-    """
-    )
+    """)
 
     # Test main code
     m0 = Module(CODE0)
@@ -70,8 +68,7 @@ def test_export1():
     # Export abbreviations: definitions of func/memory/table/global
     # that are really exports.
 
-    CODE1 = dedent(
-        """
+    CODE1 = dedent("""
     (module
         (type $sig (func))
         (table $t1 (export "bar_table1") 2 funcref)
@@ -82,8 +79,7 @@ def test_export1():
             (type $sig)
         )
     )
-    """
-    )
+    """)
 
     m1 = Module(CODE1)
     assert m1.to_string() == CODE0

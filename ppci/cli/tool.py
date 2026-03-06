@@ -2,26 +2,42 @@ import argparse
 import sys
 import struct
 import io
-from ..api import asm, get_arch
+from ..api import get_arch, asm
+from ..binutils.objectfile import ObjectFile
 
 parser = argparse.ArgumentParser(
     description="Twig Tool: ASM, DisASM, and Format Conversion"
 )
 group = parser.add_mutually_exclusive_group()
 group.add_argument("--asm", help="Assemble source file (.s)", metavar="FILE")
-group.add_argument("--disasm", help="Disassemble file (.hex, .bin, .oj)", metavar="FILE")
+group.add_argument(
+    "--disasm", help="Disassemble file (.hex, .bin, .oj)", metavar="FILE"
+)
 
 # Standalone input for conversion (optional positional argument)
-parser.add_argument("input_file", nargs="?", help="Input file for standalone conversion")
+parser.add_argument(
+    "input_file", nargs="?", help="Input file for standalone conversion"
+)
 
 # Output Format Flags
-parser.add_argument("--hex", action="store_true", help="Output as 8-char hex strings (e.g. 001FE5D3)")
-parser.add_argument("--bit", action="store_true", help="Output as 32-char binary strings (e.g. 0101...)")
-parser.add_argument("--bin", action="store_true", help="Output as raw binary bytes")
+parser.add_argument(
+    "--hex",
+    action="store_true",
+    help="Output as 8-char hex strings (e.g. 001FE5D3)",
+)
+parser.add_argument(
+    "--bit",
+    action="store_true",
+    help="Output as 32-char binary strings (e.g. 0101...)",
+)
+parser.add_argument(
+    "--bin", action="store_true", help="Output as raw binary bytes"
+)
 
 parser.add_argument("-o", "--output", help="Output filename")
 
-arch = get_arch('twig')
+arch = get_arch("twig")
+
 
 def tool(args=None):
     args = parser.parse_args(args)
@@ -33,6 +49,7 @@ def tool(args=None):
         do_convert(args.input_file, args)
     else:
         parser.print_help()
+
 
 def bit_str_to_bytes(filename):
     """
@@ -47,11 +64,12 @@ def bit_str_to_bytes(filename):
         data = bytearray()
         # Process in 32-bit chunks (Twig word size)
         for i in range(0, len(content), 32):
-            word_str = content[i:i + 32]
-            if not word_str: break
+            word_str = content[i : i + 32]
+            if not word_str:
+                break
             # Pad to 32 bits if the last segment is shorter
             if len(word_str) < 32:
-                word_str = word_str.ljust(32, '0')
+                word_str = word_str.ljust(32, "0")
 
             # Convert bit-string to int and pack as Little Endian
             val = int(word_str, 2)
@@ -60,6 +78,7 @@ def bit_str_to_bytes(filename):
     except Exception as e:
         print(f"Error parsing bit string file: {e}")
         sys.exit(1)
+
 
 def bytes_to_hex_str(data):
     """Converts bytes to a list of 8-character Hex strings."""
@@ -70,10 +89,11 @@ def bytes_to_hex_str(data):
         data += b"\x00" * (4 - pad)
 
     for i in range(0, len(data), 4):
-        chunk = data[i: i + 4]
+        chunk = data[i : i + 4]
         val = int.from_bytes(chunk, byteorder="little")
         lines.append(f"{val:08X}")
     return lines
+
 
 def bytes_to_bit_str(data):
     """Converts bytes to a list of 32-character binary strings (0101...)."""
@@ -83,18 +103,28 @@ def bytes_to_bit_str(data):
         data += b"\x00" * (4 - pad)
 
     for i in range(0, len(data), 4):
-        chunk = data[i:i + 4]
+        chunk = data[i : i + 4]
         val = int.from_bytes(chunk, byteorder="little")
         lines.append(f"{val:032b}")
     return lines
 
+
 def do_convert(input_file, args):
-    """Handles format conversion between Bin, Bit-strings, and Hex-strings."""
+    """Handles format conversion between Bin,
+    Bit-strings, Hex-strings, and .oj."""
     print(f"Converting {input_file}...")
 
-    # 1. Read Input (Detect if it's a bit-string text file or raw binary)
-    # Usually .hex or .txt in this project refers to '0101' text
-    if input_file.endswith(".hex") or input_file.endswith(".txt"):
+    # 1. Read Input
+    if input_file.endswith(".oj"):
+        # Object file: extract code section
+        with open(input_file, "r") as f:
+            obj = ObjectFile.load(f)
+        if obj.has_section("code"):
+            raw_data = obj.get_section("code").data
+        else:
+            raw_data = b""
+    elif input_file.endswith((".hex", ".txt", ".bin")):
+        # Bit-string text file
         raw_data = bit_str_to_bytes(input_file)
     else:
         with open(input_file, "rb") as f:
@@ -127,18 +157,37 @@ def do_convert(input_file, args):
         print("Error: Please specify output format (--hex, --bit, or --bin)")
         sys.exit(1)
 
+
 def do_asm(args):
     """Assembles and outputs in the requested format."""
     print(f"Assembling {args.asm}...")
     try:
+        from ..api import link
+        from ..binutils.layout import Layout, Memory, Section
+
         with open(args.asm, "r") as f:
             obj = asm(f, arch)
+
+        layout = Layout()
+        mem = Memory("flash")
+        mem.location = 0x0
+        mem.size = 0x400000  # Give it ample space
+        mem.add_input(Section("code"))
+        layout.add_memory(mem)
+
+        obj = link([obj], layout=layout)
     except Exception as e:
         print(f"Assembly failed: {e}")
         sys.exit(1)
 
-    image = obj.get_image("code") or (obj.images[0] if obj.images else None)
-    raw_data = image.data if image else b""
+    if "code" in obj.image_map:
+        raw_data = obj.get_image("code").data
+    elif obj.images:
+        raw_data = obj.images[0].data
+    elif obj.has_section("code"):
+        raw_data = obj.get_section("code").data
+    else:
+        raw_data = b""
 
     if args.hex:
         lines = bytes_to_hex_str(raw_data)
@@ -154,26 +203,30 @@ def do_asm(args):
     else:
         obj.save(open(args.output or "a.out.oj", "w"))
 
+
 def do_disasm(args):
-    """Handles disassembly with a robust fallback for JAL/Label instructions."""
+    """Handles disassembly with a robust fallback for
+    JAL/Label instructions."""
     filename = args.disasm
     print(f"Disassembling {filename}...")
 
     from ..api import get_arch
-    arch = get_arch('twig')
-    raw_data = b''
 
-    # 1. Input detection (Same as before)
-    is_hex_input = args.hex or filename.endswith('.hex')
-    is_obj_input = filename.endswith('.oj')
+    arch = get_arch("twig")
+    raw_data = b""
 
-    if is_hex_input:
+    # 1. Input detection
+    # .hex, .txt, and .bin in this project refer to '0101' bit-string text
+    is_bit_input = args.hex or filename.endswith((".hex", ".txt", ".bin"))
+    is_obj_input = filename.endswith(".oj")
+
+    if is_bit_input:
         raw_data = bit_str_to_bytes(filename)
     elif is_obj_input:
         # ... object file loading logic ...
         pass
     else:
-        with open(filename, 'rb') as f:
+        with open(filename, "rb") as f:
             raw_data = f.read()
 
     print(f"{'Addr':<8} | {'Hex':<8} | {'Instruction'}")
@@ -183,12 +236,11 @@ def do_disasm(args):
     addr = 0
 
     while f_stream.tell() < len(raw_data):
-        current_pos = f_stream.tell()
         chunk = f_stream.read(4)
         if len(chunk) < 4:
             break
 
-        val = int.from_bytes(chunk, byteorder='little')
+        val = int.from_bytes(chunk, byteorder="little")
         decoded_ins = None
 
         # --- Standard PPCI Decoding ---
@@ -214,7 +266,7 @@ def do_disasm(args):
                 # 17-bit immediate value
                 imm_val = (val >> 13) & 0x1FFFF
 
-                # Sign extension for 17-bit (optional but helpful for negative jumps)
+                # Sign extension for 17-bit
                 if imm_val & 0x10000:
                     imm_val -= 0x20000
 
@@ -224,6 +276,7 @@ def do_disasm(args):
                 print(f"{addr:08X} | {val:08X} | dd {val}")
 
         addr += 4
+
 
 if __name__ == "__main__":
     sys.exit(tool())

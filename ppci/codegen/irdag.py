@@ -261,26 +261,27 @@ class SelectionGraphBuilder:
         return self.function_info.value_map[node]
 
     def do_predicate_annotation(self, node):
-        """ Ignore predicate annotations during DAG building. """
+        """Ignore predicate annotations during DAG building."""
         pass  # This is purely an annotation, do not add to DAG
 
     def do_p_jump(self, node):
-        """ Process predicated jump (PJump) into the DAG.
+        """Process predicated jump (PJump) into the DAG.
         This is a terminal instruction.
         """
 
         # if node.lab_yes not in self.function_info.label_map:
-        #     print(f"WARNING: {node.lab_yes} was missing. Creating placeholder.")
-        #     # You must verify what object type 'label_map' expects.
-        #     # Usually it is a Label object from ppci.ir or similar.
-        #     self.function_info.label_map[node.lab_yes] = node.lab_yes
+        #     print(f"WARNING: {node.lab_yes} was missing.")
+        #     self.function_info.label_map[
+        #         node.lab_yes
+        #     ] = node.lab_yes
 
-        # # Check if the 'no' label exists (good practice to check both)
         # if node.lab_no not in self.function_info.label_map:
-        #     print(f"WARNING: {node.lab_no} was missing. Creating placeholder.")
-        #     self.function_info.label_map[node.lab_no] = node.lab_no
+        #     print(f"WARNING: {node.lab_no} was missing.")
+        #     self.function_info.label_map[
+        #         node.lab_no
+        #     ] = node.lab_no
 
-        sgnode = self.new_node("PJMP", None) # (main_blockX == 0 ?)
+        sgnode = self.new_node("PJMP", None)  # (main_blockX == 0 ?)
         sgnode.value = (
             node.pred_yes_id,
             self.function_info.label_map[node.lab_yes],
@@ -290,7 +291,7 @@ class SelectionGraphBuilder:
         self.debug_db.map(node, sgnode)
 
     def do_s_jump(self, node):
-        """ Process predicated jump (SJump) into the DAG.
+        """Process predicated jump (SJump) into the DAG.
         This is a terminal instruction.
         """
         lhs = self.get_value(node.a)
@@ -300,14 +301,14 @@ class SelectionGraphBuilder:
             node.cond,
             self.function_info.label_map[node.lab_yes],
             node.pred_yes_id,
-            getattr(node, 'pred', 0)
+            getattr(node, "pred", 0),
         )
 
         self.chain(sgnode)
         self.debug_db.map(node, sgnode)
 
     def do_b_jump(self, node):
-        """ Process predicated jump (BJump) into the DAG.
+        """Process predicated jump (BJump) into the DAG.
         This is a terminal instruction.
         """
         lhs = self.get_value(node.a)
@@ -319,7 +320,7 @@ class SelectionGraphBuilder:
             self.function_info.label_map[node.lab_no],
             node.pred_yes_id,
             node.pred_no_id,
-            getattr(node, 'pred', 0)
+            getattr(node, "pred", 0),
         )
 
         self.chain(sgnode)
@@ -507,6 +508,19 @@ class SelectionGraphBuilder:
         op = names[node.operation]
         a = self.get_value(node.a)
         sgnode = self.new_node(op, node.ty, a)
+        self.debug_db.map(node, sgnode)
+        self.add_map(node, sgnode.new_output(node.name))
+
+    def do_compare_set(self, node):
+        """Process CompareSet into DAG as a CMPSET node.
+
+        Produces an integer 1/0 result from a comparison.
+        The comparison operator is stored in sgnode.value.
+        """
+        a = self.get_value(node.a)
+        b = self.get_value(node.b)
+        sgnode = self.new_node("CMPSET", node.ty, a, b)
+        sgnode.value = node.cond
         self.debug_db.map(node, sgnode)
         self.add_map(node, sgnode.new_output(node.name))
 
