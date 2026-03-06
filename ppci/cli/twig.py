@@ -45,7 +45,7 @@ def twig(args=None):
                     ast = create_ast(src, march.info, filename=filename, coptions=coptions)
                     printer.print(ast)
         else:
-            # 1. Compile sources to IR
+            # Compile sources to IR
             ir_modules = []
             for src in args.sources:
                 ir_module = api.c_to_ir(src, march, coptions=coptions, reporter=log_setup.reporter)
@@ -59,7 +59,8 @@ def twig(args=None):
             if args.ir or args.c or args.S:
                 do_compile(ir_modules, march, log_setup.reporter, log_setup.args)
             else:
-                # 2. Compile IR to Object (in-memory)
+                # Compile IR to Object (in-memory)
+                march.entry_symbol = args.entry
                 obj = api.ir_to_object(
                     ir_modules,
                     march,
@@ -67,7 +68,7 @@ def twig(args=None):
                     debug=args.g
                 )
 
-                # 3. Prepare Layout
+                # Prepare Layout
                 if args.layout:
                     with open(args.layout, 'r') as f:
                         layout_obj = Layout.load(f)
@@ -107,6 +108,7 @@ def twig(args=None):
 # Heap (3.75GB): 0x1000_0000 - 0xF0FF_FFFC
 # Stack (250MB): 0xF100_0000 - 0xFFFF_FFFC
 ##############################################
+
 DEFAULT_LAYOUT = """
 MEMORY mmio LOCATION=0x00000000 SIZE=0x00000024 {
     DEFINESYMBOL(mmio_base)
