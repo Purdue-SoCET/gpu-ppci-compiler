@@ -257,7 +257,6 @@ class TwigArch(Architecture):
             R60,
             R61,
             R62,
-            R63,
         )  # + tuple(predregisters)
 
     def branch(self, reg, lab):
@@ -314,22 +313,19 @@ class TwigArch(Architecture):
             upper_8 = (offset >> 24) & 0xFF
             middle_12 = (offset >> 12) & 0xFFF
             lower_12 = (offset) & 0xFFF
-            if middle_12 != 0 or upper_8 != 0:
-                yield Lmi(R11, middle_12, pred)
-                yield Lui(R11, upper_8, pred)
-            else:
-                yield Addi(R11, R0, 0, pred)
-            if lower_12 != 0:
-                yield Lli(R11, lower_12, pred)
+            yield Lui(R63, upper_8, pred)
+            yield Lmi(R63, middle_12, pred)
+            yield Lli(R63, lower_12, pred)
+
             if instruction == "addi":
-                yield Add(r1, r2, R11, pred)
+                yield Add(r1, r2, R63, pred)
             if instruction == "lw":
                 # r2 is the address; add offset for new address
-                yield Add(R11, r2, R11, pred)
-                yield Lw(r1, 0, R11, pred)
+                yield Add(R63, r2, R63, pred)
+                yield Lw(r1, 0, R63, pred)
             if instruction == "sw":
-                yield Add(R11, r2, R11, pred)
-                yield Sw(r1, 0, R11, pred)
+                yield Add(R63, r2, R63, pred)
+                yield Sw(r1, 0, R63, pred)
         return
 
     def gen_twig_memcpy(self, dst, src, tmp, size, pred=0):
@@ -474,6 +470,9 @@ class TwigArch(Architecture):
         totalstack = round_up(
             stack_size + savespace + outspace + lrfpspace + predsavespace
         )
+        print("TOTALSTACK:" + str(totalstack))
+        print("SAVESPACE:" + str(savespace))
+        print("CALLEEREGS:" + str(calleeregs))
         if totalstack > 0:
             yield from self.immUsed(SP, SP, -totalstack, "addi")
 
@@ -619,21 +618,21 @@ class TwigArch(Architecture):
 
         # --- Save active predicates before call ---
         # Save P0..P[pred] to the predicate save area on the stack.
-        # Compute base address of pred save area in R11.
+        # Compute base address of pred save area in R63.
         pred_save_offset = self._get_pred_save_offset(frame)
-        yield from self.immUsed(R11, FP, pred_save_offset, "addi")
+        yield from self.immUsed(R63, FP, pred_save_offset, "addi")
         for i in range(pred + 1):
-            yield Prsw(i, R11, i * 4)
+            yield Prsw(i, R63, i * 4)
         # Initialize callee's P0 from caller's active predicate
         if pred != 0:
-            yield Prlw(0, R11, pred * 4)  # P0 = saved P[pred]
+            yield Prlw(0, R63, pred * 4)  # P0 = saved P[pred]
 
         yield self.branch(LR, label)
 
         # --- Restore predicates after call returns ---
-        yield from self.immUsed(R11, FP, pred_save_offset, "addi")
+        yield from self.immUsed(R63, FP, pred_save_offset, "addi")
         for i in range(pred + 1):
-            yield Prlw(i, R11, i * 4)
+            yield Prlw(i, R63, i * 4)
 
         if rv:
             retval_loc = self.determine_rv_location(rv[0])
@@ -655,9 +654,9 @@ class TwigArch(Architecture):
                 yield self.move(arg, arg_loc)
             elif isinstance(arg_loc, StackLocation):
                 if isinstance(arg, TwigRegister):
-                    yield from self.immUsed(R11, FP, -(8 * NUM_THREADS), "lw")
+                    yield from self.immUsed(R63, FP, -(8 * NUM_THREADS), "lw")
                     yield from self.immUsed(
-                        arg, R11, arg_loc.offset * NUM_THREADS, "lw"
+                        arg, R63, arg_loc.offset * NUM_THREADS, "lw"
                     )
                     # Code.fprel = True
                     # yield Code

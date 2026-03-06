@@ -442,7 +442,6 @@ register_classes_swfp = [
             R60,
             R61,
             R62,
-            R63,
         ],
     )
 ]
