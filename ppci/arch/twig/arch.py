@@ -1,16 +1,13 @@
 """TWIG architecture."""
 
-import io
-import sys
 import logging
-from collections import defaultdict
 
 from ... import ir
 from ...binutils.assembler import BaseAssembler
 from ..arch import Architecture
 from ..arch_info import ArchInfo, TypeInfo
-from ..data_instructions import DByte, DZero, data_isa
-from ..generic_instructions import *
+from ..data_instructions import DByte, data_isa
+from ..generic_instructions import Label, Global, Alignment, RegisterUseDef
 from ..encoding import Instruction
 from ..stack import FramePointerLocation, StackLocation
 from .asm_printer import TwigAsmPrinter
@@ -745,32 +742,6 @@ class TwigArch(Architecture):
         return saved_registers
 
     def packetize(self, instructions, max_packet_size=None):
-        if not self.logger.handlers:
-            handler = logging.StreamHandler(sys.stdout)
-            formatter = logging.Formatter(
-                "%(asctime)s | %(levelname)8s | %(name)10s | %(message)s"
-            )
-            handler.setFormatter(formatter)
-            self.logger.addHandler(handler)
-            self.logger.propagate = False
-        self.logger.setLevel(logging.getLogger("ppci").level)
-
-        def get_inst_info(inst):
-            reads = set(str(r) for r in getattr(inst, "used_registers", []))
-            writes = set(
-                str(r) for r in getattr(inst, "defined_registers", [])
-            )
-
-            is_mem_read = getattr(inst, "is_mem_read", False)
-            is_mem_write = getattr(inst, "is_mem_write", False)
-            is_branch = getattr(inst, "is_branch", False)
-
-            # x0 always be 0, no data hazard
-            reads.discard("x0")
-            writes.discard("x0")
-
-            return reads, writes, is_mem_read, is_mem_write, is_branch
-
         # --- Partition into Basic Blocks ---
         blocks = []
         current_block = []
@@ -804,7 +775,7 @@ class TwigArch(Architecture):
         if current_block:
             blocks.append(current_block)
 
-        # --- Build Data Dependency Graph and execute Greedy Packetize for each Basic Block ---
+        # --- Build Data Dependency Graph and Greedy Packetize ---
         new_instructions = []
 
         for block_idx, block in enumerate(blocks):
@@ -881,7 +852,8 @@ class TwigArch(Architecture):
                 self.logger.debug("--- Packets for %s ---", block_name)
 
             while len(scheduled_set) < N:
-                # Get all instructions whose dependencies have been completely met
+                # Get all instructions whose dependencies have been completely
+                # met
                 ready_list = [
                     i
                     for i in range(N)
@@ -889,7 +861,8 @@ class TwigArch(Architecture):
                     and all(dep in scheduled_set for dep in backward_edges[i])
                 ]
 
-                # Sort to maintain original order when there are no dependencies, ensuring stable output
+                # Sort to maintain original order when there are no
+                # dependencies, ensuring stable output
                 ready_list.sort()
 
                 if not ready_list:
@@ -929,3 +902,18 @@ class TwigArch(Architecture):
 
 def round_up(s):
     return s + (16 - s % 16)
+
+
+def get_inst_info(instr):
+    reads = set(str(r) for r in getattr(instr, "used_registers", []))
+    writes = set(str(r) for r in getattr(instr, "defined_registers", []))
+
+    is_mem_read = getattr(instr, "is_mem_read", False)
+    is_mem_write = getattr(instr, "is_mem_write", False)
+    is_branch = getattr(instr, "is_branch", False)
+
+    # x0 always be 0, no data hazard
+    reads.discard("x0")
+    writes.discard("x0")
+
+    return reads, writes, is_mem_read, is_mem_write, is_branch
