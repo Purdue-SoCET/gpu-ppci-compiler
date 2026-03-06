@@ -31,7 +31,7 @@ function void main()
 io_module = open("../../librt/io.c3").read()
 includes = [io.StringIO(bsp)]
 
-## Compiling
+# Compiling
 
 debug_db = debuginfo.DebugDb()
 
@@ -46,7 +46,7 @@ native.previous("ir").to("python").run(
 )  # this injects main() in globals
 
 
-## Reporting
+# Reporting
 
 # Report chain of representations that the code went through
 print(native.chain)
@@ -60,7 +60,7 @@ print("========== IR ==========")
 print(native.previous().get_report())
 
 
-## Running
+# Running
 
 # Run in memory, using API that is the same for all MachineCode representations
 

@@ -8,7 +8,7 @@ import webbrowser
 
 from ppci import wasm
 
-## Define WASM module using pure WAT
+# Define WASM module using pure WAT
 
 # This is great if you like writing WASM by hand. Abbreviations are
 # automatically resolved (e.g. inline signatures and nested
@@ -35,7 +35,7 @@ wa1.show()
 wa1.show_bytes()
 
 
-## Define WASM module using tuples
+# Define WASM module using tuples
 
 # When programatically generating WAT code, it's usually easier to
 # build up a list of instructions as tuples. Abbvreviations can still
@@ -71,7 +71,7 @@ wa2 = wasm.Module(
 assert wa2.to_bytes() == wa1.to_bytes()
 
 
-## Define WASM module using Component instances
+# Define WASM module using Component instances
 
 # We can also use the internal component classes directly. This offers
 # a more direct and explicit way to define a Module, but we can no longer
@@ -122,7 +122,7 @@ wa3 = wasm.Module(
 assert wa3.to_bytes() == wa1.to_bytes()
 
 
-## Recursion ...
+# Recursion ...
 
 # The text representation of a module produces an exact copy
 assert wasm.Module(wa1.to_string()).to_bytes() == wa1.to_bytes()
@@ -134,7 +134,7 @@ assert wasm.Module(*list(wa1)).to_bytes() == wa1.to_bytes()
 assert wasm.Module(wa1.to_bytes()).to_bytes() == wa1.to_bytes()
 
 
-## Let's run it
+# Let's run it
 
 wasm.run_wasm_in_node(wa1)
 

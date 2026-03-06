@@ -8,33 +8,33 @@ from ppci.common import CompilerError
 # flake8: noqa: W291, W293
 
 # Below the example as of wikipedia:
-hello_world_source = """   \t  H\t   
+hello_world_source = """   \t  H\t
 \t
      \t\t  e\t \t
 \t
-     \t\t l\t\t  
+     \t\t l\t\t
 \t
-     \t\t l\t\t  
+     \t\t l\t\t
 \t
      \t\t o\t\t\t\t
 \t
-     \t ,\t\t  
+     \t ,\t\t
 \t
-     \t     
+     \t
 \t
      \t\t\t W\t\t\t
 \t
      \t\t o\t\t\t\t
 \t
-     \t\t\tr  \t 
+     \t\t\tr  \t
 \t
-     \t\t l\t\t  
+     \t\t l\t\t
 \t
-     \t\t  d\t  
+     \t\t  d\t
 \t
      \t    !\t
 \t
-  
+
 
 
 """

@@ -65,7 +65,7 @@ while n < max:
 return i
 """
 
-## Run in memory
+# Run in memory
 
 arch = get_current_arch()
 
