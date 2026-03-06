@@ -39,7 +39,10 @@ test:
 	$(PYTHON) -m pytest
 
 link:
-	$(TWIG) test.c
+	$(TWIG) src/test.c src/a.c
+
+debug:
+	$(TWIG) -S src/test.c --log debug
 
 disasm:
 	$(TOOL) --disasm meminit.hex > disasm.S
