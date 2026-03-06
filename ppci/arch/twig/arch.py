@@ -687,7 +687,7 @@ class TwigArch(Architecture):
         if current_block:
             blocks.append(current_block)
 
-        # --- Build DDG and execute Greedy Packetize for each Basic Block ---
+        # --- Build Data Dependency Graph and execute Greedy Packetize for each Basic Block ---
         new_instructions = []
 
         for block_idx, block in enumerate(blocks):
@@ -738,7 +738,7 @@ class TwigArch(Architecture):
 
             # Print DDG
             if self.logger.isEnabledFor(logging.DEBUG):
-                self.logger.debug("\n=== Basic Block: %s ===", block_name)
+                self.logger.debug("=== Basic Block: %s ===", block_name)
                 for i, inst in enumerate(block):
                     deps = backward_edges_debug[i]
                     dep_str = ", ".join([f"[{src}]: {dtype}" for src, dtype in deps])
@@ -746,7 +746,7 @@ class TwigArch(Architecture):
                         dep_str = "None"
                     self.logger.debug("  [%2d] %-20s -> Deps: %s", i, str(inst), dep_str)
 
-            # --- Greedy Packetize ---
+            # Greedy Packetize
             scheduled_set = set()
             packet_count = 0
 
