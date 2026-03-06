@@ -38,12 +38,12 @@ class TwigRInstruction(Instruction):
     tokens = [TwigRToken]
     isa = isa
 
-
     def encode(self):
         tokens = self.get_tokens()
-        tokens[0].pstart = 1 if getattr(self, 'is_packet_start', False) else 0
-        tokens[0].pend = 1 if getattr(self, 'is_packet_end', False) else 0
+        tokens[0].pstart = 1 if getattr(self, "is_packet_start", False) else 0
+        tokens[0].pend = 1 if getattr(self, "is_packet_end", False) else 0
         return tokens.encode()
+
 
 def make_r(mnemonic, opcode):
     rd = Operand("rd", TwigRegister, write=True)
@@ -212,6 +212,7 @@ class Sin(TwigFInstruction):
         tokens[0][13:19] = self.rs1.num
         tokens[0][25:29] = self.pred
         return tokens[0].encode()
+
 
 class Isqrt(TwigFInstruction):
     rd = Operand("rd", TwigRegister, write=True)
@@ -428,11 +429,7 @@ class Bl_disasm(TwigJInstruction):
     rd = Operand("rd", TwigRegister, write=True)
     imm = Operand("imm", int)
     syntax = Syntax(["jal", " ", rd, ",", " ", imm])
-    patterns = {
-        "opcode": 0b1100000,
-        "rd": rd,
-        "imm": imm
-    }
+    patterns = {"opcode": 0b1100000, "rd": rd, "imm": imm}
     is_branch = True
     is_mem_read = False
     is_mem_write = False
@@ -457,11 +454,7 @@ class Bl(TwigJInstruction):
     rd = Operand("rd", TwigRegister, write=True)
     imm = Operand("imm", str)
     syntax = Syntax(["jal", " ", rd, ",", " ", imm])
-    patterns = {
-        "opcode": 0b1100000,
-        "rd": rd,
-        "imm": imm
-    }
+    patterns = {"opcode": 0b1100000, "rd": rd, "imm": imm}
     is_branch = True
     is_mem_read = False
     is_mem_write = False
@@ -489,14 +482,9 @@ class Blr(TwigJrInstruction):
     target = Operand("target", str)
     rd = Operand("rd", TwigRegister, write=True)
     rs1 = Operand("rs1", TwigRegister, read=True)
-    imm = Operand("imm", int)   # TODO: int or str (jal take str)
+    imm = Operand("imm", int)  # TODO: int or str (jal take str)
     syntax = Syntax(["jalr", " ", rd, ",", " ", rs1, ",", " ", imm])
-    patterns = {
-        "opcode": 0b0100011,
-        "rd": rd,
-        "rs1": rs1,
-        "imm": imm
-    }
+    patterns = {"opcode": 0b0100011, "rd": rd, "rs1": rs1, "imm": imm}
     is_branch = True
     is_mem_read = False
     is_mem_write = False

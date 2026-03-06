@@ -33,7 +33,7 @@ class PacketizeStream(OutputStream):
     def flush(self):
         """Process the buffered items and flush downstream."""
         if self._buffer:
-            if hasattr(self._arch, 'packetize'):
+            if hasattr(self._arch, "packetize"):
                 self._arch.packetize(self._buffer)
             else:
                 pass

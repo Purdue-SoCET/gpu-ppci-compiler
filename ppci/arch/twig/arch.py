@@ -137,6 +137,7 @@ PRED_SAVE_SPACE = 128
 # sp = w*stack_size + BASE_STACK + (tid%32)*4
 BASE_STACK = 0x100000
 
+
 class TwigAssembler(BaseAssembler):
     def __init__(self):
         super().__init__()
@@ -746,23 +747,27 @@ class TwigArch(Architecture):
     def packetize(self, instructions, max_packet_size=None):
         if not self.logger.handlers:
             handler = logging.StreamHandler(sys.stdout)
-            formatter = logging.Formatter('%(asctime)s | %(levelname)8s | %(name)10s | %(message)s')
+            formatter = logging.Formatter(
+                "%(asctime)s | %(levelname)8s | %(name)10s | %(message)s"
+            )
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
             self.logger.propagate = False
         self.logger.setLevel(logging.getLogger("ppci").level)
 
         def get_inst_info(inst):
-            reads = set(str(r) for r in getattr(inst, 'used_registers', []))
-            writes = set(str(r) for r in getattr(inst, 'defined_registers', []))
+            reads = set(str(r) for r in getattr(inst, "used_registers", []))
+            writes = set(
+                str(r) for r in getattr(inst, "defined_registers", [])
+            )
 
-            is_mem_read = getattr(inst, 'is_mem_read', False)
-            is_mem_write = getattr(inst, 'is_mem_write', False)
-            is_branch = getattr(inst, 'is_branch', False)
+            is_mem_read = getattr(inst, "is_mem_read", False)
+            is_mem_write = getattr(inst, "is_mem_write", False)
+            is_branch = getattr(inst, "is_branch", False)
 
             # x0 always be 0, no data hazard
-            reads.discard('x0')
-            writes.discard('x0')
+            reads.discard("x0")
+            writes.discard("x0")
 
             return reads, writes, is_mem_read, is_mem_write, is_branch
 
@@ -776,7 +781,9 @@ class TwigArch(Architecture):
             instr.is_packet_start = False
             instr.is_packet_end = False
 
-            if isinstance(instr, (Label, Global, Alignment)) or not isinstance(instr, Instruction):
+            if isinstance(instr, (Label, Global, Alignment)) or not isinstance(
+                instr, Instruction
+            ):
                 if current_block:
                     blocks.append(current_block)
                     current_block = []
@@ -790,7 +797,7 @@ class TwigArch(Architecture):
             current_block.append(instr)
 
             # End the current Basic Block if it is a branch or jump instruction
-            if getattr(instr, 'is_branch', False):
+            if getattr(instr, "is_branch", False):
                 blocks.append(current_block)
                 current_block = []
 
@@ -802,7 +809,9 @@ class TwigArch(Architecture):
 
         for block_idx, block in enumerate(blocks):
             # For non-instructions, place in order
-            if len(block) <= 1 and (not block or not isinstance(block[0], Instruction)):
+            if len(block) <= 1 and (
+                not block or not isinstance(block[0], Instruction)
+            ):
                 new_instructions.extend(block)
                 continue
 
@@ -813,10 +822,14 @@ class TwigArch(Architecture):
 
             # Build Data Dependency Graph (DDG)
             for i in range(N):
-                reads_i, writes_i, is_mem_r_i, is_mem_w_i, is_br_i = get_inst_info(block[i])
+                reads_i, writes_i, is_mem_r_i, is_mem_w_i, is_br_i = (
+                    get_inst_info(block[i])
+                )
 
                 for j in range(i - 1, -1, -1):
-                    reads_j, writes_j, is_mem_r_j, is_mem_w_j, is_br_j = get_inst_info(block[j])
+                    reads_j, writes_j, is_mem_r_j, is_mem_w_j, is_br_j = (
+                        get_inst_info(block[j])
+                    )
 
                     # Data Hazard
                     has_dep = False
@@ -851,10 +864,14 @@ class TwigArch(Architecture):
                 self.logger.debug("=== Basic Block: %s ===", block_name)
                 for i, inst in enumerate(block):
                     deps = backward_edges_debug[i]
-                    dep_str = ", ".join([f"[{src}]: {dtype}" for src, dtype in deps])
+                    dep_str = ", ".join(
+                        [f"[{src}]: {dtype}" for src, dtype in deps]
+                    )
                     if not dep_str:
                         dep_str = "None"
-                    self.logger.debug("  [%2d] %-20s -> Deps: %s", i, str(inst), dep_str)
+                    self.logger.debug(
+                        "  [%2d] %-20s -> Deps: %s", i, str(inst), dep_str
+                    )
 
             # Greedy Packetize
             scheduled_set = set()
@@ -865,8 +882,12 @@ class TwigArch(Architecture):
 
             while len(scheduled_set) < N:
                 # Get all instructions whose dependencies have been completely met
-                ready_list = [i for i in range(N) if i not in scheduled_set
-                              and all(dep in scheduled_set for dep in backward_edges[i])]
+                ready_list = [
+                    i
+                    for i in range(N)
+                    if i not in scheduled_set
+                    and all(dep in scheduled_set for dep in backward_edges[i])
+                ]
 
                 # Sort to maintain original order when there are no dependencies, ensuring stable output
                 ready_list.sort()
@@ -875,7 +896,11 @@ class TwigArch(Architecture):
                     raise RuntimeError("DDG Cycle detected")
 
                 # Form the Packet
-                packet_idx = ready_list[:max_packet_size] if max_packet_size else ready_list
+                packet_idx = (
+                    ready_list[:max_packet_size]
+                    if max_packet_size
+                    else ready_list
+                )
                 packet = [block[i] for i in packet_idx]
 
                 packet_count += 1
@@ -900,6 +925,7 @@ class TwigArch(Architecture):
         # Replace the original instruction list
         # Passing the reordered result directly to the downstream stream filter
         instructions[:] = new_instructions
+
 
 def round_up(s):
     return s + (16 - s % 16)
