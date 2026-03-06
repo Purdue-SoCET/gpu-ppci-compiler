@@ -81,16 +81,18 @@ int main(int argc, char** argv) {
 
         // Definition
         // Front Face
-        MAKE_VERTEX(verts[0], -10, -10, -20, 0, 0); // BL
-        MAKE_VERTEX(verts[1], -10,  10, -20, 0, 1); // TL
-        MAKE_VERTEX(verts[2],  10, -10, -20, 1, 0); // BR
-        MAKE_VERTEX(verts[3],  10,  10, -20, 1, 1); // TR
+        for(int i = 0; i < 4; i++){
+            MAKE_VERTEX(verts[i*8 + 0], -10, -10, -20, 0, 0); // BL
+            MAKE_VERTEX(verts[i*8 + 1], -10,  10, -20, 0, 1); // TL
+            MAKE_VERTEX(verts[i*8 + 2],  10, -10, -20, 1, 0); // BR
+            MAKE_VERTEX(verts[i*8 + 3],  10,  10, -20, 1, 1); // TR
 
-        // Back Face
-        MAKE_VERTEX(verts[4], -10, -10, -40, 0, 1); // BL
-        MAKE_VERTEX(verts[5], -10,  10, -40, 1, 1); // TL
-        MAKE_VERTEX(verts[6],  10, -10, -40, 0, 0); // BR
-        MAKE_VERTEX(verts[7],  10,  10, -40, 1, 0); // TR
+            // Back Face
+            MAKE_VERTEX(verts[i*8 + 4], -10, -10, -40, 0, 1); // BL
+            MAKE_VERTEX(verts[i*8 + 5], -10,  10, -40, 1, 1); // TL
+            MAKE_VERTEX(verts[i*8 + 6],  10, -10, -40, 0, 0); // BR
+            MAKE_VERTEX(verts[i*8 + 7],  10,  10, -40, 1, 0); // TR
+        }
 
     // Triangles
         const int num_tris = 12;

@@ -24,6 +24,12 @@ build-%: disasm-%
 	mkdir -p tests/complex_tests/$*
 	awk 'NR>2 && $$3 != "" {print $$3}' build/$*_disasm.txt > tests/complex_tests/$*/$*.hex
 
+test-%:
+	@TEST_ARGS=""; \
+	if [ -n "$(t)" ]; then TEST_ARGS="$$TEST_ARGS -t $(t)"; fi; \
+	if [ -n "$(l)" ]; then TEST_ARGS="$$TEST_ARGS -l $(l)"; fi; \
+	./test_hex.sh $$TEST_ARGS tests/complex_tests/$*/$*.hex
+
 clean:
 	rm -f *.out *.log *.hex
 	rm -rf test_diffs/* build/*

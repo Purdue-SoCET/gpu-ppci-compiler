@@ -18,6 +18,17 @@ python3 src/emulator.py -t 1024 meminit.bin             # Run with 1024 threads
 python3 src/emulator.py -h                              # Show help menu with all options
 ```
 
+## Make Commands
+The `Makefile` inside the `emulator` directory includes a variety of commands for test compilation and execution.
+
+- `make test-[kernel_name]`: tests the emulator with a test from `tests/complex_tests/[kernel_name]` where `[kernel_name].hex` is the compiled kernel and the data is received from `make data`.
+- `make compile-[kernel_name]`: Compiles a specified C kernel (e.g., `add`) from `../benchmark/kernels/` using `twig`. Specific optimization levels can be set using `O` (default `0`), for example: `make compile-add O=2`.
+- `make disasm-[kernel_name]`: Runs `compile-[kernel_name]` and disassembles the compiled binary to `build/[kernel_name]_disasm.txt`.
+- `make build-[kernel_name]`: Runs `disasm-[kernel_name]` and extracts the raw hexadecimal machine code stream into `tests/complex_tests/[kernel_name]/[kernel_name].hex`.
+- `make clean`: Cleans generated log/output files (`.out`, `.log`, `.hex`) and clears the `test_diffs` and `build` directories.
+- `make data`: Copies test input and output reference files from `../benchmark/build/` into `tests/complex_tests/` to use as data/expected parameters for emulator runs.
+- `make dataclean`: Deletes the reference `_data.hex` and `_exp_*.hex` files from `tests/complex_tests/`.
+
 ## Input File
 The emulator allows two main input types: "**bin**" and "**hex**". Despite their file extensions, these are all encoded as standard text files in UTF-8 encoding. This allows direct reading and modification through standard text editors.
 
