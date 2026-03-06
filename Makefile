@@ -39,10 +39,25 @@ test:
 	$(PYTHON) -m pytest
 
 link:
-	$(TWIG) test.c
+	$(TWIG) src/test.c src/a.c
+
+debug:
+	$(TWIG) -S src/test.c --log debug
 
 disasm:
 	$(TOOL) --disasm meminit.hex > disasm.S
+
+package-check:
+	@echo "Check code style"
+	black --check .
+	@echo "Static code analysis"
+	flake8 ppci test tools
+
+fix-package-check:
+	@echo "Fix code style"
+	black .
+	@echo "Fix Static code analysis"
+	autopep8 --in-place --aggressive --recursive .
 
 clean:
 	@echo Cleaning project...

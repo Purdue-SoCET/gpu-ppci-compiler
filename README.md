@@ -5,7 +5,6 @@ https://github.com/Purdue-SoCET/gpu-ppci-compiler/tree/test_merge
 
 # Twig
 We use commands to compile files. For example, `twig -S test.c` can give you a assembly output in f.out.
-
 Replace -S with other flags below can generate different files for debugging:
 - `-E`: Stop after preprocessing
 - `--ir`: Intermediate Representation (IR)
@@ -17,7 +16,7 @@ Replace -S with other flags below can generate different files for debugging:
 - `-o`: Output file
 - `--hex-output`: Output hex file, default `meminit.hex`
 - `-entry`: Entry function, default `main`
-- default: `twig file` will output compiled results in `f.out` and generate `meminit.hex` with binary code.
+- Default: `twig file` will output compiled results in `f.out` and generate `meminit.hex` with binary code.
 > `twig src/a.c src/test.c` is same as `twig src/a.c src/test.c -o f.out --hex-output meminit.hex` 
 
 ## Layout
@@ -30,8 +29,8 @@ Replace -S with other flags below can generate different files for debugging:
 ## Tool
 helpful tool command, generate corresponding file.
 `tool`
-- --asm: assembly -> binary
-- --disasm: binary -> assembly
-- --bin: 0101 text to raw binary
-- --hex: 0101 text to hex
-- -o: output file
+- `--asm`: assembly -> binary
+- `--disasm`: binary -> assembly
+- `--bin`: 0101 text to raw binary
+- `--hex`: 0101 text to hex
+- `-o`: output file

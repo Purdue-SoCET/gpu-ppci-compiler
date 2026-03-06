@@ -15,7 +15,7 @@ j = 0
 
 while n < max:
     i = i + 1
-    
+
     if i <= 1:
         continue  # nope
     elif i == 2:
@@ -35,7 +35,7 @@ return i
 """
 
 
-## Compiling
+# Compiling
 
 debug_db = debuginfo.DebugDb()
 
@@ -63,7 +63,7 @@ native.previous("ir").to("python").run(
 )  # this injects main() in globals
 
 
-## Reporting
+# Reporting
 
 # Report chain of representations that the code went through
 print(native.chain)
@@ -81,7 +81,7 @@ print("========== IR ==========")
 print(native.previous().get_report())
 
 
-## Running
+# Running
 
 # Run in memory, using API that is the same for all MachineCode representations
 

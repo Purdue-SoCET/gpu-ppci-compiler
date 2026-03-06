@@ -47,7 +47,8 @@ class PredicateRegFile(RegFile):
 
     def read_thread(self, rd: Bits, thread_id: int) -> bool:
         if thread_id >= self.threads_per_warp:
-            # TODO: Remove this behavior after memory system better defined for non linear thread system
+            # TODO: Remove this behavior after memory system better defined for
+            # non linear thread system
             thread_id = thread_id % self.threads_per_warp
 
         reg_val = self.arr[rd.uint]
@@ -55,7 +56,8 @@ class PredicateRegFile(RegFile):
 
     def write_thread(self, rd: Bits, thread_id: int, val: bool) -> None:
         if thread_id >= self.threads_per_warp:
-            # TODO: Remove this behavior after memory system better defined for non linear thread system
+            # TODO: Remove this behavior after memory system better defined for
+            # non linear thread system
             thread_id = thread_id % self.threads_per_warp
 
         reg_val = self.arr[rd.uint]

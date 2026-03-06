@@ -1,11 +1,14 @@
 """TWIG architecture."""
 
+import logging
+
 from ... import ir
 from ...binutils.assembler import BaseAssembler
 from ..arch import Architecture
 from ..arch_info import ArchInfo, TypeInfo
 from ..data_instructions import DByte, data_isa
-from ..generic_instructions import Label, RegisterUseDef
+from ..generic_instructions import Label, Global, Alignment, RegisterUseDef
+from ..encoding import Instruction
 from ..stack import FramePointerLocation, StackLocation
 from .asm_printer import TwigAsmPrinter
 from .instructions import (
@@ -121,6 +124,7 @@ BUILTIN_TABLE = {
 #     return bool(val <= (msb - 1) and (val >= ll))
 
 NUM_THREADS = 32
+
 # Fixed space for saving predicate registers during function calls.
 # 32 pred regs * 4 bytes each = 128 bytes. Predicates are shared masks
 # (not per-thread), so this is NOT multiplied by NUM_THREADS.
@@ -159,8 +163,9 @@ class TwigArch(Architecture):
     name = "twig"
 
     def __init__(self, options=None):
-        super().__init__()
+        super().__init__(options=options)
 
+        self.logger = logging.getLogger("ppci.arch.twig")
         self.isa = isa + data_isa
         self.store = Sw
         self.load = Lw
@@ -736,6 +741,179 @@ class TwigArch(Architecture):
                 saved_registers.append(register)
         return saved_registers
 
+    def packetize(self, instructions, max_packet_size=None):
+        # --- Partition into Basic Blocks ---
+        blocks = []
+        current_block = []
+        block_names = {}
+        last_label_name = "prologue"
+
+        for instr in instructions:
+            instr.is_packet_start = False
+            instr.is_packet_end = False
+
+            if isinstance(instr, (Label, Global, Alignment)) or not isinstance(
+                instr, Instruction
+            ):
+                if current_block:
+                    blocks.append(current_block)
+                    current_block = []
+                if isinstance(instr, Label):
+                    last_label_name = instr.name
+                blocks.append([instr])
+                continue
+
+            if not current_block:
+                block_names[len(blocks)] = last_label_name
+            current_block.append(instr)
+
+            # End the current Basic Block if it is a branch or jump instruction
+            if getattr(instr, "is_branch", False):
+                blocks.append(current_block)
+                current_block = []
+
+        if current_block:
+            blocks.append(current_block)
+
+        # --- Build Data Dependency Graph and Greedy Packetize ---
+        new_instructions = []
+
+        for block_idx, block in enumerate(blocks):
+            # For non-instructions, place in order
+            if len(block) <= 1 and (
+                not block or not isinstance(block[0], Instruction)
+            ):
+                new_instructions.extend(block)
+                continue
+
+            N = len(block)
+            block_name = block_names.get(block_idx, f"Block_{block_idx}")
+            backward_edges = {i: [] for i in range(N)}
+            backward_edges_debug = {i: [] for i in range(N)}
+
+            # Build Data Dependency Graph (DDG)
+            for i in range(N):
+                reads_i, writes_i, is_mem_r_i, is_mem_w_i, is_br_i = (
+                    get_inst_info(block[i])
+                )
+
+                for j in range(i - 1, -1, -1):
+                    reads_j, writes_j, is_mem_r_j, is_mem_w_j, is_br_j = (
+                        get_inst_info(block[j])
+                    )
+
+                    # Data Hazard
+                    has_dep = False
+                    dep_type = None
+                    if reads_i & writes_j:
+                        has_dep = True
+                        dep_type = "RAW"
+                    elif writes_i & writes_j:
+                        has_dep = True
+                        dep_type = "WAW"
+                    elif writes_i & reads_j:
+                        has_dep = True
+                        dep_type = "WAR"
+                    # Memory Barrier
+                    elif is_mem_w_i and (is_mem_r_j or is_mem_w_j):
+                        has_dep = True
+                        dep_type = "MEM_WRITE"
+                    elif is_mem_r_i and is_mem_w_j:
+                        has_dep = True
+                        dep_type = "MEM_READ"
+                    # Control Barrier
+                    elif is_br_i or is_br_j:
+                        has_dep = True
+                        dep_type = "BRANCH"
+
+                    if has_dep:
+                        backward_edges[i].append(j)
+                        backward_edges_debug[i].append((j, dep_type))
+
+            # Print DDG
+            if self.logger.isEnabledFor(logging.DEBUG):
+                self.logger.debug("=== Basic Block: %s ===", block_name)
+                for i, inst in enumerate(block):
+                    deps = backward_edges_debug[i]
+                    dep_str = ", ".join(
+                        [f"[{src}]: {dtype}" for src, dtype in deps]
+                    )
+                    if not dep_str:
+                        dep_str = "None"
+                    self.logger.debug(
+                        "  [%2d] %-20s -> Deps: %s", i, str(inst), dep_str
+                    )
+
+            # Greedy Packetize
+            scheduled_set = set()
+            packet_count = 0
+
+            if self.logger.isEnabledFor(logging.DEBUG):
+                self.logger.debug("--- Packets for %s ---", block_name)
+
+            while len(scheduled_set) < N:
+                # Get all instructions whose dependencies have been completely
+                # met
+                ready_list = [
+                    i
+                    for i in range(N)
+                    if i not in scheduled_set
+                    and all(dep in scheduled_set for dep in backward_edges[i])
+                ]
+
+                # Sort to maintain original order when there are no
+                # dependencies, ensuring stable output
+                ready_list.sort()
+
+                if not ready_list:
+                    raise RuntimeError("DDG Cycle detected")
+
+                # Form the Packet
+                packet_idx = (
+                    ready_list[:max_packet_size]
+                    if max_packet_size
+                    else ready_list
+                )
+                packet = [block[i] for i in packet_idx]
+
+                packet_count += 1
+                if self.logger.isEnabledFor(logging.DEBUG):
+                    p_insts = ", ".join([f"[{idx}]" for idx in packet_idx])
+                    self.logger.debug("  Packet %d: %s", packet_count, p_insts)
+
+                # Mark Packet Start / End
+                packet[0].is_packet_start = True
+                packet[-1].is_packet_end = True
+
+                # Clear any residual markers on other instructions
+                for inst in packet:
+                    if inst != packet[0]:
+                        inst.is_packet_start = False
+                    if inst != packet[-1]:
+                        inst.is_packet_end = False
+
+                new_instructions.extend(packet)
+                scheduled_set.update(packet_idx)
+
+        # Replace the original instruction list
+        # Passing the reordered result directly to the downstream stream filter
+        instructions[:] = new_instructions
+
 
 def round_up(s):
     return s + (16 - s % 16)
+
+
+def get_inst_info(instr):
+    reads = set(str(r) for r in getattr(instr, "used_registers", []))
+    writes = set(str(r) for r in getattr(instr, "defined_registers", []))
+
+    is_mem_read = getattr(instr, "is_mem_read", False)
+    is_mem_write = getattr(instr, "is_mem_write", False)
+    is_branch = getattr(instr, "is_branch", False)
+
+    # x0 always be 0, no data hazard
+    reads.discard("x0")
+    writes.discard("x0")
+
+    return reads, writes, is_mem_read, is_mem_write, is_branch

@@ -70,7 +70,7 @@ class Project:
                 break
             propname = mo.group(1)
             propval = self.get_property(propname)
-            txt = txt[: mo.start()] + propval + txt[mo.end() :]
+            txt = txt[: mo.start()] + propval + txt[mo.end():]
         return txt
 
     def dfs(self, target_name, state):

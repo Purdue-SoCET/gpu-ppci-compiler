@@ -23,7 +23,7 @@ class Thread:
             return True  # Thread has halted
 
         instr_ret = instr.eval(self.cfile, self.state)
-        if instr_ret != None:
+        if instr_ret is not None:
             self.pc = instr_ret
         else:
             self.pc += 4
