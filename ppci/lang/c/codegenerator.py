@@ -102,14 +102,36 @@ class CCodeGenerator:
             "parent": (
                 self.predicate_stack[-1] if self.predicate_stack else None
             ),
+            "deferred_frees": [],
         }
         self.predicate_stack.append(context)
         return context
 
     def _pop_predicate_context(self):
-        """Pop the current predicate context from the stack."""
+        """Pop the current predicate context from the stack.
+
+        Any predicate registers deferred for freeing inside this scope are
+        propagated up to the parent scope (or released to the global pool if
+        there is no parent). This prevents a freed loop predicate from being
+        reused by a sibling if/else inside the same parent scope before the
+        parent scope has exited -- which would corrupt the predicate value that
+        the sibling's BEQ/BNE writes into.
+        """
         if self.predicate_stack:
-            return self.predicate_stack.pop()
+            ctx = self.predicate_stack.pop()
+            deferred = ctx.get("deferred_frees", [])
+            if self.predicate_stack:
+                # Propagate to parent -- only released when parent scope exits
+                self.predicate_stack[-1]["deferred_frees"].extend(deferred)
+            else:
+                # No parent scope -- release to the global free pool now
+                for p in deferred:
+                    if p not in self.freed_predicate_registers:
+                        self.freed_predicate_registers.append(p)
+                        self.logger.info(
+                            f"DEFERRED FREE (flushed to pool): pred{p}"
+                        )
+            return ctx
         return None
 
     def _get_current_predicate_mask(self):
@@ -119,17 +141,85 @@ class CCodeGenerator:
         return "11111"  # All ones (all threads active)
 
     def _free_predicate_registers(self, *pred_regs):
-        """Free predicate registers for reuse after reconvergence."""
+        """Free predicate registers for reuse after reconvergence.
+
+        If a predicate scope (loop or if/else) is currently active, the free
+        is deferred: the register is added to the current scope's
+        deferred_frees list and only released to the global pool when that
+        scope exits via _pop_predicate_context(). This prevents sibling
+        control-flow constructs inside the same scope from reusing the
+        predicate number before the parent scope is done with it.
+        """
         for pred_reg in pred_regs:
-            if (
-                pred_reg != 0
-                and pred_reg not in self.freed_predicate_registers
-            ):
-                self.freed_predicate_registers.append(pred_reg)
-                self.logger.info(
-                    "FREED predicate register: "
-                    f"pred{pred_reg} (available for reuse)"
+            if pred_reg == 0:
+                continue
+            if self.predicate_stack:
+                deferred = self.predicate_stack[-1]["deferred_frees"]
+                if pred_reg not in deferred:
+                    deferred.append(pred_reg)
+                    self.logger.info(
+                        f"DEFERRED FREE (held until scope exit): pred{pred_reg}"
+                    )
+            else:
+                if pred_reg not in self.freed_predicate_registers:
+                    self.freed_predicate_registers.append(pred_reg)
+                    self.logger.info(
+                        "FREED predicate register: "
+                        f"pred{pred_reg} (available for reuse)"
+                    )
+
+    def _emit_clear_child_predicates(self, loop_pred_reg):
+        """Emit instructions to clear all child predicates allocated inside the
+        current loop scope before the loop's back-edge JPNZ.
+
+        Without this, a child predicate that was set to 1 during the last loop
+        iteration (e.g. by 'if (j == 2)') will still be 1 after the loop
+        condition becomes false. Because JAL has no predicate field (all
+        threads share the same PC in lockstep), the warp unconditionally reaches
+        the child's code block. With a stale predicate of 1 those instructions
+        execute incorrectly.
+
+        We clear each child predicate by emitting a BJump '0 != 0' (always
+        false) under the loop predicate. This sets the target predicate to 0
+        for every thread, so that when the loop exits and the warp arrives at
+        the child block via JAL the child instructions are correctly skipped.
+
+        BJump is a terminal IR instruction, so each one ends the current block.
+        We chain through a series of continuation blocks, one per cleared pred.
+        After the last one, control returns to the caller's current block
+        (the iterator/back-edge block it already set up).
+        """
+        if not self.predicate_stack:
+            return
+        ctx = self.predicate_stack[-1]
+        child_preds = [
+            p for p in ctx.get("deferred_frees", []) if p != loop_pred_reg
+        ]
+        if not child_preds:
+            return
+
+        zero = self.builder.emit_const(0, ir.i32)
+        for child_pred in child_preds:
+            self.logger.info(
+                f"CLEARING child predicate pred{child_pred} before loop back-edge"
+            )
+            # Each BJump terminates the current block, so we need a fresh
+            # continuation block for the next iteration / caller.
+            cont_block = self.builder.new_block()
+            # BJump: 0 != 0 ?  yes_block (pred_yes written 1 - never taken)
+            #                : no_block  (pred_no  written 0 - always taken)
+            # Both branches point to the same cont_block so there is no
+            # unreachable code and IR stays well-formed.
+            self.emit(
+                ir.SJump(
+                    zero,
+                    "!=",
+                    zero,
+                    cont_block,   # no branch  (always taken)
+                    child_pred,   # pred_yes written 1 if yes taken (never)
                 )
+            )
+            self.builder.set_block(cont_block)
 
     def _format_predicate_binary(self, value):
         """Format a predicate value as a binary string."""
@@ -987,7 +1077,10 @@ class CCodeGenerator:
         )
         self._push_predicate_context(loop_pred_reg, "loop_mask")
         self.gen_stmt(stmt.body)
-        # Jump Back Logic
+
+        # Clear any child predicates before the JPNZ back-edge to prevent
+        # stale predicate values from corrupting execution after the loop exits.
+        self._emit_clear_child_predicates(loop_pred_reg)
 
         cur_pred = loop_pred_reg
         self.gen_pcondition(
@@ -1101,6 +1194,10 @@ class CCodeGenerator:
 
         if stmt.post:
             self.gen_expr(stmt.post, rvalue=True)
+
+        # Clear any child predicates before the JPNZ back-edge to prevent
+        # stale predicate values from corrupting execution after the loop exits.
+        self._emit_clear_child_predicates(loop_pred_reg)
 
         cur_pred = loop_pred_reg
         if stmt.condition:
