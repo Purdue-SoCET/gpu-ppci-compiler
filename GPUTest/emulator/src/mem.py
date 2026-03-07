@@ -111,20 +111,29 @@ class Mem:
             pass
 
     # CAN CHANGE THIS SHIT LATER IF WE WANT TO PRINT OUT MORE INFO
-    def dump(self, path: str = "memsim.hex") -> None:
+    def dump(self, path: str = "memsim.hex", stack_base: int = 0, stack_end: int = 0) -> None:
         """
         Dump memory one 32-bit word per line.
         Groups consecutive bytes [addr, addr+1, addr+2, addr+3] into one word.
         Skips words that are entirely zero (uninitialized), except for addresses
         present in meminit, which are always included. Output is uppercase hex.
+
+        If stack_base and stack_end are non-zero, addresses in
+        [stack_base, stack_end) are excluded from the dump so that stack writes
+        do not produce false diffs against the cpusim expected output.
         """
         # Include all word bases from memory; also include meminit bases (even if zero)
         word_bases = {
             addr & ~0x3 for addr in self.memory.keys()
         } | self.meminit_bases
 
+        ignore_stack = stack_base != 0 and stack_end != 0 and stack_end > stack_base
+
         with open(path, "w", encoding="utf-8") as f:
             for base in sorted(word_bases):
+                if ignore_stack and stack_base <= base < stack_end:
+                    continue  # skip stack region
+
                 # collect 4 bytes for this word
                 b0 = self.memory.get(base + 0, 0) & 0xFF
                 b1 = self.memory.get(base + 1, 0) & 0xFF

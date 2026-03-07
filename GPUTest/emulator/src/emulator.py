@@ -66,6 +66,18 @@ def parse_args():
         metavar="TID",
         help="Only print trace output for this thread ID (0-31 within warp). Omit to log all threads.",
     )
+    parser.add_argument(
+        "--stack-base",
+        type=lambda x: int(x, 0),
+        default=0,
+        help="Base address of the stack region (from compiler). Stack writes in [stack-base, stack-base + threads*blocks*stack-size) are excluded from the memory dump.",
+    )
+    parser.add_argument(
+        "--stack-size",
+        type=lambda x: int(x, 0),
+        default=0,
+        help="Per-thread stack size in bytes (from compiler). Used with --stack-base to compute the excluded range.",
+    )
 
     return parser.parse_args()
 
@@ -157,6 +169,12 @@ if __name__ == "__main__":
                     raise
         sys.stdout = _real_stdout
 
-    mem.dump()
+    total_threads = args.threads_per_block * args.num_blocks
+    stack_end = (
+        args.stack_base + total_threads * args.stack_size
+        if args.stack_base and args.stack_size
+        else 0
+    )
+    mem.dump(stack_base=args.stack_base, stack_end=stack_end)
 
     print("Simulation Complete.")

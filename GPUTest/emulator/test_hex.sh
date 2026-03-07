@@ -38,6 +38,10 @@ PASS_COUNT=0
 FAIL_COUNT=0
 MISSING_COUNT=0
 
+# Stack range (read from sidecar .stack.json if present)
+STACK_BASE=""
+STACK_SIZE=""
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -109,6 +113,8 @@ run_emulator() {
     # When -l is not specified, do not pass --log-thread so the emulator prints trace for all threads.
     # When -l TID is specified, pass --log-thread to restrict trace to that thread only.
     [ -n "$LOG_THREAD" ] && extra_args+=(--log-thread "$LOG_THREAD")
+    [ -n "$STACK_BASE" ]  && extra_args+=(--stack-base "$STACK_BASE")
+    [ -n "$STACK_SIZE" ]  && extra_args+=(--stack-size "$STACK_SIZE")
     "$PYTHON" "$EMULATOR" -t "$threads" -b "$blocks" --start-pc 0 --mem-format hex --arg-pointer "$ARGPTR" "${extra_args[@]}" "$input_path"
 }
 
@@ -214,6 +220,17 @@ INPUT_TO_USE="$MEMINIT"
 # Set default argptr from first data address if not overridden by -a
 if [ -z "$ARGPTR" ]; then
     ARGPTR=$(get_first_data_addr "$INPUT_TO_USE")
+fi
+
+# Read stack info sidecar (<basename>.stack.json) if present
+stack_json="${dir_name}/${base_name}.stack.json"
+if [ -f "$stack_json" ]; then
+    read STACK_BASE STACK_SIZE < <("$PYTHON" -c "
+import json, sys
+with open(sys.argv[1]) as f:
+    d = json.load(f)
+print(d.get('base_stack', ''), d.get('per_thread_stack_size', ''))
+" "$stack_json")
 fi
 
 echo "========================================"
