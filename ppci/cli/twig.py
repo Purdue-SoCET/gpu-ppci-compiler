@@ -1,4 +1,5 @@
 import argparse
+import json
 import sys
 from .. import api
 from ..lang.c import CAstPrinter, create_ast
@@ -48,6 +49,12 @@ parser.add_argument(
     "--hex-output",
     default="meminit.hex",
     help="Output file for custom 32-bit binary strings",
+)
+parser.add_argument(
+    "--stack-info-output",
+    default=None,
+    metavar="FILE",
+    help="Write stack info (base_stack, per_thread_stack_size) as JSON to FILE",
 )
 parser.add_argument(
     "sources", metavar="source", nargs="+", type=argparse.FileType("r")
@@ -140,6 +147,19 @@ def twig(args=None):
                 # 6. Generate custom hex output (meminit.hex)
                 if args.hex_output:
                     write_meminit_hex(linked_obj, args.hex_output)
+
+                # 7. Write stack info sidecar for emulator
+                if args.stack_info_output:
+                    from ..arch.twig.arch import BASE_STACK
+                    per_thread_stack_size = getattr(march, "_entry_totalstack", 0)
+                    with open(args.stack_info_output, "w") as sf:
+                        json.dump(
+                            {
+                                "base_stack": BASE_STACK,
+                                "per_thread_stack_size": per_thread_stack_size,
+                            },
+                            sf,
+                        )
 
 
 # Default memory layout based on MMIO.md

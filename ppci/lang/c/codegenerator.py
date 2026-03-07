@@ -1606,8 +1606,7 @@ class CCodeGenerator:
         if isinstance(typ, (BasicType, types.PointerType, types.EnumType)):
             value = self.gen_expr(expr, rvalue=True)
             self._store_value(value, ptr)
-            simt = self.context.arch_info.simt_threads
-            inc = self.sizeof(typ) * simt
+            inc = self.sizeof(typ)
             ptr = self.builder.emit_add(ptr, inc, ir.ptr)
         elif isinstance(typ, types.ArrayType):
             ptr, inc = self.gen_local_init_array(ptr, typ, expr)
@@ -1638,13 +1637,12 @@ class CCodeGenerator:
         self, ptr, typ, expr: expressions.ArrayInitializer
     ):
         assert isinstance(expr, expressions.ArrayInitializer)
-        simt = self.context.arch_info.simt_threads
         inc = 0
         for value in expr.values:
             # TODO: do array elements need to be aligned?
             if value is None:
                 # Implicit value (a hole between other valid values.)
-                pad_inc = self.sizeof(typ.element_type) * simt
+                pad_inc = self.sizeof(typ.element_type)
                 ptr = self.builder.emit_add(ptr, pad_inc, ir.ptr)
                 inc2 = pad_inc
             else:
@@ -2265,21 +2263,6 @@ class CCodeGenerator:
             value = self.builder.emit_add(base, offset, ir.ptr)
         return value
 
-    def _is_local_array_pointer(self, expr):
-        """Check if expr is a pointer derived from a local stack-allocated array."""
-        inner = expr
-        while isinstance(inner, (expressions.ImplicitCast, expressions.Cast)):
-            inner = inner.expr
-        # Direct array variable (before decay, typ is ArrayType)
-        if isinstance(inner, expressions.VariableAccess):
-            decl = inner.variable.declaration
-            return (decl in self.ir_var_map
-                    and isinstance(inner.typ, types.ArrayType))
-        # Array index on a local array (e.g., &selAxis[i] used in pointer arithmetic)
-        if isinstance(inner, expressions.ArrayIndex):
-            return self._is_local_array_pointer(inner.base)
-        return False
-
     def gen_array_index(self, expr: expressions.ArrayIndex):
         """Generate code for array indexing"""
         # Load base as an rvalue, to make sure we load pointers values.
@@ -2288,14 +2271,6 @@ class CCodeGenerator:
 
         # Calculate offset:
         element_size = self.sizeof(expr.base.typ.element_type)
-        # simt = self.context.arch_info.simt_threads
-        # is_local = self._is_local_array_pointer(expr.base)
-        # print(f"[SIMT DEBUG] gen_array_index: base_type={type(expr.base).__name__}, base_typ={expr.base.typ}, simt={simt}, is_local={is_local}, element_size={element_size}")
-
-        # if simt > 1 and is_local:
-        #     element_size *= simt
-        #     print(f"[SIMT DEBUG]   -> scaled element_size to {element_size}")
-
         index = self.builder.emit_cast(index, ir.ptr)
         offset = self.builder.emit_mul(index, element_size, ir.ptr)
 

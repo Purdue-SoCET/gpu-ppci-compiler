@@ -127,7 +127,7 @@ NUM_THREADS = 32
 PRED_SAVE_SPACE = 128
 
 # Base address for stack in entry function setup:
-# sp = w*stack_size + BASE_STACK + (tid%32)*4
+# SP = BASE_STACK + global_tid * totalstack
 BASE_STACK = 0x100000
 
 
@@ -337,39 +337,27 @@ class TwigArch(Architecture):
 
     def peephole(self, frame):
         """
-        Fixes up scalar stack offsets (fprel) into correct
-        SIMT-aware base offsets for local variables.
+        Fixes up frame-pointer-relative (fprel) offsets to account for the
+        LR/FP save area and callee-saved registers that sit between SP and the
+        variables. ins.offset is the raw negative offset assigned by the
+        allocator (TOP frame pointer); the final offset from FP is:
+          final_offset = callee_save_space + round_up(stacksize) + ins.offset
         """
         new_instructions = []
-        # Base offset for variables: 256 bytes (128 for LR, 128 for FP)
-        var_base_offset = 256
-        # Scalar stack size (for one thread)
+        saved_registers = self.get_callee_saved(frame)
+        callee_save_space = 4 * len(saved_registers)
         scalar_stack_size = round_up(frame.stacksize)
         for ins in frame.instructions:
             if hasattr(ins, "fprel") and ins.fprel:
-                saved_registers = self.get_callee_saved(frame)
-                callee_save_space = (4 * len(saved_registers)) * NUM_THREADS
-                var_base_offset = (
-                    callee_save_space  # Base of vars is top of callee-saves
-                )
-
-                # 2. Get scalar offset of the variable
-                scalar_var_offset = scalar_stack_size + ins.offset
-
-                # 3. Final SIMT byte offset from FP
-                final_offset = var_base_offset + (
-                    scalar_var_offset * NUM_THREADS
-                )
+                final_offset = callee_save_space + scalar_stack_size + ins.offset
                 curr_pred = getattr(ins, "pred", 0)
                 if isinstance(ins, Lw):
-                    # immUsed(rd, FP, final_offset, "lw")
                     new_instructions.extend(
                         self.immUsed(
                             ins.rd, ins.rs1, final_offset, "lw", curr_pred
                         )
                     )
                 elif isinstance(ins, Sw):
-                    # immUsed(rs2, FP, final_offset, "sw")
                     new_instructions.extend(
                         self.immUsed(
                             ins.rs2, ins.rs1, final_offset, "sw", curr_pred
@@ -393,38 +381,35 @@ class TwigArch(Architecture):
 
     def gen_entry_stack_setup(self, frame, pred=0):
         """Emit instructions to set SP for all threads at entry.
-        sp = w*stack_size + BASE_STACK + (tid%32)*4
-        w = (tid//32) + Bid*((BlkDim+31)//32)
+        Each thread gets its own private stack frame:
+          global_tid = Bid * BlkDim + tid
+          SP = BASE_STACK + global_tid * totalstack
+
         tid = csrr(0), Bid = csrr(1), BlkDim = csrr(2)
 
         Uses only R3-R7, R9, R11 as temporaries so that R12-R17 (argument
         registers per ABI) and R10 (return value) are preserved for the kernel.
         """
         stack_size = round_up(frame.stacksize)
-        stack_size *= NUM_THREADS
         calleeregs = self.get_callee_saved(frame)
-        savespace = NUM_THREADS * 4 * len(calleeregs)
+        savespace = 4 * len(calleeregs)
         extras = max(frame.out_calls) if frame.out_calls else 0
-        outspace = round_up(extras) * NUM_THREADS
-        lrfpspace = 8 * NUM_THREADS
+        outspace = round_up(extras)
+        lrfpspace = 8
         predsavespace = PRED_SAVE_SPACE
         totalstack = round_up(
             stack_size + savespace + outspace + lrfpspace + predsavespace
         )
+        self._entry_totalstack = totalstack
         # R9=tid, R11=Bid, R3=BlkDim (avoid R10, R12-R17)
         yield Csrr(R9, 0, pred)
         yield Csrr(R11, 1, pred)
         yield Csrr(R3, 2, pred)
-        # R4 = warps_per_block = (BlkDim+31)//32
-        yield Addi(R4, R3, 31, pred)
-        yield Srli(R4, R4, 5, pred)
-        # R5 = Bid * warps_per_block
-        yield Mul(R5, R11, R4, pred)
-        # R6 = tid//32
-        yield Srli(R6, R9, 5, pred)
-        # R7 = w = tid//32 + Bid*warps_per_block
-        yield Add(R7, R6, R5, pred)
-        # R4 = stack_size constant (totalstack)
+        # R5 = Bid * BlkDim
+        yield Mul(R5, R11, R3, pred)
+        # R7 = global_tid = Bid * BlkDim + tid
+        yield Add(R7, R5, R9, pred)
+        # R4 = totalstack constant
         if totalstack in range(-32, 32):
             yield Addi(R4, R0, totalstack, pred)
         else:
@@ -438,18 +423,12 @@ class TwigArch(Architecture):
                 yield Lmi(R4, middle_12, pred)
             if lower_12 != 0:
                 yield Lli(R4, lower_12, pred)
-        # R5 = w * stack_size
+        # R5 = global_tid * totalstack
         yield Mul(R5, R7, R4, pred)
         # R6 = BASE_STACK
         yield from self.immUsed(R6, R0, BASE_STACK, "addi", pred)
-        # R5 = w*stack_size + BASE_STACK
-        yield Add(R5, R5, R6, pred)
-        # R3 = 31 for tid%32
-        yield Addi(R3, R0, 31, pred)
-        yield And(R4, R9, R3, pred)
-        yield Slli(R4, R4, 2, pred)
-        # SP = w*stack_size + BASE_STACK + (tid%32)*4
-        yield Add(SP, R5, R4, pred)
+        # SP = BASE_STACK + global_tid * totalstack
+        yield Add(SP, R6, R5, pred)
         for r in [R9, R11, R3, R4, R5, R6, R7]:
             yield Addi(r, R0, 0, pred)
 
@@ -461,43 +440,38 @@ class TwigArch(Architecture):
         if entry_symbol is not None and frame.name == entry_symbol:
             yield from self.gen_entry_stack_setup(frame)
         stack_size = round_up(frame.stacksize)
-        stack_size *= NUM_THREADS
-        lrfpspace = 8 * NUM_THREADS
+        lrfpspace = 8
         calleeregs = self.get_callee_saved(frame)
-        savespace = NUM_THREADS * 4 * len(calleeregs)
+        savespace = 4 * len(calleeregs)
         extras = max(frame.out_calls) if frame.out_calls else 0
-        outspace = round_up(extras) * NUM_THREADS
+        outspace = round_up(extras)
         predsavespace = PRED_SAVE_SPACE
         totalstack = round_up(
             stack_size + savespace + outspace + lrfpspace + predsavespace
         )
-        print("TOTALSTACK:" + str(totalstack))
-        print("SAVESPACE:" + str(savespace))
-        print("CALLEEREGS:" + str(calleeregs))
         if totalstack > 0:
             yield from self.immUsed(SP, SP, -totalstack, "addi")
 
-        yield from self.immUsed(LR, SP, 4 * NUM_THREADS, "sw")
-        yield from self.immUsed(FP, SP, 0 * NUM_THREADS, "sw")
+        yield from self.immUsed(LR, SP, 4, "sw")
+        yield from self.immUsed(FP, SP, 0, "sw")
 
-        yield from self.immUsed(FP, SP, 8 * NUM_THREADS, "addi")
+        yield from self.immUsed(FP, SP, 8, "addi")
 
         if savespace > 0:
             offset = 0
             for register in calleeregs:
                 yield from self.immUsed(register, FP, offset, "sw")
-                offset += 128
+                offset += 4
         return
 
     def gen_epilogue(self, frame):
         """restore callee-saves, reload LR and FP, deallocate stack"""
         stack_size = round_up(frame.stacksize)
-        stack_size *= NUM_THREADS
         calleeregs = self.get_callee_saved(frame)
-        savespace = NUM_THREADS * 4 * len(calleeregs)
+        savespace = 4 * len(calleeregs)
         extras = max(frame.out_calls) if frame.out_calls else 0
-        outspace = round_up(extras) * NUM_THREADS
-        lrfpspace = 8 * NUM_THREADS
+        outspace = round_up(extras)
+        lrfpspace = 8
         predsavespace = PRED_SAVE_SPACE
         totalstack = round_up(
             stack_size + savespace + outspace + lrfpspace + predsavespace
@@ -507,12 +481,12 @@ class TwigArch(Architecture):
             offset = 0
             for register in calleeregs:
                 yield from self.immUsed(register, FP, offset, "lw")
-                offset += 128
+                offset += 4
 
         entry_symbol = getattr(self, "entry_symbol", None)
         is_entry = entry_symbol is not None and frame.name == entry_symbol
 
-        yield from self.immUsed(LR, SP, 4 * NUM_THREADS, "lw")
+        yield from self.immUsed(LR, SP, 4, "lw")
         yield from self.immUsed(FP, SP, 0, "lw")
         if totalstack > 0:
             yield from self.immUsed(SP, SP, totalstack, "addi")
@@ -535,10 +509,10 @@ class TwigArch(Architecture):
             FP+savespace+stack_size+outspace: predicate save area (128 bytes)
         """
         calleeregs = self.get_callee_saved(frame)
-        savespace = NUM_THREADS * 4 * len(calleeregs)
-        stack_size = round_up(frame.stacksize) * NUM_THREADS
+        savespace = 4 * len(calleeregs)
+        stack_size = round_up(frame.stacksize)
         extras = max(frame.out_calls) if frame.out_calls else 0
-        outspace = round_up(extras) * NUM_THREADS
+        outspace = round_up(extras)
         return savespace + stack_size + outspace
 
     def gen_call(self, frame, label, args, rv, pred=0):
@@ -583,7 +557,7 @@ class TwigArch(Architecture):
                 stack_size += arg_loc.size
                 if isinstance(arg, TwigRegister):
                     yield from self.immUsed(
-                        arg, SP, arg_loc.offset * NUM_THREADS, "sw"
+                        arg, SP, arg_loc.offset, "sw"
                     )
                 elif isinstance(arg, StackLocation):
                     p1 = frame.new_reg(TwigRegister)
@@ -592,17 +566,12 @@ class TwigArch(Architecture):
 
                     # Destination location:
                     yield from self.immUsed(
-                        p1, SP, arg_loc.offset * NUM_THREADS, "addi"
+                        p1, SP, arg_loc.offset, "addi"
                     )
                     saved_registers = self.get_callee_saved(frame)
-                    callee_save_space = 128 * len(saved_registers)
-                    # 2. Get scalar offset of the variable
+                    callee_save_space = 4 * len(saved_registers)
                     scalar_stack_size = round_up(frame.stacksize)
-                    scalar_var_offset = scalar_stack_size + arg.offset
-                    # 3. Calculate final SIMT byte offset from FP
-                    final_fp_offset = callee_save_space + (
-                        scalar_var_offset * NUM_THREADS
-                    )
+                    final_fp_offset = callee_save_space + scalar_stack_size + arg.offset
                     yield from self.immUsed(
                         p2, self.fp, final_fp_offset, "addi"
                     )
@@ -655,12 +624,10 @@ class TwigArch(Architecture):
                 yield self.move(arg, arg_loc)
             elif isinstance(arg_loc, StackLocation):
                 if isinstance(arg, TwigRegister):
-                    yield from self.immUsed(R63, FP, -(8 * NUM_THREADS), "lw")
+                    yield from self.immUsed(R63, FP, -8, "lw")
                     yield from self.immUsed(
-                        arg, R63, arg_loc.offset * NUM_THREADS, "lw"
+                        arg, R63, arg_loc.offset, "lw"
                     )
-                    # Code.fprel = True
-                    # yield Code
                 else:
                     pass
             else:  # pragma: no cover
