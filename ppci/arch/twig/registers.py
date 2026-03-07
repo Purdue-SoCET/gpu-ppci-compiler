@@ -27,22 +27,6 @@ class TwigProgramCounterRegister(Register):
     bitsize = 32
 
 
-# maybe this should not even extend Register and should have it's own class
-# TODO: add predicate logic after initial asm is generatable
-# TODO: add packeting after
-# TODO: add rfc after
-class TwigPredRegister(Register):
-    bitsize = 32
-
-    @classmethod
-    def from_num(cls, num):
-        return num2predregmap[num]
-
-    @classmethod
-    def all_registers(cls):
-        return predregisters
-
-
 def get_register(n):
     """Based on a number, get the corresponding register"""
     return num2regmap[n]
@@ -122,39 +106,6 @@ R63 = TwigRegister("x63", num=63, aka=("s43",))
 
 PC = TwigProgramCounterRegister("PC", num=64)
 
-P0 = TwigPredRegister("p0", num=65, aka=("p0",))
-P1 = TwigPredRegister("p1", num=66, aka=("p1",))
-P2 = TwigPredRegister("p2", num=67, aka=("p2",))
-P3 = TwigPredRegister("p3", num=68, aka=("p3",))
-P4 = TwigPredRegister("p4", num=69, aka=("p4",))
-P5 = TwigPredRegister("p5", num=70, aka=("p5",))
-P6 = TwigPredRegister("p6", num=71, aka=("p6",))
-P7 = TwigPredRegister("p7", num=72, aka=("p7",))
-P8 = TwigPredRegister("p8", num=73, aka=("p8",))
-P9 = TwigPredRegister("p9", num=74, aka=("p9",))
-P10 = TwigPredRegister("p10", num=75, aka=("p10",))
-P11 = TwigPredRegister("p11", num=76, aka=("p11",))
-P12 = TwigPredRegister("p12", num=77, aka=("p12",))
-P13 = TwigPredRegister("p13", num=78, aka=("p13",))
-P14 = TwigPredRegister("p14", num=79, aka=("p14",))
-P15 = TwigPredRegister("p15", num=80, aka=("p15",))
-P16 = TwigPredRegister("p16", num=81, aka=("p16",))
-P17 = TwigPredRegister("p17", num=82, aka=("p17",))
-P18 = TwigPredRegister("p18", num=83, aka=("p18",))
-P19 = TwigPredRegister("p19", num=84, aka=("p19",))
-P20 = TwigPredRegister("p20", num=85, aka=("p20",))
-P21 = TwigPredRegister("p21", num=86, aka=("p21",))
-P22 = TwigPredRegister("p22", num=87, aka=("p22",))
-P23 = TwigPredRegister("p23", num=88, aka=("p23",))
-P24 = TwigPredRegister("p24", num=89, aka=("p24",))
-P25 = TwigPredRegister("p25", num=90, aka=("p25",))
-P26 = TwigPredRegister("p26", num=91, aka=("p26",))
-P27 = TwigPredRegister("p27", num=92, aka=("p27",))
-P28 = TwigPredRegister("p28", num=93, aka=("p28",))
-P29 = TwigPredRegister("p29", num=94, aka=("p29",))
-P30 = TwigPredRegister("p30", num=95, aka=("p30",))
-P31 = TwigPredRegister("p31", num=96, aka=("p31",))
-
 
 registers = [
     R0,
@@ -224,169 +175,12 @@ registers = [
 ]
 TwigRegister.registers = registers
 
-predregisters = [
-    P0,
-    P1,
-    P2,
-    P3,
-    P4,
-    P5,
-    P6,
-    P7,
-    P8,
-    P9,
-    P10,
-    P11,
-    P12,
-    P13,
-    P14,
-    P15,
-    P16,
-    P17,
-    P18,
-    P19,
-    P20,
-    P21,
-    P22,
-    P23,
-    P24,
-    P25,
-    P26,
-    P27,
-    P28,
-    P29,
-    P30,
-    P31,
-]
 
-
-TwigPredRegister.predregisters = predregisters
 num2regmap = {r.num: r for r in registers}
-num2predregmap = {p.num: p for p in predregisters}
 
-gdb_registers = registers + [PC] + predregisters
-
-# register_classes_hwfp = [
-#     RegisterClass(
-#         "reg",
-#         [ir.i8, ir.i16, ir.i32, ir.ptr, ir.u8, ir.u16, ir.u32],
-#         TwigRegister,
-#         [
-#             R9,
-#             R10,
-#             R11,
-#             R12,
-#             R13,
-#             R14,
-#             R15,
-#             R16,
-#             R17,
-#             R18,
-#             R19,
-#             R20,
-#             R21,
-#             R22,
-#             R23,
-#             R24,
-#             R25,
-#             R26,
-#             R27,
-#         ],
-#     ),
-#     RegisterClass("freg", [ir.f32, ir.f64], TwigFRegister, fregisters),
-# ]
+gdb_registers = registers + [PC]
 
 register_classes_swfp = [
-    # RegisterClass(
-    #     "predreg",
-    #     [ir.u32],
-    #     TwigPredRegister,
-    #     [
-    #         R9,
-    #         R10,
-    #         R11,
-    #         R12,
-    #         R13,
-    #         R14,
-    #         R15,
-    #         R16,
-    #         R17,
-    #         R18,
-    #         R19,
-    #         R20,
-    #         R21,
-    #         R22,
-    #         R23,
-    #         R24,
-    #         R25,
-    #         R26,
-    #         R27,
-    #         R32,
-    #         R33,
-    #         R34,
-    #         R35,
-    #         R36,
-    #         R37,
-    #         R38,
-    #         R39,
-    #         R40,
-    #         R41,
-    #         R42,
-    #         R43,
-    #         R44,
-    #         R45,
-    #         R46,
-    #         R47,
-    #         R48,
-    #         R49,
-    #         R50,
-    #         R51,
-    #         R52,
-    #         R53,
-    #         R54,
-    #         R55,
-    #         R56,
-    #         R57,
-    #         R58,
-    #         R59,
-    #         R60,
-    #         R61,
-    #         R62,
-    #         R63,
-    #         P0,
-    #         P1,
-    #         P2,
-    #         P3,
-    #         P4,
-    #         P5,
-    #         P6,
-    #         P7,
-    #         P8,
-    #         P9,
-    #         P10,
-    #         P11,
-    #         P12,
-    #         P13,
-    #         P14,
-    #         P15,
-    #         P16,
-    #         P17,
-    #         P18,
-    #         P19,
-    #         P20,
-    #         P21,
-    #         P22,
-    #         P23,
-    #         P24,
-    #         P25,
-    #         P26,
-    #         P27,
-    #         P28,
-    #         P29,
-    #         P30,
-    #         P31
-    #     ],
-    # ),
     RegisterClass(
         "reg",
         [ir.i8, ir.i16, ir.i32, ir.ptr, ir.u8, ir.u16, ir.f32, ir.u32],
