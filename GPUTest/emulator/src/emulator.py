@@ -100,6 +100,18 @@ if __name__ == "__main__":
     # Shared State
     mem = Mem(args.start_pc, str(args.input_file), args.mem_format)
 
+    # Register stack range on mem immediately so dump_on_exit filters it even on crash
+    total_threads = args.threads_per_block * args.num_blocks
+    if args.stack_base and args.stack_size:
+        # Thread i's frame: [BASE_STACK + (i-1)*size, BASE_STACK + i*size)
+        # Thread 0 goes one frame below BASE_STACK; thread N-1 ends at BASE_STACK + (N-1)*size.
+        stack_start = args.stack_base - args.stack_size
+        stack_end   = args.stack_base + (total_threads - 1) * args.stack_size
+    else:
+        stack_start = 0
+        stack_end   = 0
+    mem.set_stack_range(stack_start, stack_end)
+
     # No-op stdout for filtering thread output when --log-thread is set
     class _NoOpWriter:
         def write(self, s):
@@ -169,12 +181,6 @@ if __name__ == "__main__":
                     raise
         sys.stdout = _real_stdout
 
-    total_threads = args.threads_per_block * args.num_blocks
-    stack_end = (
-        args.stack_base + total_threads * args.stack_size
-        if args.stack_base and args.stack_size
-        else 0
-    )
-    mem.dump(stack_base=args.stack_base, stack_end=stack_end)
+    mem.dump(stack_base=stack_start, stack_end=stack_end)
 
     print("Simulation Complete.")

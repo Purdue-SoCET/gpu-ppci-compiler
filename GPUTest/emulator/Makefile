@@ -38,10 +38,13 @@ clean:
 diffs:
 	python3 tests/diffs.py
 
+data:
+	make -C ../benchmark clean && make -C ../benchmark run32
+
 dataclean:
 	find tests/complex_tests -type f \( -name "*_data*" -o -name "*_exp*" \) -name "*.hex" -delete
 
-data:
+datacopy:
 	@bench_dir=../benchmark/build; \
 	for infile in $${bench_dir}/*Input.txt $${bench_dir}/*Input0.txt; do \
 		[ -e "$$infile" ] || continue; \

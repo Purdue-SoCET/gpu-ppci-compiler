@@ -26,7 +26,9 @@ The `Makefile` inside the `emulator` directory includes a variety of commands fo
 - `make disasm-[kernel_name]`: Runs `compile-[kernel_name]` and disassembles the compiled binary to `build/[kernel_name]_disasm.txt`.
 - `make build-[kernel_name]`: Runs `disasm-[kernel_name]` and extracts the raw hexadecimal machine code stream into `tests/complex_tests/[kernel_name]/[kernel_name].hex`.
 - `make clean`: Cleans generated log/output files (`.out`, `.log`, `.hex`) and clears the `test_diffs` and `build` directories.
-- `make data`: Copies test input and output reference files from `../benchmark/build/` into `tests/complex_tests/` to use as data/expected parameters for emulator runs.
+- `make diffs` runs `python3 tests/diffs.py` which shows more helpful diff logs
+- `make data`: cleans cpusim build and runs cpusim main.c (run32)
+- `make datacopy`: Copies test input and output reference files from `../benchmark/build/` into `tests/complex_tests/` to use as data/expected parameters for emulator runs.
 - `make dataclean`: Deletes the reference `_data.hex` and `_exp_*.hex` files from `tests/complex_tests/`.
 
 ## Input File

@@ -74,7 +74,10 @@ print('0x20000000')
 }
 
 # ==========================================
-# Sort hex file by address (ascending) for stable diff comparison
+# Sort hex file by address (ascending) for stable diff comparison.
+# Also deduplicates by address (last value for each address wins) and
+# normalises to lowercase address + lowercase data with a single space,
+# so that diff -w -i never trips over whitespace/case duplicates.
 # Format: 0xADDR 0xDATA per line
 # ==========================================
 sort_hex_by_addr() {
@@ -85,19 +88,17 @@ import sys
 import re
 path = sys.argv[1]
 pattern = re.compile(r'^\s*(0x[0-9a-fA-F]+)\s+(0x[0-9a-fA-F]+)\s*')
-lines = []
+seen = {}   # addr -> canonical line (last value wins, so exp beats instr)
 with open(path) as f:
     for line in f:
         line = line.rstrip('\n\r')
         m = pattern.match(line.split('//')[0].split('#')[0].strip())
         if m:
             addr = int(m.group(1), 16)
-            lines.append((addr, line))
-        else:
-            lines.append((-1, line))  # non-addr lines sort first
-lines.sort(key=lambda x: (0 if x[0] < 0 else 1, x[0] if x[0] >= 0 else 0))
+            data = int(m.group(2), 16)
+            seen[addr] = (addr, f'0x{addr:08x} 0x{data:08x}')
 with open(path, 'w') as f:
-    for _, ln in lines:
+    for _, ln in sorted(seen.values(), key=lambda x: x[0]):
         f.write(ln + '\n')
 " "$file"
 }

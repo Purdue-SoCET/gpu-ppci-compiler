@@ -14,6 +14,8 @@ class Mem:
             set()
         )  # word-aligned addrs from init (include zeros on dump)
         self.endianness = "little"
+        self._stack_base: int = 0
+        self._stack_end: int = 0
         addr = start_pc
 
         p = Path(input_file)
@@ -103,9 +105,14 @@ class Mem:
         for i in range(bytes_t):
             self.memory[addr + i] = (data.uint >> (8 * i)) & 0xFF
 
+    def set_stack_range(self, stack_base: int, stack_end: int) -> None:
+        """Store the stack address range so dump_on_exit can filter it even on crash."""
+        self._stack_base = stack_base
+        self._stack_end = stack_end
+
     def dump_on_exit(self) -> None:
         try:
-            self.dump("memsim.hex")
+            self.dump("memsim.hex", stack_base=self._stack_base, stack_end=self._stack_end)
         except Exception:
             print("oopsie")
             pass
