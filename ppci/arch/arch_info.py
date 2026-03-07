@@ -38,8 +38,9 @@ class ArchInfo:
         self,
         type_infos=None,
         endianness=Endianness.LITTLE,
-        register_classes=(),
+        register_classes=(), simt_threads=1
     ):
+        self.simt_threads = simt_threads
         self.type_infos = type_infos
         assert isinstance(endianness, Endianness)
         self.endianness = endianness

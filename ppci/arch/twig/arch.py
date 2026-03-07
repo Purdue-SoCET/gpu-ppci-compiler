@@ -195,6 +195,7 @@ class TwigArch(Architecture):
                 ir.ptr: ir.u32,
             },
             register_classes=self.regclass,
+            simt_threads=NUM_THREADS,
         )
 
         self._arg_regs = [R12, R13, R14, R15, R16, R17]

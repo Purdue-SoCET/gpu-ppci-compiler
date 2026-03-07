@@ -897,26 +897,30 @@ def pattern_fprel_large(context, tree):
 
     It loads the offset into a temp register and adds it to FP.
     """
-    offset = tree.value.offset
-    p = tree.pred
-    t1 = context.new_reg(TwigRegister)
-    if offset in range(-32, 32):
+    # offset = tree.value.offset
+    # p = tree.pred
+    # t1 = context.new_reg(TwigRegister)
+    # if offset in range(-32, 32):
 
-        context.emit(Addi(t1, R0, offset, p))
-    else:
-        upper_8 = (offset >> 24) & 0xFF
-        middle_12 = (offset >> 12) & 0xFFF
-        lower_12 = (offset) & 0xFFF
-        context.emit(Addi(t1, R0, 0, p))
-        if upper_8 != 0:
-            context.emit(Lui(t1, upper_8, p))
-        if middle_12 != 0:
-            context.emit(Lmi(t1, middle_12, p))
-        if lower_12 != 0:
-            context.emit(Lli(t1, lower_12, p))
+    #     context.emit(Addi(t1, R0, offset, p))
+    # else:
+    #     upper_8 = (offset >> 24) & 0xFF
+    #     middle_12 = (offset >> 12) & 0xFFF
+    #     lower_12 = (offset) & 0xFFF
+    #     context.emit(Addi(t1, R0, 0, p))
+    #     if upper_8 != 0:
+    #         context.emit(Lui(t1, upper_8, p))
+    #     if middle_12 != 0:
+    #         context.emit(Lmi(t1, middle_12, p))
+    #     if lower_12 != 0:
+    #         context.emit(Lli(t1, lower_12, p))
 
     d = context.new_reg(TwigRegister)
-    context.emit(Add(d, FP, t1, p))
+    offset = tree.value.offset
+    p = tree.pred
+    Code = Addi(d, FP, offset, p)
+    Code.fprel = True
+    context.emit(Code)
     return d
 
 
