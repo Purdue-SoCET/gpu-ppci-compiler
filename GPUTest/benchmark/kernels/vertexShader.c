@@ -17,7 +17,7 @@ void kernel_vertexShader()
     #endif
 
     int i = blockIdx * blockDim + threadIdx;
-    int k = 0;
+    int c = 0;
     // if(i <= args->num_verts)
     {
 
@@ -96,18 +96,7 @@ void kernel_vertexShader()
             lcsInv[col*3 + row] = lcs[row*3 + col];
         }
     }
-    args->debug_ptr[32*k++ + i] = lcsInv[0]; // 0 to 0x80
-    args->debug_ptr[32*k++ + i] = lcsInv[1]; //0x80 to 0x100
-    args->debug_ptr[32*k++ + i] = lcsInv[2]; //0x100 to 0x180
-    args->debug_ptr[32*k++ + i] = lcsInv[3]; //0x180 to 0x200
-    args->debug_ptr[32*k++ + i] = lcsInv[4]; //0x200 to 0x280
-    args->debug_ptr[32*k++ + i] = lcsInv[5]; //0x280 to 0x300
-    args->debug_ptr[32*k++ + i] = lcsInv[6]; //0x300 to 0x380
-    args->debug_ptr[32*k++ + i] = lcsInv[7]; //0x380 to 0x400
-    args->debug_ptr[32*k++ + i] = lcsInv[8]; //0x400 to 0x480
-    args->debug_ptr[32*k++ + i] = p_tempAxis[0]; //0x480 to 0x500
-    args->debug_ptr[32*k++ + i] = p_tempAxis[1]; //0x500 to 0x580
-    args->debug_ptr[32*k++ + i] = p_tempAxis[2]; //0x580 to 0x600
+
 
     // world -> local
     float p1[3] = {0, 0, 0};
@@ -119,10 +108,6 @@ void kernel_vertexShader()
         }
     }
 
-    args->debug_ptr[32*k++ + i] = p1[0]; //0x600 to 0x680
-    args->debug_ptr[32*k++ + i] = p1[1]; //0x680 to 0x700 //wrong for threads 1+4n, 2+4n
-    args->debug_ptr[32*k++ + i] = p1[2]; //0x700 to 0x780 //wrong for threads 0+4n, 3+4n
-    return;
     // rotate in local space
     float p2[3] = {0, 0, 0};
     for(int j = 0; j < 3; j++)
