@@ -29,7 +29,7 @@ void print_vertex_args(char* fname, vertexShader_arg_t* vertex_args, int num_ver
         for(int j=0; j<5; j++) print_line(f, (uintptr_t)&v2[j], v2[j]);
         for(int j=0; j<5; j++) print_line(f, (uintptr_t)&v3[j], v3[j]);
     }
-    for(int i = 0; i < 7*num_verts; i++) {
+    for(int i = 0; i < 15*num_verts; i++) {
         print_line(f, (uintptr_t)&vertex_args->debug_ptr[i], ((uint32_t*)vertex_args->debug_ptr)[i]);
     }
     fclose(f);
