@@ -10,7 +10,7 @@ void print_vertex_args(char* fname, vertexShader_arg_t* vertex_args, int num_ver
 
     // 1. Struct Header (8 pointers)
     uint32_t* s_raw = (uint32_t*)vertex_args;
-    for (int i = 0; i < 8; i++) print_line(f, (uintptr_t)&s_raw[i], s_raw[i]);
+    for (int i = 0; i < 9; i++) print_line(f, (uintptr_t)&s_raw[i], s_raw[i]);
 
     // 2. Pointed Constant Data
     if (vertex_args->Oa)      for(int i=0; i<3; i++) print_line(f, (uintptr_t)&((uint32_t*)vertex_args->Oa)[i], ((uint32_t*)vertex_args->Oa)[i]);
@@ -28,6 +28,9 @@ void print_vertex_args(char* fname, vertexShader_arg_t* vertex_args, int num_ver
         for(int j=0; j<5; j++) print_line(f, (uintptr_t)&v1[j], v1[j]);
         for(int j=0; j<5; j++) print_line(f, (uintptr_t)&v2[j], v2[j]);
         for(int j=0; j<5; j++) print_line(f, (uintptr_t)&v3[j], v3[j]);
+    }
+    for(int i = 0; i < 7*num_verts; i++) {
+        print_line(f, (uintptr_t)&vertex_args->debug_ptr[i], ((uint32_t*)vertex_args->debug_ptr)[i]);
     }
     fclose(f);
 }

@@ -25,6 +25,7 @@ typedef struct {
 
     /*output*/
     vertex_t* twoDVert;        //output 2D  vertors
+    float* debug_ptr;
     int num_verts;            //number of vertices
 } vertexShader_arg_t;
 

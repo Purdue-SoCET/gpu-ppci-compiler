@@ -11,12 +11,13 @@ void kernel_vertexShader()
 {
     #ifdef CPU_SIM
     vertexShader_arg_t* args = (vertexShader_arg_t*) arg;
-    
+
     #else
     vertexShader_arg_t* args = (vertexShader_arg_t*) argPtr();
     #endif
-    
+
     int i = blockIdx * blockDim + threadIdx;
+    int k = 0;
     // if(i <= args->num_verts)
     {
 
@@ -31,13 +32,15 @@ void kernel_vertexShader()
     {
         selAxis[0] = 1.0;
     }
-    else
-    {
-        selAxis[1] = 1.0;
-    }
+    // else
+    // {
+    //     selAxis[1] = 1.0;
+    // }
 
-   selAxis[1] = 1.0;
-
+    selAxis[1] = 1.0;
+    args->debug_ptr[32*k++ + i] = selAxis[0]; // 0 to 128 : 0 to 80
+    args->debug_ptr[32*k++ + i] = selAxis[1]; // 128 to 256 : 80 to 100
+    args->debug_ptr[32*k++ + i] = selAxis[2]; // 256 to 384 : 100 to 180
     /* Build Local Coordinates System*/
 
     //cross(selAxis, args->a_dist)
@@ -45,9 +48,14 @@ void kernel_vertexShader()
     lcs[1] = selAxis[2] * args->a_dist->x - selAxis[0] * args->a_dist->z;
     lcs[2] = selAxis[0] * args->a_dist->y - selAxis[1] * args->a_dist->x;
 
+    args->debug_ptr[32*k++ + i] = lcs[0]; // 384 to 512 : 180 to 200
+    args->debug_ptr[32*k++ + i] = lcs[1]; // 512 to 640 : 200 to 280
+    args->debug_ptr[32*k++ + i] = lcs[2]; // 640 to 768 : 280 to 300
     //normalize(lcs[0 to 2])
     float inv_lcs_dist = isqrt(lcs[0]*lcs[0] + lcs[1]*lcs[1] + lcs[2]*lcs[2]);
-    
+    // args->debug_ptr[32*k++ + i] = inv_lcs_dist; // 768 to 896 : 300 to 380
+    return;
+    /*
     // Unrolled j loop (0 to 2)
     lcs[0] = lcs[0] * inv_lcs_dist;
     lcs[1] = lcs[1] * inv_lcs_dist;
@@ -63,7 +71,7 @@ void kernel_vertexShader()
 
     //normalize(lcs[3 to 5])
     inv_lcs_dist = isqrt(lcs[3]*lcs[3] + lcs[4]*lcs[4] + lcs[5]*lcs[5]);
-    
+
     // Unrolled j loop (3 to 5)
     lcs[3] = lcs[3] * inv_lcs_dist;
     lcs[4] = lcs[4] * inv_lcs_dist;
@@ -71,7 +79,7 @@ void kernel_vertexShader()
 
     //normalize(lcs[6 to 8])
     inv_lcs_dist = isqrt(lcs[6]*lcs[6] + lcs[7]*lcs[7] + lcs[8]*lcs[8]);
-    
+
     // Unrolled j loop (6 to 8)
     lcs[6] = lcs[6] * inv_lcs_dist;
     lcs[7] = lcs[7] * inv_lcs_dist;
@@ -84,7 +92,7 @@ void kernel_vertexShader()
         (args->threeDVert[i].coords.z - args->Oa->z)
     };
 
-    /*Create Rotation Matrix */
+    // Create Rotation Matrix
 
     // Y AXIS M33::MakeRotationMatrix
 
@@ -95,93 +103,92 @@ void kernel_vertexShader()
     };
 
 
-    /*invert LCS where LCS^-1 = LCS.T*/
+    // invert LCS where LCS^-1 = LCS.T
     float lcsInv[9];
-    
+
     // Unrolled row and col loops
     // row = 0
     lcsInv[0*3 + 0] = lcs[0*3 + 0]; // col = 0
     lcsInv[1*3 + 0] = lcs[0*3 + 1]; // col = 1
     lcsInv[2*3 + 0] = lcs[0*3 + 2]; // col = 2
-    
+
     // row = 1
     lcsInv[0*3 + 1] = lcs[1*3 + 0]; // col = 0
     lcsInv[1*3 + 1] = lcs[1*3 + 1]; // col = 1
     lcsInv[2*3 + 1] = lcs[1*3 + 2]; // col = 2
-    
+
     // row = 2
     lcsInv[0*3 + 2] = lcs[2*3 + 0]; // col = 0
     lcsInv[1*3 + 2] = lcs[2*3 + 1]; // col = 1
     lcsInv[2*3 + 2] = lcs[2*3 + 2]; // col = 2
 
-    /*world -> local*/
+    // world -> local
     float p1[3] = {0, 0, 0};
-    
+
     // Unrolled j and k loops
     // j = 0
     p1[0] += lcsInv[0*3 + 0] * p_tempAxis[0]; // k = 0
     p1[0] += lcsInv[1*3 + 0] * p_tempAxis[1]; // k = 1
     p1[0] += lcsInv[2*3 + 0] * p_tempAxis[2]; // k = 2
-    
+
     // j = 1
     p1[1] += lcsInv[0*3 + 1] * p_tempAxis[0]; // k = 0
     p1[1] += lcsInv[1*3 + 1] * p_tempAxis[1]; // k = 1
     p1[1] += lcsInv[2*3 + 1] * p_tempAxis[2]; // k = 2
-    
+
     // j = 2
     p1[2] += lcsInv[0*3 + 2] * p_tempAxis[0]; // k = 0
     p1[2] += lcsInv[1*3 + 2] * p_tempAxis[1]; // k = 1
     p1[2] += lcsInv[2*3 + 2] * p_tempAxis[2]; // k = 2
 
-    /* rotate in local space */
+    // rotate in local space
     float p2[3] = {0, 0, 0};
-    
+
     // Unrolled j and k loops
     // j = 0
     p2[0] += rotMat[0*3 + 0] * p1[0]; // k = 0
     p2[0] += rotMat[1*3 + 0] * p1[1]; // k = 1
     p2[0] += rotMat[2*3 + 0] * p1[2]; // k = 2
-    
+
     // j = 1
     p2[1] += rotMat[0*3 + 1] * p1[0]; // k = 0
     p2[1] += rotMat[1*3 + 1] * p1[1]; // k = 1
     p2[1] += rotMat[2*3 + 1] * p1[2]; // k = 2
-    
+
     // j = 2
     p2[2] += rotMat[0*3 + 2] * p1[0]; // k = 0
     p2[2] += rotMat[1*3 + 2] * p1[1]; // k = 1
     p2[2] += rotMat[2*3 + 2] * p1[2]; // k = 2
 
-    /* local -> world */
+    // local -> world
     float p_world[3] = {0, 0, 0};
-    
+
     // Unrolled j and k loops
     // j = 0
     p_world[0] += lcs[0*3 + 0] * p2[0]; // k = 0
     p_world[0] += lcs[1*3 + 0] * p2[1]; // k = 1
     p_world[0] += lcs[2*3 + 0] * p2[2]; // k = 2
     args->threeDVertTrans[i].coords.x = p_world[0] + args->Oa->x;
-    
+
     // j = 1
     p_world[1] += lcs[0*3 + 1] * p2[0]; // k = 0
     p_world[1] += lcs[1*3 + 1] * p2[1]; // k = 1
     p_world[1] += lcs[2*3 + 1] * p2[2]; // k = 2
     args->threeDVertTrans[i].coords.y = p_world[1] + args->Oa->y;
-    
+
     // j = 2
     p_world[2] += lcs[0*3 + 2] * p2[0]; // k = 0
     p_world[2] += lcs[1*3 + 2] * p2[1]; // k = 1
     p_world[2] += lcs[2*3 + 2] * p2[2]; // k = 2
     args->threeDVertTrans[i].coords.z = p_world[2] + args->Oa->z;
-    
+
     args->threeDVertTrans[i].s = args->threeDVert[i].s;
     args->threeDVertTrans[i].t = args->threeDVert[i].t;
 
 
-    /****** Projection ******/
     //PPC::Project
 
-    /*Normalize 3D matrix w.r.t the camera*/
+    // Normalize 3D matrix w.r.t the camera
     float threeD_norm[3] = {
         args->threeDVertTrans[i].coords.x - args->camera->x,
         args->threeDVertTrans[i].coords.y - args->camera->y,
@@ -196,12 +203,12 @@ void kernel_vertexShader()
     q[0] += threeD_norm[0] * args->invTrans[0*3 + 0]; // k = 0
     q[0] += threeD_norm[1] * args->invTrans[0*3 + 1]; // k = 1
     q[0] += threeD_norm[2] * args->invTrans[0*3 + 2]; // k = 2
-    
+
     // j = 1
     q[1] += threeD_norm[0] * args->invTrans[1*3 + 0]; // k = 0
     q[1] += threeD_norm[1] * args->invTrans[1*3 + 1]; // k = 1
     q[1] += threeD_norm[2] * args->invTrans[1*3 + 2]; // k = 2
-    
+
     // j = 2
     q[2] += threeD_norm[0] * args->invTrans[2*3 + 0]; // k = 0
     q[2] += threeD_norm[1] * args->invTrans[2*3 + 1]; // k = 1
@@ -221,6 +228,7 @@ void kernel_vertexShader()
         args->twoDVert[i].s = args->threeDVert[i].s;
         args->twoDVert[i].t = args->threeDVert[i].t;
     }
+    */
     }
     return;
 }

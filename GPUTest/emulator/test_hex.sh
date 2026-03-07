@@ -106,8 +106,17 @@ run_emulator() {
     local threads="$2"
     local blocks="$3"
     local extra_args=()
+    # When -l is not specified, do not pass --log-thread so the emulator prints trace for all threads.
+    # When -l TID is specified, pass --log-thread to restrict trace to that thread only.
     [ -n "$LOG_THREAD" ] && extra_args+=(--log-thread "$LOG_THREAD")
     "$PYTHON" "$EMULATOR" -t "$threads" -b "$blocks" --start-pc 0 --mem-format hex --arg-pointer "$ARGPTR" "${extra_args[@]}" "$input_path"
+}
+
+# Run emulator and capture output to TEMP_CMD_LOG (trace file). Never prints to terminal.
+# Sets EMULATOR_EXIT for the caller to check.
+run_emulator_capture() {
+    run_emulator "$@" > "$TEMP_CMD_LOG" 2>&1
+    EMULATOR_EXIT=$?
 }
 
 # ==========================================
@@ -141,7 +150,7 @@ while [[ $# -gt 0 ]]; do
             echo "Usage: $0 [-t N] [-a ADDR] [-l TID] <path/to/file.hex>"
             echo "  -t, --threads N    Number of threads (1-1024)"
             echo "  -a, --argptr ADDR  Argument pointer address (default: first data addr in input)"
-            echo "  -l, --log-thread TID  Only log trace for this thread (0-31)"
+            echo "  -l, --log-thread TID  Only log trace for this thread (0-31). Omit to log all threads."
             exit 0
             ;;
         *)
@@ -234,9 +243,9 @@ if [ -n "$THREADS_OVERRIDE" ]; then
     BLOCKS=1
     exp_file=$(find "$dir_name" -maxdepth 1 -name "${base_name}_exp_t${THREADS}_b${BLOCKS}.hex" 2>/dev/null | head -n 1)
 
-    run_emulator "$INPUT_TO_USE" "$THREADS" "$BLOCKS" > "$TEMP_CMD_LOG" 2>&1
+    run_emulator_capture "$INPUT_TO_USE" "$THREADS" "$BLOCKS"
 
-    if [ $? -ne 0 ] || [ ! -f "$EMU_OUTPUT" ]; then
+    if [ "$EMULATOR_EXIT" -ne 0 ] || [ ! -f "$EMU_OUTPUT" ]; then
         echo -e "${RED}[RUN FAIL]${NC} $base_name (t=$THREADS, b=$BLOCKS)"
         mv "$TEMP_CMD_LOG" "$DIFF_DIR/${base_name}_run_error.log"
         cp "$INPUT_TO_USE" "$DIFF_DIR/${base_name}_meminit.hex"
@@ -272,9 +281,9 @@ elif [ -z "$expected_files" ]; then
     THREADS=32
     BLOCKS=1
 
-    run_emulator "$INPUT_TO_USE" "$THREADS" "$BLOCKS" > "$TEMP_CMD_LOG" 2>&1
+    run_emulator_capture "$INPUT_TO_USE" "$THREADS" "$BLOCKS"
 
-    if [ $? -ne 0 ] || [ ! -f "$EMU_OUTPUT" ]; then
+    if [ "$EMULATOR_EXIT" -ne 0 ] || [ ! -f "$EMU_OUTPUT" ]; then
         echo -e "${RED}[RUN FAIL]${NC} $base_name (t=$THREADS)"
         mv "$TEMP_CMD_LOG" "$DIFF_DIR/${base_name}_run_error.log"
         cp "$INPUT_TO_USE" "$DIFF_DIR/${base_name}_meminit.hex"
@@ -297,9 +306,9 @@ else
         test_id="${base_name}_t${THREADS}_b${BLOCKS}"
         error_log="$DIFF_DIR/${test_id}_error.log"
 
-        run_emulator "$INPUT_TO_USE" "$THREADS" "$BLOCKS" > "$TEMP_CMD_LOG" 2>&1
+        run_emulator_capture "$INPUT_TO_USE" "$THREADS" "$BLOCKS"
 
-        if [ $? -ne 0 ] || [ ! -f "$EMU_OUTPUT" ]; then
+        if [ "$EMULATOR_EXIT" -ne 0 ] || [ ! -f "$EMU_OUTPUT" ]; then
             echo -e "${RED}[RUN FAIL]${NC} $base_name (t=$THREADS, b=$BLOCKS)"
             cat "$TEMP_CMD_LOG" > "$error_log"
             cp "$INPUT_TO_USE" "$DIFF_DIR/${test_id}_meminit.hex"
