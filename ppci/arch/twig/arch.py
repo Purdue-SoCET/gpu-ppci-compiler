@@ -11,7 +11,6 @@ from .asm_printer import TwigAsmPrinter
 from .instructions import (
     Add,
     Addi,
-    And,
     Cos,
     Csrr,
     Halt,
@@ -27,8 +26,6 @@ from .instructions import (
     Prlw,
     Bl,
     Blr,
-    Slli,
-    Srli,
     Sw,
     Sin,
     isa,
@@ -349,7 +346,9 @@ class TwigArch(Architecture):
         scalar_stack_size = round_up(frame.stacksize)
         for ins in frame.instructions:
             if hasattr(ins, "fprel") and ins.fprel:
-                final_offset = callee_save_space + scalar_stack_size + ins.offset
+                final_offset = (
+                    callee_save_space + scalar_stack_size + ins.offset
+                )
                 curr_pred = getattr(ins, "pred", 0)
                 if isinstance(ins, Lw):
                     new_instructions.extend(
@@ -556,22 +555,20 @@ class TwigArch(Architecture):
             elif isinstance(arg_loc, StackLocation):
                 stack_size += arg_loc.size
                 if isinstance(arg, TwigRegister):
-                    yield from self.immUsed(
-                        arg, SP, arg_loc.offset, "sw"
-                    )
+                    yield from self.immUsed(arg, SP, arg_loc.offset, "sw")
                 elif isinstance(arg, StackLocation):
                     p1 = frame.new_reg(TwigRegister)
                     p2 = frame.new_reg(TwigRegister)
                     v3 = frame.new_reg(TwigRegister)
 
                     # Destination location:
-                    yield from self.immUsed(
-                        p1, SP, arg_loc.offset, "addi"
-                    )
+                    yield from self.immUsed(p1, SP, arg_loc.offset, "addi")
                     saved_registers = self.get_callee_saved(frame)
                     callee_save_space = 4 * len(saved_registers)
                     scalar_stack_size = round_up(frame.stacksize)
-                    final_fp_offset = callee_save_space + scalar_stack_size + arg.offset
+                    final_fp_offset = (
+                        callee_save_space + scalar_stack_size + arg.offset
+                    )
                     yield from self.immUsed(
                         p2, self.fp, final_fp_offset, "addi"
                     )
@@ -625,9 +622,7 @@ class TwigArch(Architecture):
             elif isinstance(arg_loc, StackLocation):
                 if isinstance(arg, TwigRegister):
                     yield from self.immUsed(R63, FP, -8, "lw")
-                    yield from self.immUsed(
-                        arg, R63, arg_loc.offset, "lw"
-                    )
+                    yield from self.immUsed(arg, R63, arg_loc.offset, "lw")
                 else:
                     pass
             else:  # pragma: no cover

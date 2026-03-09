@@ -112,13 +112,19 @@ class Mem:
 
     def dump_on_exit(self) -> None:
         try:
-            self.dump("memsim.hex", stack_base=self._stack_base, stack_end=self._stack_end)
+            self.dump(
+                "memsim.hex",
+                stack_base=self._stack_base,
+                stack_end=self._stack_end,
+            )
         except Exception:
             print("oopsie")
             pass
 
     # CAN CHANGE THIS SHIT LATER IF WE WANT TO PRINT OUT MORE INFO
-    def dump(self, path: str = "memsim.hex", stack_base: int = 0, stack_end: int = 0) -> None:
+    def dump(
+        self, path: str = "memsim.hex", stack_base: int = 0, stack_end: int = 0
+    ) -> None:
         """
         Dump memory one 32-bit word per line.
         Groups consecutive bytes [addr, addr+1, addr+2, addr+3] into one word.
@@ -134,7 +140,9 @@ class Mem:
             addr & ~0x3 for addr in self.memory.keys()
         } | self.meminit_bases
 
-        ignore_stack = stack_base != 0 and stack_end != 0 and stack_end > stack_base
+        ignore_stack = (
+            stack_base != 0 and stack_end != 0 and stack_end > stack_base
+        )
 
         with open(path, "w", encoding="utf-8") as f:
             for base in sorted(word_bases):

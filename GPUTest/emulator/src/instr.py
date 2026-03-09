@@ -44,16 +44,16 @@ class Instr(ABC):
     def _format_reg_value(reg: Bits, value: Bits) -> str:
         return f"r{reg.uint}=0x{value.uint:08x} ({value.int})"
 
-    def trace_predicated_skip(
-        self, csr: CsrRegFile, state: State
-    ) -> None:
+    def trace_predicated_skip(self, csr: CsrRegFile, state: State) -> None:
         details = [
             f"pred=p{self.pred.uint}={int(state.pfile.read_thread(self.pred, csr.get_thread_id()))}"
         ]
 
         rd = getattr(self, "rd", None)
         if rd is not None:
-            details.append(f"rd={self._format_reg_value(rd, state.rfile.read(rd))}")
+            details.append(
+                f"rd={self._format_reg_value(rd, state.rfile.read(rd))}"
+            )
 
         for reg_name in ("rs1", "rs2"):
             reg = getattr(self, reg_name, None)

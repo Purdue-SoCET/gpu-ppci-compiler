@@ -54,7 +54,7 @@ parser.add_argument(
     "--stack-info-output",
     default=None,
     metavar="FILE",
-    help="Write stack info (base_stack, per_thread_stack_size) as JSON to FILE",
+    help="Write stack info (base_stack,per_thread_stack_size) as JSON to FILE",
 )
 parser.add_argument(
     "sources", metavar="source", nargs="+", type=argparse.FileType("r")
@@ -151,7 +151,10 @@ def twig(args=None):
                 # 7. Write stack info sidecar for emulator
                 if args.stack_info_output:
                     from ..arch.twig.arch import BASE_STACK
-                    per_thread_stack_size = getattr(march, "_entry_totalstack", 0)
+
+                    per_thread_stack_size = getattr(
+                        march, "_entry_totalstack", 0
+                    )
                     with open(args.stack_info_output, "w") as sf:
                         json.dump(
                             {

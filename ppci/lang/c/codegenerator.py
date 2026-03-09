@@ -158,7 +158,7 @@ class CCodeGenerator:
                 if pred_reg not in deferred:
                     deferred.append(pred_reg)
                     self.logger.info(
-                        f"DEFERRED FREE (held until scope exit): pred{pred_reg}"
+                        f"DEFERRED FREE (held till scope exit): pred{pred_reg}"
                     )
             else:
                 if pred_reg not in self.freed_predicate_registers:
@@ -175,9 +175,9 @@ class CCodeGenerator:
         Without this, a child predicate that was set to 1 during the last loop
         iteration (e.g. by 'if (j == 2)') will still be 1 after the loop
         condition becomes false. Because JAL has no predicate field (all
-        threads share the same PC in lockstep), the warp unconditionally reaches
-        the child's code block. With a stale predicate of 1 those instructions
-        execute incorrectly.
+        threads share the same PC in lockstep), the warp unconditionally
+        reaches the child's code block. With a stale predicate of 1 those
+        instructions execute incorrectly.
 
         We clear each child predicate by emitting a BJump '0 != 0' (always
         false) under the loop predicate. This sets the target predicate to 0
@@ -201,7 +201,7 @@ class CCodeGenerator:
         zero = self.builder.emit_const(0, ir.i32)
         for child_pred in child_preds:
             self.logger.info(
-                f"CLEARING child predicate pred{child_pred} before loop back-edge"
+                f"CLEARING child predicate pred{child_pred} before back-edge"
             )
             # Each BJump terminates the current block, so we need a fresh
             # continuation block for the next iteration / caller.
@@ -215,8 +215,8 @@ class CCodeGenerator:
                     zero,
                     "!=",
                     zero,
-                    cont_block,   # no branch  (always taken)
-                    child_pred,   # pred_yes written 1 if yes taken (never)
+                    cont_block,  # no branch  (always taken)
+                    child_pred,  # pred_yes written 1 if yes taken (never)
                 )
             )
             self.builder.set_block(cont_block)
@@ -1079,7 +1079,7 @@ class CCodeGenerator:
         self.gen_stmt(stmt.body)
 
         # Clear any child predicates before the JPNZ back-edge to prevent
-        # stale predicate values from corrupting execution after the loop exits.
+        # stale predicate values from corrupting execution after loop exits.
         self._emit_clear_child_predicates(loop_pred_reg)
 
         cur_pred = loop_pred_reg
@@ -1196,7 +1196,7 @@ class CCodeGenerator:
             self.gen_expr(stmt.post, rvalue=True)
 
         # Clear any child predicates before the JPNZ back-edge to prevent
-        # stale predicate values from corrupting execution after the loop exits.
+        # stale predicate values from corrupting execution after loop exits.
         self._emit_clear_child_predicates(loop_pred_reg)
 
         cur_pred = loop_pred_reg

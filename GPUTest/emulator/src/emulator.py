@@ -106,10 +106,10 @@ if __name__ == "__main__":
         # Thread i's frame: [BASE_STACK + (i-1)*size, BASE_STACK + i*size)
         # Thread 0 goes one frame below BASE_STACK; thread N-1 ends at BASE_STACK + (N-1)*size.
         stack_start = args.stack_base - args.stack_size
-        stack_end   = args.stack_base + (total_threads - 1) * args.stack_size
+        stack_end = args.stack_base + (total_threads - 1) * args.stack_size
     else:
         stack_start = 0
-        stack_end   = 0
+        stack_end = 0
     mem.set_stack_range(stack_start, stack_end)
 
     # No-op stdout for filtering thread output when --log-thread is set

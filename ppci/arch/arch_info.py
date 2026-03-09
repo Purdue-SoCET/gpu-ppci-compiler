@@ -38,7 +38,8 @@ class ArchInfo:
         self,
         type_infos=None,
         endianness=Endianness.LITTLE,
-        register_classes=(), simt_threads=1
+        register_classes=(),
+        simt_threads=1,
     ):
         self.simt_threads = simt_threads
         self.type_infos = type_infos
