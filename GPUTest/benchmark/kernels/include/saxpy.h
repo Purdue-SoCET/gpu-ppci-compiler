@@ -8,6 +8,10 @@ typedef struct {
     float *y;
 } saxpy_arg_t;
 
+#ifdef CPU_SIM
 void kernel_saxpy(void*);
+#else
+void kernel_saxpy();
+#endif
 
 #endif

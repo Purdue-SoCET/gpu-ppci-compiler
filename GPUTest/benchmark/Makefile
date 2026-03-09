@@ -2,17 +2,17 @@
 
 # CPU Compiler and flags
 CPU_CC = gcc
-CPU_CFLAGS = -DCPU_SIM -Wall -Wextra -g 
+CPU_CFLAGS = -DCPU_SIM -Wall -Wextra -g
 CPU_LDFLAGS = -lm
-CPU_32BIT_FLAGS = -m32 -fsingle-precision-constant -Wdouble-promotion
+CPU_32BIT_FLAGS = -m32 -fsingle-precision-constant -Wdouble-promotion -ffloat-store
 
 GPU_CC = python3 ../../gpu-ppci-compiler/compile_twig.py
-GPU_CFLAGS = 
+GPU_CFLAGS =
 
 # CPU files
 KERNEL ?= saxpy
 CPU_SRCS = cpu_sim/main.c cpu_sim/kernel_run.c cpu_sim/graphics_lib.c cpu_sim/shader_memdump.c \
-       kernels/vertexShader.c kernels/triangle.c kernels/pixel.c 
+       kernels/vertexShader.c kernels/triangle.c kernels/pixel.c
 CPU_TARGET = cpu_sim.out
 CPU_PPM = frame_000.ppm
 
@@ -22,7 +22,7 @@ CPU_BUILD_DIR = build/
 CPU_OUTPUT_DIR = $(CPU_BUILD_DIR)output/
 
 # GPU files
-GPU_LIB_SRCS = 
+GPU_LIB_SRCS =
 GPU_LIB_EXCLUDE = kernels/graphics_lib.c
 GPU_KERNEL_SRCS = $(filter-out $(GPU_LIB_EXCLUDE), $(wildcard kernels/*.c))
 GPU_OUTPUT_DIR = compiled/
