@@ -708,13 +708,20 @@ class TwigHInstruction(Instruction):
 
 
 class Halt(TwigHInstruction):
-    """Halt instruction - encodes as 0xFFFFFFFF (all ones)."""
+    """Halt instruction."""
 
-    syntax = Syntax(["halt"])
-    patterns = {"opcode": 0b1111111}
+    pred = Operand("pred", int)
+    syntax = Syntax(["halt", ",", " ", pred])
+    patterns = {"opcode": 0b1111111, "pred": pred}
 
     def encode(self):
-        return (0xFFFFFFFF).to_bytes(4, byteorder="little")
+        tokens = self.get_tokens()
+        tokens[0][0:7] = 0b1111111
+        tokens[0][7:25] = 0x3FFFF
+        tokens[0][25:30] = self.pred
+        tokens[0][30] = 1
+        tokens[0][31] = 1
+        return tokens[0].encode()
 
 
 class PseudoTwigInstruction(ArtificialInstruction):
