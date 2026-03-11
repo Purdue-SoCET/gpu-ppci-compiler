@@ -496,7 +496,7 @@ class TwigArch(Architecture):
             yield from self.immUsed(SP, SP, totalstack, "addi")
 
         if is_entry:
-            yield Halt()
+            yield Halt(0)
         else:
             yield Blr(R0, LR, 0)
         # yield from self.litpool(frame)
