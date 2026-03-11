@@ -39,6 +39,34 @@ class Instr(ABC):
 
         return state.pfile.read_thread(self.pred, local_thread_id)
 
+    @staticmethod
+    def _format_reg_value(reg: Bits, value: Bits) -> str:
+        return f"r{reg.uint}=0x{value.uint:08x} ({value.int})"
+
+    def trace_predicated_skip(self, csr: CsrRegFile, state: State) -> None:
+        details = [
+            f"pred=p{self.pred.uint}={int(state.pfile.read_thread(self.pred, csr.get_thread_id()))}"
+        ]
+
+        rd = getattr(self, "rd", None)
+        if rd is not None:
+            details.append(
+                f"rd={self._format_reg_value(rd, state.rfile.read(rd))}"
+            )
+
+        for reg_name in ("rs1", "rs2"):
+            reg = getattr(self, reg_name, None)
+            if reg is not None:
+                details.append(
+                    f"{reg_name}={self._format_reg_value(reg, state.rfile.read(reg))}"
+                )
+
+        imm = getattr(self, "imm", None)
+        if imm is not None:
+            details.append(f"imm={imm.int}")
+
+        print(f"\tSkipped {self.op} due to predication: " + ", ".join(details))
+
     def check_overflow(
         self, result: Union[int, float], global_thread_id: int
     ) -> None:
@@ -186,7 +214,9 @@ class Instr(ABC):
                 ret_instr = I_Instr_0(op=op, rs1=rs1, imm=imm, rd=rd)
             case Instr_Type.I_TYPE_1:
                 op = I_Op_1(funct3)
-                print(f"\tfunct={op},imm={imm.int}")
+                print(
+                    f"\tfunct={op}, rd={rd.int}, rs1={rs1.int}, imm={imm.int}"
+                )
                 ret_instr = I_Instr_1(op=op, rs1=rs1, imm=imm, rd=rd)
             case Instr_Type.I_TYPE_2:
                 op = I_Op_2(funct3)
@@ -217,6 +247,7 @@ class Instr(ABC):
             case Instr_Type.J_TYPE:
                 op = J_Op(funct3)
                 imm = pred + rs2 + rs1  # rs1 + rs2 + pred #concatenate
+                print(f"\tfunct={op}, rd={rd.uint}, imm={imm.int}")
                 ret_instr = J_Instr(op=op, rd=rd, imm=imm, pc=pc)
             case Instr_Type.C_TYPE:
                 op = C_Op(funct3)
@@ -225,7 +256,7 @@ class Instr(ABC):
                 ret_instr = C_Instr(op=op, csr1=rs1, rd=rd)
             case Instr_Type.F_TYPE:
                 op = F_Op(funct3)
-                print(f"ftype, funct={op},imm={imm.int}")
+                print(f"ftype, funct={op}, rd={rd.uint}, rs1={rs1.uint}")
                 ret_instr = F_Instr(op=op, rs1=rs1, rd=rd)
             case Instr_Type.P_TYPE:
                 op = P_Op(funct3)
@@ -265,6 +296,7 @@ class R_Instr_0(Instr):
 
     def eval(self, csr: CsrRegFile, state: State) -> Optional[int]:
         if not self.check_predication(csr, state):
+            self.trace_predicated_skip(csr, state)
             return None
 
         rdat1 = state.rfile.read(self.rs1)
@@ -318,6 +350,7 @@ class R_Instr_1(Instr):
 
     def eval(self, csr: CsrRegFile, state: State) -> Optional[int]:
         if not self.check_predication(csr, state):
+            self.trace_predicated_skip(csr, state)
             return None
 
         rdat1 = state.rfile.read(self.rs1)
@@ -390,6 +423,7 @@ class R_Instr_2(Instr):
 
     def eval(self, csr: CsrRegFile, state: State) -> Optional[int]:
         if not self.check_predication(csr, state):
+            self.trace_predicated_skip(csr, state)
             return None
 
         rdat1 = state.rfile.read(self.rs1)
@@ -423,6 +457,7 @@ class I_Instr_0(Instr):
 
     def eval(self, csr: CsrRegFile, state: State) -> Optional[int]:
         if not self.check_predication(csr, state):
+            self.trace_predicated_skip(csr, state)
             return None
 
         rdat1 = state.rfile.read(self.rs1)
@@ -461,6 +496,7 @@ class I_Instr_1(Instr):
 
     def eval(self, csr: CsrRegFile, state: State) -> Optional[int]:
         if not self.check_predication(csr, state):
+            self.trace_predicated_skip(csr, state)
             return None
 
         rdat1 = state.rfile.read(self.rs1)
@@ -504,6 +540,7 @@ class I_Instr_2(Instr):
 
     def eval(self, csr: CsrRegFile, state: State) -> Optional[int]:
         if not self.check_predication(csr, state):
+            self.trace_predicated_skip(csr, state)
             return None
 
         rdat1 = state.rfile.read(self.rs1)
@@ -560,6 +597,7 @@ class F_Instr(Instr):
 
     def eval(self, csr: CsrRegFile, state: State) -> Optional[int]:
         if not self.check_predication(csr, state):
+            self.trace_predicated_skip(csr, state)
             return None
 
         rdat1 = state.rfile.read(self.rs1)
@@ -616,7 +654,7 @@ class S_Instr_0(Instr):
 
     def eval(self, csr: CsrRegFile, state: State) -> Optional[int]:
         if not self.check_predication(csr, state):
-            print("Skipped S-Type instruction due to predication")
+            self.trace_predicated_skip(csr, state)
             return None
 
         rdat1 = state.rfile.read(self.rs1)
@@ -653,6 +691,7 @@ class B_Instr_0(Instr):
 
     def eval(self, csr: CsrRegFile, state: State) -> Optional[int]:
         if not self.check_predication(csr, state):
+            self.trace_predicated_skip(csr, state)
             return None
 
         rdat1 = state.rfile.read(self.rs1)
@@ -698,6 +737,7 @@ class B_Instr_1(Instr):
 
     def eval(self, csr: CsrRegFile, state: State) -> Optional[int]:
         if not self.check_predication(csr, state):
+            self.trace_predicated_skip(csr, state)
             return None
 
         rdat1 = state.rfile.read(self.rs1)
@@ -737,6 +777,7 @@ class U_Instr(Instr):
 
     def eval(self, csr: CsrRegFile, state: State) -> Optional[int]:
         if not self.check_predication(csr, state):
+            self.trace_predicated_skip(csr, state)
             return None
 
         match self.op:
@@ -797,6 +838,7 @@ class C_Instr(Instr):
 
     def eval(self, csr: CsrRegFile, state: State) -> Optional[int]:
         if not self.check_predication(csr, state):
+            self.trace_predicated_skip(csr, state)
             return None
 
         if self.op != C_Op.CSRR:

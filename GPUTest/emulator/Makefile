@@ -15,7 +15,7 @@ run:
 
 compile-%:
 	mkdir -p build
-	twig ../benchmark/kernels/$*.c --hex-output build/$*.bin --entry kernel_$* -O$(O)
+	twig ../benchmark/kernels/$*.c --hex-output build/$*.bin --entry kernel_$* -O$(O) --stack-info-output build/$*.stack.json
 
 disasm-%: compile-%
 	tool --disasm build/$*.bin > build/$*_disasm.txt
@@ -23,6 +23,7 @@ disasm-%: compile-%
 build-%: disasm-%
 	mkdir -p tests/complex_tests/$*
 	awk 'NR>2 && $$3 != "" {print $$3}' build/$*_disasm.txt > tests/complex_tests/$*/$*.hex
+	cp build/$*.stack.json tests/complex_tests/$*/$*.stack.json
 
 test-%:
 	@TEST_ARGS=""; \
@@ -34,10 +35,16 @@ clean:
 	rm -f *.out *.log *.hex
 	rm -rf test_diffs/* build/*
 
+diffs:
+	python3 tests/diffs.py
+
+data:
+	make -C ../benchmark clean && make -C ../benchmark run32
+
 dataclean:
 	find tests/complex_tests -type f \( -name "*_data*" -o -name "*_exp*" \) -name "*.hex" -delete
 
-data:
+datacopy:
 	@bench_dir=../benchmark/build; \
 	for infile in $${bench_dir}/*Input.txt $${bench_dir}/*Input0.txt; do \
 		[ -e "$$infile" ] || continue; \

@@ -66,6 +66,18 @@ def parse_args():
         metavar="TID",
         help="Only print trace output for this thread ID (0-31 within warp). Omit to log all threads.",
     )
+    parser.add_argument(
+        "--stack-base",
+        type=lambda x: int(x, 0),
+        default=0,
+        help="Base address of the stack region (from compiler). Stack writes in [stack-base, stack-base + threads*blocks*stack-size) are excluded from the memory dump.",
+    )
+    parser.add_argument(
+        "--stack-size",
+        type=lambda x: int(x, 0),
+        default=0,
+        help="Per-thread stack size in bytes (from compiler). Used with --stack-base to compute the excluded range.",
+    )
 
     return parser.parse_args()
 
@@ -89,6 +101,18 @@ if __name__ == "__main__":
 
     # Shared State
     mem = Mem(args.start_pc, str(args.input_file), args.mem_format)
+
+    # Register stack range on mem immediately so dump_on_exit filters it even on crash
+    total_threads = args.threads_per_block * args.num_blocks
+    if args.stack_base and args.stack_size:
+        # Thread i's frame: [BASE_STACK + (i-1)*size, BASE_STACK + i*size)
+        # Thread 0 goes one frame below BASE_STACK; thread N-1 ends at BASE_STACK + (N-1)*size.
+        stack_start = args.stack_base - args.stack_size
+        stack_end = args.stack_base + (total_threads - 1) * args.stack_size
+    else:
+        stack_start = 0
+        stack_end = 0
+    mem.set_stack_range(stack_start, stack_end)
 
     # No-op stdout for filtering thread output when --log-thread is set
     class _NoOpWriter:
@@ -161,6 +185,6 @@ if __name__ == "__main__":
                     raise
         sys.stdout = _real_stdout
 
-    mem.dump()
+    mem.dump(stack_base=stack_start, stack_end=stack_end)
 
     print("Simulation Complete.")

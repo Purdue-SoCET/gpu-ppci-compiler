@@ -38,6 +38,10 @@ PASS_COUNT=0
 FAIL_COUNT=0
 MISSING_COUNT=0
 
+# Stack range (read from sidecar .stack.json if present)
+STACK_BASE=""
+STACK_SIZE=""
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -70,7 +74,10 @@ print('0x20000000')
 }
 
 # ==========================================
-# Sort hex file by address (ascending) for stable diff comparison
+# Sort hex file by address (ascending) for stable diff comparison.
+# Also deduplicates by address (last value for each address wins) and
+# normalises to lowercase address + lowercase data with a single space,
+# so that diff -w -i never trips over whitespace/case duplicates.
 # Format: 0xADDR 0xDATA per line
 # ==========================================
 sort_hex_by_addr() {
@@ -81,19 +88,17 @@ import sys
 import re
 path = sys.argv[1]
 pattern = re.compile(r'^\s*(0x[0-9a-fA-F]+)\s+(0x[0-9a-fA-F]+)\s*')
-lines = []
+seen = {}   # addr -> canonical line (last value wins, so exp beats instr)
 with open(path) as f:
     for line in f:
         line = line.rstrip('\n\r')
         m = pattern.match(line.split('//')[0].split('#')[0].strip())
         if m:
             addr = int(m.group(1), 16)
-            lines.append((addr, line))
-        else:
-            lines.append((-1, line))  # non-addr lines sort first
-lines.sort(key=lambda x: (0 if x[0] < 0 else 1, x[0] if x[0] >= 0 else 0))
+            data = int(m.group(2), 16)
+            seen[addr] = (addr, f'0x{addr:08x} 0x{data:08x}')
 with open(path, 'w') as f:
-    for _, ln in lines:
+    for _, ln in sorted(seen.values(), key=lambda x: x[0]):
         f.write(ln + '\n')
 " "$file"
 }
@@ -106,8 +111,19 @@ run_emulator() {
     local threads="$2"
     local blocks="$3"
     local extra_args=()
+    # When -l is not specified, do not pass --log-thread so the emulator prints trace for all threads.
+    # When -l TID is specified, pass --log-thread to restrict trace to that thread only.
     [ -n "$LOG_THREAD" ] && extra_args+=(--log-thread "$LOG_THREAD")
+    [ -n "$STACK_BASE" ]  && extra_args+=(--stack-base "$STACK_BASE")
+    [ -n "$STACK_SIZE" ]  && extra_args+=(--stack-size "$STACK_SIZE")
     "$PYTHON" "$EMULATOR" -t "$threads" -b "$blocks" --start-pc 0 --mem-format hex --arg-pointer "$ARGPTR" "${extra_args[@]}" "$input_path"
+}
+
+# Run emulator and capture output to TEMP_CMD_LOG (trace file). Never prints to terminal.
+# Sets EMULATOR_EXIT for the caller to check.
+run_emulator_capture() {
+    run_emulator "$@" > "$TEMP_CMD_LOG" 2>&1
+    EMULATOR_EXIT=$?
 }
 
 # ==========================================
@@ -141,7 +157,7 @@ while [[ $# -gt 0 ]]; do
             echo "Usage: $0 [-t N] [-a ADDR] [-l TID] <path/to/file.hex>"
             echo "  -t, --threads N    Number of threads (1-1024)"
             echo "  -a, --argptr ADDR  Argument pointer address (default: first data addr in input)"
-            echo "  -l, --log-thread TID  Only log trace for this thread (0-31)"
+            echo "  -l, --log-thread TID  Only log trace for this thread (0-31). Omit to log all threads."
             exit 0
             ;;
         *)
@@ -207,6 +223,17 @@ if [ -z "$ARGPTR" ]; then
     ARGPTR=$(get_first_data_addr "$INPUT_TO_USE")
 fi
 
+# Read stack info sidecar (<basename>.stack.json) if present
+stack_json="${dir_name}/${base_name}.stack.json"
+if [ -f "$stack_json" ]; then
+    read STACK_BASE STACK_SIZE < <("$PYTHON" -c "
+import json, sys
+with open(sys.argv[1]) as f:
+    d = json.load(f)
+print(d.get('base_stack', ''), d.get('per_thread_stack_size', ''))
+" "$stack_json")
+fi
+
 echo "========================================"
 echo "      GPU Emulator - Hex Input Test"
 echo "      Input:   $HEX_FILE"
@@ -234,9 +261,9 @@ if [ -n "$THREADS_OVERRIDE" ]; then
     BLOCKS=1
     exp_file=$(find "$dir_name" -maxdepth 1 -name "${base_name}_exp_t${THREADS}_b${BLOCKS}.hex" 2>/dev/null | head -n 1)
 
-    run_emulator "$INPUT_TO_USE" "$THREADS" "$BLOCKS" > "$TEMP_CMD_LOG" 2>&1
+    run_emulator_capture "$INPUT_TO_USE" "$THREADS" "$BLOCKS"
 
-    if [ $? -ne 0 ] || [ ! -f "$EMU_OUTPUT" ]; then
+    if [ "$EMULATOR_EXIT" -ne 0 ] || [ ! -f "$EMU_OUTPUT" ]; then
         echo -e "${RED}[RUN FAIL]${NC} $base_name (t=$THREADS, b=$BLOCKS)"
         mv "$TEMP_CMD_LOG" "$DIFF_DIR/${base_name}_run_error.log"
         cp "$INPUT_TO_USE" "$DIFF_DIR/${base_name}_meminit.hex"
@@ -272,9 +299,9 @@ elif [ -z "$expected_files" ]; then
     THREADS=32
     BLOCKS=1
 
-    run_emulator "$INPUT_TO_USE" "$THREADS" "$BLOCKS" > "$TEMP_CMD_LOG" 2>&1
+    run_emulator_capture "$INPUT_TO_USE" "$THREADS" "$BLOCKS"
 
-    if [ $? -ne 0 ] || [ ! -f "$EMU_OUTPUT" ]; then
+    if [ "$EMULATOR_EXIT" -ne 0 ] || [ ! -f "$EMU_OUTPUT" ]; then
         echo -e "${RED}[RUN FAIL]${NC} $base_name (t=$THREADS)"
         mv "$TEMP_CMD_LOG" "$DIFF_DIR/${base_name}_run_error.log"
         cp "$INPUT_TO_USE" "$DIFF_DIR/${base_name}_meminit.hex"
@@ -297,9 +324,9 @@ else
         test_id="${base_name}_t${THREADS}_b${BLOCKS}"
         error_log="$DIFF_DIR/${test_id}_error.log"
 
-        run_emulator "$INPUT_TO_USE" "$THREADS" "$BLOCKS" > "$TEMP_CMD_LOG" 2>&1
+        run_emulator_capture "$INPUT_TO_USE" "$THREADS" "$BLOCKS"
 
-        if [ $? -ne 0 ] || [ ! -f "$EMU_OUTPUT" ]; then
+        if [ "$EMULATOR_EXIT" -ne 0 ] || [ ! -f "$EMU_OUTPUT" ]; then
             echo -e "${RED}[RUN FAIL]${NC} $base_name (t=$THREADS, b=$BLOCKS)"
             cat "$TEMP_CMD_LOG" > "$error_log"
             cp "$INPUT_TO_USE" "$DIFF_DIR/${test_id}_meminit.hex"
