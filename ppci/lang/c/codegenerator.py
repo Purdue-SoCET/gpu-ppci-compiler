@@ -624,11 +624,9 @@ class CCodeGenerator:
             if function.typ.return_type.is_void:
                 self.emit(ir.Exit())
             else:
-                # TODO: Warning triggered even though return value exists
                 warn_when_no_return = True
                 if warn_when_no_return:
                     self.warning("Function does not return a value")
-                    print(function, ": ", function.typ.return_type)
                     zero = self.emit_const(0, function.typ.return_type)
                     self.emit(ir.Return(zero))
                 else:
@@ -1374,7 +1372,7 @@ class CCodeGenerator:
                 right_val = self._emit_condition_as_value(
                     condition.b, negate=negate
                 )
-                ir_typ = left_val.ty
+                ir_typ = ir.i32
                 if (condition.op == "||" and not negate) or (
                     condition.op == "&&" and negate
                 ):
@@ -1399,7 +1397,7 @@ class CCodeGenerator:
                         ">=": "<",
                     }
                     op = neg_map[op]
-                ir_typ = lhs.ty
+                ir_typ = ir.i32
                 return self.emit(ir.CompareSet(lhs, op, rhs, "cmpset", ir_typ))
 
         if isinstance(condition, expressions.UnaryOperator):
@@ -1409,8 +1407,8 @@ class CCodeGenerator:
                 )
 
         value = self.gen_expr(condition, rvalue=True)
-        ir_typ = value.ty
-        zero = self.builder.emit_const(0, ir_typ)
+        ir_typ = ir.i32
+        zero = self.builder.emit_const(0, value.ty)
         if negate:
             return self.emit(
                 ir.CompareSet(value, "==", zero, "cmpset", ir_typ)
