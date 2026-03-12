@@ -1,19 +1,18 @@
+import sys
+from pathlib import Path
+
+# Path setup must run before any GPUTest imports
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
 from thread import *
 from state import *
 from mem import *
 from instr import *
 from reg_file import *
 from common.custom_enums import *
-import sys
 import argparse
-from pathlib import Path
-
-# --- Path Setup ---
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-if str(_PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(_PROJECT_ROOT))
-
-# --- Imports ---
 
 
 # --- Argument Parsing Helper ---
