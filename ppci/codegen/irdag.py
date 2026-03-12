@@ -519,7 +519,7 @@ class SelectionGraphBuilder:
         """
         a = self.get_value(node.a)
         b = self.get_value(node.b)
-        sgnode = self.new_node("CMPSET", node.ty, a, b)
+        sgnode = self.new_node("CMPSET", node.a.ty, a, b)
         sgnode.value = node.cond
         self.debug_db.map(node, sgnode)
         self.add_map(node, sgnode.new_output(node.name))
