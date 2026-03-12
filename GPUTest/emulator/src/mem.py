@@ -43,8 +43,7 @@ class Mem:
                         word = int(parts[0], 16)
                     else:
                         raise ValueError(
-                            f"Line {line_no}: Expected 1 or 2 hex tokens, got {
-                                len(parts)}"
+                            f"Line {line_no}: Expected 1 or 2 hex tokens, got {len(parts)}"
                         )
 
                     word &= 0xFFFF_FFFF
@@ -58,8 +57,7 @@ class Mem:
                         )
                     word = int(bits, 2) & 0xFFFF_FFFF
 
-                # Track word-aligned base for meminit (so we include zeros on
-                # dump)
+                # Track word-aligned base for meminit (so we include zeros on dump)
                 self.meminit_bases.add(addr & ~0x3)
 
                 # Write to Memory (Endianness Handling)
@@ -79,8 +77,7 @@ class Mem:
                 self.memory[addr + 2] = b2
                 self.memory[addr + 3] = b3
 
-                # Auto-increment address for the next line (unless overridden
-                # by explicit addr)
+                # Auto-increment address for the next line (unless overridden by explicit addr)
                 addr += 4
 
         atexit.register(self.dump_on_exit)
@@ -102,9 +99,9 @@ class Mem:
 
     def write(self, addr: Bits, data: Bits, bytes_t: int) -> None:
         addr = addr & 0xFFFFFFFF  # Normalize to 32-bit unsigned
-        print(f"\tWrite to address {
-            addr:#010x} for {bytes_t} bytes: {
-            data.uint:#010x}")
+        print(
+            f"\tWrite to address {addr:#010x} for {bytes_t} bytes: {data.uint:#010x}"
+        )
         for i in range(bytes_t):
             self.memory[addr + i] = (data.uint >> (8 * i)) & 0xFF
 
@@ -138,8 +135,7 @@ class Mem:
         [stack_base, stack_end) are excluded from the dump so that stack writes
         do not produce false diffs against the cpusim expected output.
         """
-        # Include all word bases from memory; also include meminit bases (even
-        # if zero)
+        # Include all word bases from memory; also include meminit bases (even if zero)
         word_bases = {
             addr & ~0x3 for addr in self.memory.keys()
         } | self.meminit_bases
@@ -159,8 +155,7 @@ class Mem:
                 b2 = self.memory.get(base + 2, 0) & 0xFF
                 b3 = self.memory.get(base + 3, 0) & 0xFF
                 if (b0 | b1 | b2 | b3) == 0 and base not in self.meminit_bases:
-                    # skip all-zero words (unless address was in meminit)
-                    continue
+                    continue  # skip all-zero words (unless address was in meminit)
 
                 if self.endianness == "little":
                     # Little Endian: Addr+0 is LSB

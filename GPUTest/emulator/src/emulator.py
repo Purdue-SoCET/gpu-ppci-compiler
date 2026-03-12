@@ -1,18 +1,19 @@
 import sys
+import argparse
 from pathlib import Path
 
-# Path setup must run before any GPUTest imports
+# --- Path Setup ---
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from thread import *
-from state import *
-from mem import *
-from instr import *
-from reg_file import *
+# --- Imports ---
 from common.custom_enums import *
-import argparse
+from reg_file import *
+from instr import *
+from mem import *
+from state import *
+from thread import *
 
 
 # --- Argument Parsing Helper ---
@@ -91,11 +92,9 @@ if __name__ == "__main__":
         sys.exit(1)
 
     print(f"Starting Simulation: {args.input_file}")
-    print(f"Threads: {
-        args.threads_per_block} | Blocks: {
-        args.num_blocks} | Start PC: {
-        hex(
-            args.start_pc)}")
+    print(
+        f"Threads: {args.threads_per_block} | Blocks: {args.num_blocks} | Start PC: {hex(args.start_pc)}"
+    )
     warps_per_block = (args.threads_per_block + 31) // 32
 
     # Shared State
@@ -156,8 +155,7 @@ if __name__ == "__main__":
             )
             sys.stdout = _real_stdout
 
-        # Run Warp: continue until ALL threads have halted (SIMT allows
-        # divergence)
+        # Run Warp: continue until ALL threads have halted (SIMT allows divergence)
         print(f"\n --- Starting Warp: {warp_id} in Block: {block_id} --- ")
         thread_halted = [False] * len(threads)
         while not all(thread_halted):
@@ -174,12 +172,11 @@ if __name__ == "__main__":
                     # Invalid memory access: addr not in mem (never stored/initialized)
                     # Always print to real stdout (bypass --log-thread filter)
                     _real_stdout.write(
-                        f"\n*** Invalid memory access: thread {tid}, PC 0x{
-                            thread.pc:04x} ***\n"
+                        f"\n*** Invalid memory access: thread {tid}, PC 0x{thread.pc:04x} ***\n"
                     )
-                    _real_stdout.write(f"*** KeyError: {e} (address {
-                        e.args[0]} = 0x{
-                        e.args[0]:x}) ***\n")
+                    _real_stdout.write(
+                        f"*** KeyError: {e} (address {e.args[0]} = 0x{e.args[0]:x}) ***\n"
+                    )
                     _real_stdout.flush()
                     raise
         sys.stdout = _real_stdout
