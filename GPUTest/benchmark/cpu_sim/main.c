@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <sys/mman.h>
 #include "include/kernel_run.h"
 #include "include/graphics_lib.h"
 #include "include/shader_memdump.h"
@@ -23,8 +24,8 @@ uint8_t* memory_ptr;
 #define TRIANGLE_DEBUG 0
 #define PIXEL_DEBUG 0
 
-#define VERTEX_SHADER_PRINT_DEBUG 1
-#define TRIANGLE_PRINT_DEBUG 0
+#define VERTEX_SHADER_PRINT_DEBUG 0
+#define TRIANGLE_PRINT_DEBUG 1
 #define PIXEL_PRINT_DEBUG 0
 
 #define INPUT_ARGS_DEBUG 1
@@ -195,6 +196,16 @@ int main(int argc, char** argv) {
         vertex_args->threeDVertTrans = tVerts;
         ALLOCATE_MEM(pVerts, vertex_t, num_verts);
         vertex_args->twoDVert = pVerts;
+
+        #define DEBUG_PTR_ADDR 0x08000000
+
+        void* debug_page = mmap((void*) DEBUG_PTR_ADDR, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+        if(debug_page == MAP_FAILED){
+            perror("mmap");
+            return 1;
+        }
+        volatile float* debug_ptr = (volatile float*) DEBUG_PTR_ADDR;
+        vertex_args->debug_ptr = debug_ptr;
 
         if(INPUT_ARGS_DEBUG && VERTEX_SHADER_PRINT_DEBUG){
             print_vertex_args("build/vertexShaderInput.txt", vertex_args, num_verts);

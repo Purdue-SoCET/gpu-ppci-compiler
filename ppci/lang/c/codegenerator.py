@@ -1374,7 +1374,7 @@ class CCodeGenerator:
                 right_val = self._emit_condition_as_value(
                     condition.b, negate=negate
                 )
-                ir_typ = left_val.ty
+                ir_typ = ir.i32
                 if (condition.op == "||" and not negate) or (
                     condition.op == "&&" and negate
                 ):
@@ -1399,7 +1399,7 @@ class CCodeGenerator:
                         ">=": "<",
                     }
                     op = neg_map[op]
-                ir_typ = lhs.ty
+                ir_typ = ir.i32
                 return self.emit(ir.CompareSet(lhs, op, rhs, "cmpset", ir_typ))
 
         if isinstance(condition, expressions.UnaryOperator):
@@ -1409,8 +1409,8 @@ class CCodeGenerator:
                 )
 
         value = self.gen_expr(condition, rvalue=True)
-        ir_typ = value.ty
-        zero = self.builder.emit_const(0, ir_typ)
+        ir_typ = ir.i32
+        zero = self.builder.emit_const(0, value.ty)
         if negate:
             return self.emit(
                 ir.CompareSet(value, "==", zero, "cmpset", ir_typ)

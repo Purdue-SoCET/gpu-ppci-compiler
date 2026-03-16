@@ -1,4 +1,5 @@
 import argparse
+import json
 import sys
 from .. import api
 from ..lang.c import CAstPrinter, create_ast
@@ -50,6 +51,12 @@ parser.add_argument(
     help="Output file for custom 32-bit binary strings",
 )
 parser.add_argument(
+    "--stack-info-output",
+    default=None,
+    metavar="FILE",
+    help="Write stack info (base_stack,per_thread_stack_size) as JSON to FILE",
+)
+parser.add_argument(
     "sources", metavar="source", nargs="+", type=argparse.FileType("r")
 )
 
@@ -78,7 +85,7 @@ def twig(args=None):
                     )
                     printer.print(ast)
         else:
-            # Compile sources to IR
+            # 1. Compile sources to IR
             ir_modules = []
             for src in args.sources:
                 ir_module = api.c_to_ir(
@@ -98,7 +105,7 @@ def twig(args=None):
                     ir_modules, march, log_setup.reporter, log_setup.args
                 )
             else:
-                # Compile IR to Object (in-memory)
+                # 2. Compile IR to Object (in-memory)
                 march.entry_symbol = args.entry
                 obj = api.ir_to_object(
                     ir_modules,
@@ -107,7 +114,7 @@ def twig(args=None):
                     debug=args.g,
                 )
 
-                # Prepare Layout
+                # 3. Prepare Layout
                 if args.layout:
                     with open(args.layout, "r") as f:
                         layout_obj = Layout.load(f)
@@ -140,6 +147,22 @@ def twig(args=None):
                 # 6. Generate custom hex output (meminit.hex)
                 if args.hex_output:
                     write_meminit_hex(linked_obj, args.hex_output)
+
+                # 7. Write stack info sidecar for emulator
+                if args.stack_info_output:
+                    from ..arch.twig.arch import BASE_STACK
+
+                    per_thread_stack_size = getattr(
+                        march, "_entry_totalstack", 0
+                    )
+                    with open(args.stack_info_output, "w") as sf:
+                        json.dump(
+                            {
+                                "base_stack": BASE_STACK,
+                                "per_thread_stack_size": per_thread_stack_size,
+                            },
+                            sf,
+                        )
 
 
 # Default memory layout based on MMIO.md

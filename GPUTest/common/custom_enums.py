@@ -1,8 +1,7 @@
 from enum import Enum
 from bitstring import Bits
 
-# ISA Teal Card v2 (used for Enum declarations):
-# https://docs.google.com/spreadsheets/d/1quvfY0Q_mLP5VfUaNGiiruGoqjCMpCyCKM9KlqbujYM/edit?usp=sharing
+# ISA Teal Card v2 (used for Enum declarations): https://docs.google.com/spreadsheets/d/1quvfY0Q_mLP5VfUaNGiiruGoqjCMpCyCKM9KlqbujYM/edit?usp=sharing
 
 
 # Instruction Type Enum (first 4 MSBs of 7-bit opcode)

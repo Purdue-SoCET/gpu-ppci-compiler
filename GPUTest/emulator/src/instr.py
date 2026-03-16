@@ -1,5 +1,3 @@
-from reg_file import *
-from common.custom_enums import *
 from mem import *
 from state import *
 
@@ -17,6 +15,9 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
+from common.custom_enums import *
+from reg_file import *
+from mem import *
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,34 @@ class Instr(ABC):
 
         return state.pfile.read_thread(self.pred, local_thread_id)
 
+    @staticmethod
+    def _format_reg_value(reg: Bits, value: Bits) -> str:
+        return f"r{reg.uint}=0x{value.uint:08x} ({value.int})"
+
+    def trace_predicated_skip(self, csr: CsrRegFile, state: State) -> None:
+        details = [
+            f"pred=p{self.pred.uint}={int(state.pfile.read_thread(self.pred, csr.get_thread_id()))}"
+        ]
+
+        rd = getattr(self, "rd", None)
+        if rd is not None:
+            details.append(
+                f"rd={self._format_reg_value(rd, state.rfile.read(rd))}"
+            )
+
+        for reg_name in ("rs1", "rs2"):
+            reg = getattr(self, reg_name, None)
+            if reg is not None:
+                details.append(
+                    f"{reg_name}={self._format_reg_value(reg, state.rfile.read(reg))}"
+                )
+
+        imm = getattr(self, "imm", None)
+        if imm is not None:
+            details.append(f"imm={imm.int}")
+
+        print(f"\tSkipped {self.op} due to predication: " + ", ".join(details))
+
     def check_overflow(
         self, result: Union[int, float], global_thread_id: int
     ) -> None:
@@ -47,34 +76,22 @@ class Instr(ABC):
             case R_Op_0.ADD:
                 if result > 2147483647 or result < -2147483648:
                     logger.warning(
-                        f"Arithmetic overflow in ADD from thread ID {global_thread_id}: R{
-                            self.rd.int} = R{
-                            self.rs1.int} + R{
-                            self.rs2.int}"
+                        f"Arithmetic overflow in ADD from thread ID {global_thread_id}: R{self.rd.int} = R{self.rs1.int} + R{self.rs2.int}"
                     )
             case R_Op_0.SUB:
                 if result > 2147483647 or result < -2147483648:
                     logger.warning(
-                        f"Arithmetic overflow in SUB from thread ID {global_thread_id}: R{
-                            self.rd.int} = R{
-                            self.rs1.int} - R{
-                            self.rs2.int}"
+                        f"Arithmetic overflow in SUB from thread ID {global_thread_id}: R{self.rd.int} = R{self.rs1.int} - R{self.rs2.int}"
                     )
             case R_Op_0.MUL:
                 if result > 2147483647 or result < -2147483648:
                     logger.warning(
-                        f"Arithmetic overflow in MUL from thread ID {global_thread_id}: R{
-                            self.rd.int} = R{
-                            self.rs1.int} * R{
-                            self.rs2.int}"
+                        f"Arithmetic overflow in MUL from thread ID {global_thread_id}: R{self.rd.int} = R{self.rs1.int} * R{self.rs2.int}"
                     )
             case R_Op_1.SLL:
                 if result > 2147483647 or result < -2147483648:
                     logger.warning(
-                        f"Arithmetic overflow in SLL from thread ID {global_thread_id}: R{
-                            self.rd.int} = R{
-                            self.rs1.int} << R{
-                            self.rs2.int}"
+                        f"Arithmetic overflow in SLL from thread ID {global_thread_id}: R{self.rd.int} = R{self.rs1.int} << R{self.rs2.int}"
                     )
             case R_Op_1.ADDF:
                 if (
@@ -83,10 +100,7 @@ class Instr(ABC):
                     or result != result
                 ):
                     logger.warning(
-                        f"Infinite/Nan FP result in ADDF from thread ID {global_thread_id}: R{
-                            self.rd} = R{
-                            self.rs1.int} + R{
-                            self.rs2.int}"
+                        f"Infinite/Nan FP result in ADDF from thread ID {global_thread_id}: R{self.rd} = R{self.rs1.int} + R{self.rs2.int}"
                     )
             case R_Op_1.SUBF:
                 if (
@@ -95,10 +109,7 @@ class Instr(ABC):
                     or result != result
                 ):
                     logger.warning(
-                        f"Infinite/NaN FP result in SUBF from thread ID {global_thread_id}: R{
-                            self.rd} = R{
-                            self.rs1.int} - R{
-                            self.rs2.int}"
+                        f"Infinite/NaN FP result in SUBF from thread ID {global_thread_id}: R{self.rd} = R{self.rs1.int} - R{self.rs2.int}"
                     )
             case R_Op_1.MULF:
                 if (
@@ -107,10 +118,7 @@ class Instr(ABC):
                     or result != result
                 ):
                     logger.warning(
-                        f"Infinite/NaN FP result in MULF from thread ID {global_thread_id}: R{
-                            self.rd} = R{
-                            self.rs1.int} * R{
-                            self.rs2.int}"
+                        f"Infinite/NaN FP result in MULF from thread ID {global_thread_id}: R{self.rd} = R{self.rs1.int} * R{self.rs2.int}"
                     )
             case R_Op_1.DIVF:
                 if (
@@ -119,17 +127,12 @@ class Instr(ABC):
                     or result != result
                 ):
                     logger.warning(
-                        f"Infinite/NaN FP result in DIVF from thread ID {global_thread_id}: R{
-                            self.rd} = R{
-                            self.rs1.int} / R{
-                            self.rs2.int}"
+                        f"Infinite/NaN FP result in DIVF from thread ID {global_thread_id}: R{self.rd} = R{self.rs1.int} / R{self.rs2.int}"
                     )
             case U_Op.AUIPC:
                 if result > 2147483647 or result < -2147483648:
                     logger.warning(
-                        f"Arithmetic overflow in AUIPC from thread ID {global_thread_id}: R{
-                            self.rd.int} = PC + {
-                            self.imm.int} << 12"
+                        f"Arithmetic overflow in AUIPC from thread ID {global_thread_id}: R{self.rd.int} = PC + {self.imm.int} << 12"
                     )
             # case _:
             #     logger.warning(f"Unknown overflow in operation {self.op} from thread ID {global_thread_id}")
@@ -152,8 +155,7 @@ class Instr(ABC):
         # TODO: Handle floating point branches - B_TYPE_1
         type = Instr_Type(opcode)
         print("- " + type.name + " -")
-        # things passed into here: instruction (line) itself and PC
-        match type:
+        match type:  # things passed into here: instruction (line) itself and PC
             case Instr_Type.R_TYPE_0:
                 op = R_Op_0(funct3)
                 print(
@@ -169,12 +171,11 @@ class Instr(ABC):
             case Instr_Type.R_TYPE_2:  # Also depricated B_TYPE_1
                 try:  # R_TYPE_2
                     op = R_Op_2(funct3)
-                    print(f"\tfunct={op}, rs1={
-                        rs1.int}, rs2={
-                        rs2.int}, rd={
-                        rd.uint}")
+                    print(
+                        f"\tfunct={op}, rs1={rs1.int}, rs2={rs2.int}, rd={rd.uint}"
+                    )
                     ret_instr = R_Instr_2(op=op, rs1=rs1, rs2=rs2, rd=rd)
-                except BaseException:  # B_TYPE_1
+                except:  # B_TYPE_1
                     op = B_Op_1(funct3)
                     ret_instr = B_Instr_1(
                         op=op, rs1=rs1, rs2=rs2, preddest=rd
@@ -186,7 +187,9 @@ class Instr(ABC):
                 ret_instr = I_Instr_0(op=op, rs1=rs1, imm=imm, rd=rd)
             case Instr_Type.I_TYPE_1:
                 op = I_Op_1(funct3)
-                print(f"\tfunct={op},imm={imm.int}")
+                print(
+                    f"\tfunct={op}, rd={rd.int}, rs1={rs1.int}, imm={imm.int}"
+                )
                 ret_instr = I_Instr_1(op=op, rs1=rs1, imm=imm, rd=rd)
             case Instr_Type.I_TYPE_2:
                 op = I_Op_2(funct3)
@@ -217,6 +220,7 @@ class Instr(ABC):
             case Instr_Type.J_TYPE:
                 op = J_Op(funct3)
                 imm = pred + rs2 + rs1  # rs1 + rs2 + pred #concatenate
+                print(f"\tfunct={op}, rd={rd.uint}, imm={imm.int}")
                 ret_instr = J_Instr(op=op, rd=rd, imm=imm, pc=pc)
             case Instr_Type.C_TYPE:
                 op = C_Op(funct3)
@@ -225,18 +229,18 @@ class Instr(ABC):
                 ret_instr = C_Instr(op=op, csr1=rs1, rd=rd)
             case Instr_Type.F_TYPE:
                 op = F_Op(funct3)
-                print(f"ftype, funct={op},imm={imm.int}")
+                print(f"ftype, funct={op}, rd={rd.uint}, rs1={rs1.uint}")
                 ret_instr = F_Instr(op=op, rs1=rs1, rd=rd)
             case Instr_Type.P_TYPE:
                 op = P_Op(funct3)
-                # JPNZ: imm is 12-bit signed from bits [24:13], multiplied by 2
-                # for byte offset
+                # JPNZ: imm is 12-bit signed from bits [24:13], multiplied by 2 for byte offset
                 if op == P_Op.JPNZ:
                     jpnz_imm = Bits(
                         bin=instruction.bin[7:19], length=12
                     )  # bits [24:13]
-                    print(f"ptype, funct={op}, prd={rd}, rs2={rs2}, imm={
-                        jpnz_imm.int} (jpnz 12b signed)")
+                    print(
+                        f"ptype, funct={op}, prd={rd}, rs2={rs2}, imm={jpnz_imm.int} (jpnz 12b signed)"
+                    )
                     ret_instr = P_Instr(
                         op, prd=rd, rs2=rs2, imm=jpnz_imm, pc=pc
                     )
@@ -265,6 +269,7 @@ class R_Instr_0(Instr):
 
     def eval(self, csr: CsrRegFile, state: State) -> Optional[int]:
         if not self.check_predication(csr, state):
+            self.trace_predicated_skip(csr, state)
             return None
 
         rdat1 = state.rfile.read(self.rs1)
@@ -279,11 +284,9 @@ class R_Instr_0(Instr):
                 result = rdat1.int * rdat2.int
             case R_Op_0.DIV:
                 if rdat2.int == 0:
-                    logger.warning(f"Division by zero in DIV from thread ID {
-                        csr.get_global_thread_id()}: R{
-                        self.rd} = R{
-                        self.rs1.uint} / {
-                        self.rs2.uint}")
+                    logger.warning(
+                        f"Division by zero in DIV from thread ID {csr.get_global_thread_id()}: R{self.rd} = R{self.rs1.uint} / {self.rs2.uint}"
+                    )
                     result = 0
                 else:
                     result = int(rdat1.int / rdat2.int)
@@ -301,8 +304,9 @@ class R_Instr_0(Instr):
                 result = 1 if rdat1.int < rdat2.int else 0
 
             case _:
-                raise NotImplementedError(f"R-Type operation {
-                    self.op} not implemented yet or doesn't exist.")
+                raise NotImplementedError(
+                    f"R-Type operation {self.op} not implemented yet or doesn't exist."
+                )
 
         self.check_overflow(result, csr.get_global_thread_id())
         state.rfile.write(self.rd, Bits(int=result, length=32))
@@ -318,6 +322,7 @@ class R_Instr_1(Instr):
 
     def eval(self, csr: CsrRegFile, state: State) -> Optional[int]:
         if not self.check_predication(csr, state):
+            self.trace_predicated_skip(csr, state)
             return None
 
         rdat1 = state.rfile.read(self.rs1)
@@ -351,11 +356,9 @@ class R_Instr_1(Instr):
                 rdat1 = rdat1.float
                 rdat2 = rdat2.float
                 if rdat2 == 0.0:
-                    logger.warning(f"Division by zero in DIVF from thread ID {
-                        csr.get_global_thread_id()}: R{
-                        self.rd} = R{
-                        self.rs1.int} / R{
-                        self.rs2.int}")
+                    logger.warning(
+                        f"Division by zero in DIVF from thread ID {csr.get_global_thread_id()}: R{self.rd} = R{self.rs1.int} / R{self.rs2.int}"
+                    )
                     result = Bits(float=0.0, length=32)
                 else:
                     result = Bits(float=(rdat1 / rdat2), length=32)
@@ -374,8 +377,9 @@ class R_Instr_1(Instr):
                 )  # Python's >> preserves sign for negative numbers
 
             case _:
-                raise NotImplementedError(f"R-Type 1 operation {
-                    self.op} not implemented yet or doesn't exist.")
+                raise NotImplementedError(
+                    f"R-Type 1 operation {self.op} not implemented yet or doesn't exist."
+                )
 
         state.rfile.write(self.rd, result)
         return None
@@ -390,6 +394,7 @@ class R_Instr_2(Instr):
 
     def eval(self, csr: CsrRegFile, state: State) -> Optional[int]:
         if not self.check_predication(csr, state):
+            self.trace_predicated_skip(csr, state)
             return None
 
         rdat1 = state.rfile.read(self.rs1)
@@ -407,8 +412,9 @@ class R_Instr_2(Instr):
                 result = 1 if rdat1.float >= rdat2.float else 0
 
             case _:
-                raise NotImplementedError(f"R-Type 2 operation {
-                    self.op} not implemented yet or doesn't exist.")
+                raise NotImplementedError(
+                    f"R-Type 2 operation {self.op} not implemented yet or doesn't exist."
+                )
 
         state.rfile.write(self.rd, Bits(int=result, length=32))
         return None
@@ -423,6 +429,7 @@ class I_Instr_0(Instr):
 
     def eval(self, csr: CsrRegFile, state: State) -> Optional[int]:
         if not self.check_predication(csr, state):
+            self.trace_predicated_skip(csr, state)
             return None
 
         rdat1 = state.rfile.read(self.rs1)
@@ -445,8 +452,9 @@ class I_Instr_0(Instr):
                 result = 1 if rdat1.int < imm_val else 0
 
             case _:
-                raise NotImplementedError(f"I-Type 0 operation {
-                    self.op} not implemented yet or doesn't exist.")
+                raise NotImplementedError(
+                    f"I-Type 0 operation {self.op} not implemented yet or doesn't exist."
+                )
 
         state.rfile.write(self.rd, Bits(int=result, length=32))
         return None
@@ -461,6 +469,7 @@ class I_Instr_1(Instr):
 
     def eval(self, csr: CsrRegFile, state: State) -> Optional[int]:
         if not self.check_predication(csr, state):
+            self.trace_predicated_skip(csr, state)
             return None
 
         rdat1 = state.rfile.read(self.rs1)
@@ -484,8 +493,9 @@ class I_Instr_1(Instr):
                 result = rdat1.uint << shift_amount
 
             case _:
-                raise NotImplementedError(f"I-Type 1 operation {
-                    self.op} not implemented yet or doesn't exist.")
+                raise NotImplementedError(
+                    f"I-Type 1 operation {self.op} not implemented yet or doesn't exist."
+                )
 
         out = result & 0xFFFFFFFF
         state.rfile.write(self.rd, Bits(uint=out, length=32))
@@ -504,6 +514,7 @@ class I_Instr_2(Instr):
 
     def eval(self, csr: CsrRegFile, state: State) -> Optional[int]:
         if not self.check_predication(csr, state):
+            self.trace_predicated_skip(csr, state)
             return None
 
         rdat1 = state.rfile.read(self.rs1)
@@ -545,8 +556,9 @@ class I_Instr_2(Instr):
                 )  # Ensure LSB is zero (word-aligned)
 
             case _:
-                raise NotImplementedError(f"I-Type operation {
-                    self.op} not implemented yet or doesn't exist.")
+                raise NotImplementedError(
+                    f"I-Type operation {self.op} not implemented yet or doesn't exist."
+                )
 
         state.rfile.write(self.rd, Bits(int=result, length=32))
         return None
@@ -560,6 +572,7 @@ class F_Instr(Instr):
 
     def eval(self, csr: CsrRegFile, state: State) -> Optional[int]:
         if not self.check_predication(csr, state):
+            self.trace_predicated_skip(csr, state)
             return None
 
         rdat1 = state.rfile.read(self.rs1)
@@ -569,9 +582,9 @@ class F_Instr(Instr):
             case F_Op.ISQRT:
                 val = rdat1.float
                 if val <= 0:
-                    logger.warning(f"Invalid value for ISQRT from thread ID {
-                        csr.get_global_thread_id()}: R{
-                        self.rs1.int} = {val}")
+                    logger.warning(
+                        f"Invalid value for ISQRT from thread ID {csr.get_global_thread_id()}: R{self.rs1.int} = {val}"
+                    )
                     result = 0.0
                 else:
                     result = 1.0 / math.sqrt(val)
@@ -591,8 +604,9 @@ class F_Instr(Instr):
                 result = int(rdat1.float)
 
             case _:
-                raise NotImplementedError(f"F-Type operation {
-                    self.op} not implemented yet or doesn't exist.")
+                raise NotImplementedError(
+                    f"F-Type operation {self.op} not implemented yet or doesn't exist."
+                )
 
         # Check for overflow in FP operations - TODO: refine this
         # if self.op in [F_Op.ISQRT, F_Op.SIN, F_Op.COS, F_Op.ITOF]:
@@ -616,7 +630,7 @@ class S_Instr_0(Instr):
 
     def eval(self, csr: CsrRegFile, state: State) -> Optional[int]:
         if not self.check_predication(csr, state):
-            print("Skipped S-Type instruction due to predication")
+            self.trace_predicated_skip(csr, state)
             return None
 
         rdat1 = state.rfile.read(self.rs1)
@@ -637,8 +651,9 @@ class S_Instr_0(Instr):
                 state.memory.write(addr, data, 1)
 
             case _:
-                raise NotImplementedError(f"S-Type operation {
-                    self.op} not implemented yet or doesn't exist.")
+                raise NotImplementedError(
+                    f"S-Type operation {self.op} not implemented yet or doesn't exist."
+                )
         return None
 
 
@@ -653,6 +668,7 @@ class B_Instr_0(Instr):
 
     def eval(self, csr: CsrRegFile, state: State) -> Optional[int]:
         if not self.check_predication(csr, state):
+            self.trace_predicated_skip(csr, state)
             return None
 
         rdat1 = state.rfile.read(self.rs1)
@@ -675,8 +691,9 @@ class B_Instr_0(Instr):
                 result = 1 if rdat1.uint < rdat2.uint else 0
 
             case _:
-                raise NotImplementedError(f"B-Type operation {
-                    self.op} not implemented yet or doesn't exist.")
+                raise NotImplementedError(
+                    f"B-Type operation {self.op} not implemented yet or doesn't exist."
+                )
 
         print(
             f"Writing to predicate register {self.preddest.int} value {result}"
@@ -698,6 +715,7 @@ class B_Instr_1(Instr):
 
     def eval(self, csr: CsrRegFile, state: State) -> Optional[int]:
         if not self.check_predication(csr, state):
+            self.trace_predicated_skip(csr, state)
             return None
 
         rdat1 = state.rfile.read(self.rs1)
@@ -716,8 +734,9 @@ class B_Instr_1(Instr):
                 result = 1 if rdat1.float < rdat2.float else 0
 
             case _:
-                raise NotImplementedError(f"B-Type operation {
-                    self.op} not implemented yet or doesn't exist.")
+                raise NotImplementedError(
+                    f"B-Type operation {self.op} not implemented yet or doesn't exist."
+                )
 
         print(
             f"Writing to predicate register {self.preddest.int} value {result}"
@@ -737,6 +756,7 @@ class U_Instr(Instr):
 
     def eval(self, csr: CsrRegFile, state: State) -> Optional[int]:
         if not self.check_predication(csr, state):
+            self.trace_predicated_skip(csr, state)
             return None
 
         match self.op:
@@ -762,8 +782,7 @@ class U_Instr(Instr):
                 result = upper_bits | lower_bits
                 state.rfile.write(self.rd, Bits(uint=result, length=32))
             case U_Op.LMI:
-                # Load Middle Immediate: R[rd] = {R[rd][31:24], imm[11:0],
-                # R[rd][11:0]}
+                # Load Middle Immediate: R[rd] = {R[rd][31:24], imm[11:0], R[rd][11:0]}
                 rd_val = state.rfile.read(self.rd)
                 upper_bits = rd_val.uint & 0xFF000000  # Keep upper 8 bits
                 lower_bits = rd_val.uint & 0x00000FFF  # Keep lower 12 bits
@@ -784,8 +803,9 @@ class U_Instr(Instr):
                 state.rfile.write(self.rd, Bits(uint=result, length=32))
 
             case _:
-                raise NotImplementedError(f"U-Type operation {
-                    self.op} not implemented yet or doesn't exist.")
+                raise NotImplementedError(
+                    f"U-Type operation {self.op} not implemented yet or doesn't exist."
+                )
         return None
 
 
@@ -797,6 +817,7 @@ class C_Instr(Instr):
 
     def eval(self, csr: CsrRegFile, state: State) -> Optional[int]:
         if not self.check_predication(csr, state):
+            self.trace_predicated_skip(csr, state)
             return None
 
         if self.op != C_Op.CSRR:
@@ -828,8 +849,7 @@ class J_Instr(Instr):
         return_addr = self.pc.int + 4
         state.rfile.write(self.rd, Bits(int=return_addr, length=32))
 
-        # Update PC (immediate is in halfword units, multiply by 2 for byte
-        # offset)
+        # Update PC (immediate is in halfword units, multiply by 2 for byte offset)
         target_addr = self.pc.int + (self.imm.int * 2)
         return target_addr & 0xFFFFFFFE  # Ensure LSB is zero (word-aligned)
 
@@ -855,8 +875,7 @@ class P_Instr(Instr):
         match self.op:
             # Jump Pred
             case P_Op.JPNZ:
-                # prs = rd[4:0] = instr[11:7] specifies which predicate
-                # register to test
+                # prs = rd[4:0] = instr[11:7] specifies which predicate register to test
 
                 if (
                     state.pfile.read(self.prd).uint != 0

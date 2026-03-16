@@ -1,9 +1,3 @@
-from thread import *
-from state import *
-from mem import *
-from instr import *
-from reg_file import *
-from common.custom_enums import *
 import sys
 import argparse
 from pathlib import Path
@@ -14,6 +8,12 @@ if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
 # --- Imports ---
+from common.custom_enums import *
+from reg_file import *
+from instr import *
+from mem import *
+from state import *
+from thread import *
 
 
 # --- Argument Parsing Helper ---
@@ -66,6 +66,18 @@ def parse_args():
         metavar="TID",
         help="Only print trace output for this thread ID (0-31 within warp). Omit to log all threads.",
     )
+    parser.add_argument(
+        "--stack-base",
+        type=lambda x: int(x, 0),
+        default=0,
+        help="Base address of the stack region (from compiler). Stack writes in [stack-base, stack-base + threads*blocks*stack-size) are excluded from the memory dump.",
+    )
+    parser.add_argument(
+        "--stack-size",
+        type=lambda x: int(x, 0),
+        default=0,
+        help="Per-thread stack size in bytes (from compiler). Used with --stack-base to compute the excluded range.",
+    )
 
     return parser.parse_args()
 
@@ -80,15 +92,25 @@ if __name__ == "__main__":
         sys.exit(1)
 
     print(f"Starting Simulation: {args.input_file}")
-    print(f"Threads: {
-        args.threads_per_block} | Blocks: {
-        args.num_blocks} | Start PC: {
-        hex(
-            args.start_pc)}")
+    print(
+        f"Threads: {args.threads_per_block} | Blocks: {args.num_blocks} | Start PC: {hex(args.start_pc)}"
+    )
     warps_per_block = (args.threads_per_block + 31) // 32
 
     # Shared State
     mem = Mem(args.start_pc, str(args.input_file), args.mem_format)
+
+    # Register stack range on mem immediately so dump_on_exit filters it even on crash
+    total_threads = args.threads_per_block * args.num_blocks
+    if args.stack_base and args.stack_size:
+        # Thread i's frame: [BASE_STACK + (i-1)*size, BASE_STACK + i*size)
+        # Thread 0 goes one frame below BASE_STACK; thread N-1 ends at BASE_STACK + (N-1)*size.
+        stack_start = args.stack_base - args.stack_size
+        stack_end = args.stack_base + (total_threads - 1) * args.stack_size
+    else:
+        stack_start = 0
+        stack_end = 0
+    mem.set_stack_range(stack_start, stack_end)
 
     # No-op stdout for filtering thread output when --log-thread is set
     class _NoOpWriter:
@@ -133,8 +155,7 @@ if __name__ == "__main__":
             )
             sys.stdout = _real_stdout
 
-        # Run Warp: continue until ALL threads have halted (SIMT allows
-        # divergence)
+        # Run Warp: continue until ALL threads have halted (SIMT allows divergence)
         print(f"\n --- Starting Warp: {warp_id} in Block: {block_id} --- ")
         thread_halted = [False] * len(threads)
         while not all(thread_halted):
@@ -151,16 +172,15 @@ if __name__ == "__main__":
                     # Invalid memory access: addr not in mem (never stored/initialized)
                     # Always print to real stdout (bypass --log-thread filter)
                     _real_stdout.write(
-                        f"\n*** Invalid memory access: thread {tid}, PC 0x{
-                            thread.pc:04x} ***\n"
+                        f"\n*** Invalid memory access: thread {tid}, PC 0x{thread.pc:04x} ***\n"
                     )
-                    _real_stdout.write(f"*** KeyError: {e} (address {
-                        e.args[0]} = 0x{
-                        e.args[0]:x}) ***\n")
+                    _real_stdout.write(
+                        f"*** KeyError: {e} (address {e.args[0]} = 0x{e.args[0]:x}) ***\n"
+                    )
                     _real_stdout.flush()
                     raise
         sys.stdout = _real_stdout
 
-    mem.dump()
+    mem.dump(stack_base=stack_start, stack_end=stack_end)
 
     print("Simulation Complete.")
