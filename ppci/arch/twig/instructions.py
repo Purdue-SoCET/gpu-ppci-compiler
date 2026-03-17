@@ -368,13 +368,13 @@ class TwigPredSWInstruction(Instruction):
 
 
 class Prsw(TwigPredSWInstruction):
-    """Store predicate register to memory: Mem[R[rs2] + imm] = P[prd]"""
+    """Store predicate register to memory: Mem[R[rs2] + imm] = P[prs]"""
 
     prs = Operand("prs", int)  # pred register index (source)
     rs2 = Operand("rs2", TwigRegister, read=True)  # base address GPR
     imm = Operand("imm", int)  # offset
-    syntax = Syntax(["prsw", " ", prs, ",", " ", rs2, ",", " ", imm])
-    patterns = {"opcode": 0b1101100, "prd": prs, "rs2": rs2, "imm": imm}
+    syntax = Syntax(["prsw", " ", prs, ",", " ", imm, "(", rs2, ")"])
+    patterns = {"opcode": 0b1101100, "prs": prs, "rs2": rs2, "imm": imm}
 
 
 class Prlw(TwigPredLWInstruction):
@@ -383,7 +383,7 @@ class Prlw(TwigPredLWInstruction):
     prd = Operand("prd", int)  # pred register index (dest)
     rs2 = Operand("rs2", TwigRegister, read=True)  # base address GPR
     imm = Operand("imm", int)  # offset
-    syntax = Syntax(["prlw", " ", prd, ",", " ", rs2, ",", " ", imm])
+    syntax = Syntax(["prlw", " ", prd, ",", " ", imm, "(", rs2, ")"])
     patterns = {"opcode": 0b1101101, "prd": prd, "rs2": rs2, "imm": imm}
 
 
