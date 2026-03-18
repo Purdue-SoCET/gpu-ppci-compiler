@@ -46,9 +46,20 @@ parser.add_argument(
     "--entry", default="main", help="Entry symbol for linking (default: main)"
 )
 parser.add_argument(
+    "--no-packetize",
+    action="store_true",
+    default=False,
+    help="Disable instruction packetization",
+)
+parser.add_argument(
+    "--bin-output",
+    default=None,
+    help="Output file for 32-bit binary strings (e.g. 0101...)",
+)
+parser.add_argument(
     "--hex-output",
-    default="meminit.hex",
-    help="Output file for custom 32-bit binary strings",
+    default=None,
+    help="Output file for 32-bit hex strings (e.g. 1A2B3C4D)",
 )
 parser.add_argument(
     "--stack-info-output",
@@ -65,6 +76,7 @@ def twig(args=None):
     args = parser.parse_args(args)
     with LogSetup(args) as log_setup:
         march = get_arch("twig")
+        march.no_packetize = args.no_packetize
         coptions = COptions()
         coptions.process_args(args)
 
@@ -144,7 +156,9 @@ def twig(args=None):
                 with open(output_filename, "w") as f:
                     linked_obj.save(f)
 
-                # 6. Generate custom hex output (meminit.hex)
+                # 6. Generate custom outputs
+                if args.bin_output:
+                    write_meminit_bin(linked_obj, args.bin_output)
                 if args.hex_output:
                     write_meminit_hex(linked_obj, args.hex_output)
 
@@ -173,7 +187,6 @@ def twig(args=None):
 # Heap (3.75GB): 0x1000_0000 - 0xF0FF_FFFC
 # Stack (250MB): 0xF100_0000 - 0xFFFF_FFFC
 ##############################################
-
 DEFAULT_LAYOUT = """
 MEMORY mmio LOCATION=0x00000000 SIZE=0x00000024 {
     DEFINESYMBOL(mmio_base)
@@ -248,31 +261,45 @@ def gen_twig_layout():
     return layout
 
 
-def write_meminit_hex(obj, filename):
-    """
-    Writes the object code to a file as 32-bit binary strings (0101...).
-    """
-    # Try to find the 'code_mem' image, fallback to first image if not named
+def _get_aligned_image_data(obj):
+    """Retrieve the code section and pad to 4-byte alignment."""
     image = obj.get_image("code_mem")
     if not image and obj.images:
         image = obj.images[0]
 
     if not image:
-        print("Warning: No image found to write hex output.")
-        return
+        print("Warning: No image found to write output.")
+        return None
 
-    data = image.data
-    # Align to 4 bytes
+    data = bytearray(image.data)
     pad = len(data) % 4
     if pad != 0:
         data += b"\x00" * (4 - pad)
+    return data
 
-    with open(filename, "w", encoding="utf-8") as f:
-        # Process 4 bytes at a time, Little Endian
+def write_meminit_bin(obj, filename):
+    """Output 32-character ASCII binary strings (e.g. 0101...)."""
+    data = _get_aligned_image_data(obj)
+    if data is None:
+        return
+
+    with open(filename, "w") as f:
         for i in range(0, len(data), 4):
-            chunk = data[i : i + 4]
-            val = int.from_bytes(chunk, byteorder="little", signed=False)
+            # Read 4 bytes as a Little-Endian integer
+            val = int.from_bytes(data[i:i+4], byteorder='little')
             f.write(f"{val:032b}\n")
+
+def write_meminit_hex(obj, filename):
+    """Output 8-character uppercase ASCII hex strings without '0x' prefix. (e.g. 1A2B3C4D)"""
+    data = _get_aligned_image_data(obj)
+    if data is None:
+        return
+
+    with open(filename, "w") as f:
+        for i in range(0, len(data), 4):
+            # Read 4 bytes as a Little-Endian integer
+            val = int.from_bytes(data[i:i+4], byteorder='little')
+            f.write(f"{val:08X}\n")
 
 
 if __name__ == "__main__":
