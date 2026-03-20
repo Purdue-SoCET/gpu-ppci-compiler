@@ -8,7 +8,7 @@ from .tokens import (
     TwigSToken,
     TwigPredLWToken,
     TwigPredSWToken,
-    TwigPDisasToken,
+    TwigPDisasmToken,
     TwigJToken,
     TwigJrToken,
     TwigBToken,
@@ -33,16 +33,17 @@ isa = Isa()
 isa.register_relocation(JImm17Relocation)
 isa.register_relocation(PBImm12Relocation)
 
+class TwigInstruction(Instruction):
+    def set_user_patterns(self, tokens):
+        if hasattr(tokens[0], 'pstart'):
+            tokens[0].pstart = 1 if getattr(self, "is_packet_start", True) else 0
+        if hasattr(tokens[0], 'pend'):
+            tokens[0].pend = 1 if getattr(self, "is_packet_end", True) else 0
 
-class TwigRInstruction(Instruction):
+
+class TwigRInstruction(TwigInstruction):
     tokens = [TwigRToken]
     isa = isa
-
-    def encode(self):
-        tokens = self.get_tokens()
-        tokens[0].pstart = 1 if getattr(self, "is_packet_start", False) else 0
-        tokens[0].pend = 1 if getattr(self, "is_packet_end", False) else 0
-        return tokens.encode()
 
 
 def make_r(mnemonic, opcode):
@@ -108,7 +109,7 @@ Sgef = make_r("sgef", 0b1001111)
 # itype
 
 
-class TwigIInstruction(Instruction):
+class TwigIInstruction(TwigInstruction):
     tokens = [TwigIToken]
     isa = isa
 
@@ -177,41 +178,9 @@ Srai = make_i("srai", 0b0011111)
 # ftype (custom mapping)
 
 
-class TwigFInstruction(Instruction):
+class TwigFInstruction(TwigInstruction):
     tokens = [TwigFToken]
     isa = isa
-
-
-class Cos(TwigFInstruction):
-    rd = Operand("rd", TwigRegister, write=True)
-    rs1 = Operand("rs1", TwigRegister, read=True)
-    pred = Operand("pred", int)
-    syntax = Syntax(["cos", " ", rd, ",", " ", rs1, ",", " ", pred])
-    patterns = {"opcode": 0b0101010, "rd": rd, "rs1": rs1, "pred": pred}
-
-    def encode(self):
-        tokens = self.get_tokens()
-        tokens[0][0:7] = 0b0101010
-        tokens[0][7:13] = self.rd.num
-        tokens[0][13:19] = self.rs1.num
-        tokens[0][25:29] = self.pred
-        return tokens[0].encode()
-
-
-class Sin(TwigFInstruction):
-    rd = Operand("rd", TwigRegister, write=True)
-    rs1 = Operand("rs1", TwigRegister, read=True)
-    pred = Operand("pred", int)
-    syntax = Syntax(["sin", " ", rd, ",", " ", rs1, ",", " ", pred])
-    patterns = {"opcode": 0b0101001, "rd": rd, "rs1": rs1, "pred": pred}
-
-    def encode(self):
-        tokens = self.get_tokens()
-        tokens[0][0:7] = 0b0101001
-        tokens[0][7:13] = self.rd.num
-        tokens[0][13:19] = self.rs1.num
-        tokens[0][25:29] = self.pred
-        return tokens[0].encode()
 
 
 class Isqrt(TwigFInstruction):
@@ -221,13 +190,21 @@ class Isqrt(TwigFInstruction):
     syntax = Syntax(["isqrt", " ", rd, ",", " ", rs1, ",", " ", pred])
     patterns = {"opcode": 0b0101000, "rd": rd, "rs1": rs1, "pred": pred}
 
-    def encode(self):
-        tokens = self.get_tokens()
-        tokens[0][0:7] = 0b0101000
-        tokens[0][7:13] = self.rd.num
-        tokens[0][13:19] = self.rs1.num
-        tokens[0][25:29] = self.pred
-        return tokens[0].encode()
+
+class Sin(TwigFInstruction):
+    rd = Operand("rd", TwigRegister, write=True)
+    rs1 = Operand("rs1", TwigRegister, read=True)
+    pred = Operand("pred", int)
+    syntax = Syntax(["sin", " ", rd, ",", " ", rs1, ",", " ", pred])
+    patterns = {"opcode": 0b0101001, "rd": rd, "rs1": rs1, "pred": pred}
+
+
+class Cos(TwigFInstruction):
+    rd = Operand("rd", TwigRegister, write=True)
+    rs1 = Operand("rs1", TwigRegister, read=True)
+    pred = Operand("pred", int)
+    syntax = Syntax(["cos", " ", rd, ",", " ", rs1, ",", " ", pred])
+    patterns = {"opcode": 0b0101010, "rd": rd, "rs1": rs1, "pred": pred}
 
 
 class ItoF(TwigFInstruction):
@@ -237,14 +214,6 @@ class ItoF(TwigFInstruction):
     syntax = Syntax(["itof", " ", rd, ",", " ", rs1, ",", " ", pred])
     patterns = {"opcode": 0b0101011, "rd": rd, "rs1": rs1, "pred": pred}
 
-    def encode(self):
-        tokens = self.get_tokens()
-        tokens[0][0:7] = 0b0101011
-        tokens[0][7:13] = self.rd.num
-        tokens[0][13:19] = self.rs1.num
-        tokens[0][25:29] = self.pred
-        return tokens[0].encode()
-
 
 class FtoI(TwigFInstruction):
     rd = Operand("rd", TwigRegister, write=True)
@@ -253,16 +222,8 @@ class FtoI(TwigFInstruction):
     syntax = Syntax(["ftoi", " ", rd, ",", " ", rs1, ",", " ", pred])
     patterns = {"opcode": 0b0101100, "rd": rd, "rs1": rs1, "pred": pred}
 
-    def encode(self):
-        tokens = self.get_tokens()
-        tokens[0][0:7] = 0b0101100
-        tokens[0][7:13] = self.rd.num
-        tokens[0][13:19] = self.rs1.num
-        tokens[0][25:29] = self.pred
-        return tokens[0].encode()
 
-
-class TwigCRInstruction(Instruction):
+class TwigCRInstruction(TwigInstruction):
     tokens = [TwigCRToken]
     isa = isa
 
@@ -274,12 +235,13 @@ class Csrr(TwigCRInstruction):
     syntax = Syntax(["csrr", " ", rd, ",", " ", rs1, ",", " ", pred])
     patterns = {"opcode": 0b1011000, "rd": rd, "rs1": rs1, "pred": pred}
 
-    def encode(self):
-        tokens = self.get_tokens()
-        tokens[0][0:7] = 0b1011000
-        tokens[0][7:13] = self.rd.num
-        tokens[0][13:19] = self.rs1
-        return tokens[0].encode()
+    # TODO: remove
+    # def encode(self):
+    #     tokens = self.get_tokens()
+    #     tokens[0][0:7] = 0b1011000
+    #     tokens[0][7:13] = self.rd.num
+    #     tokens[0][13:19] = self.rs1
+    #     return tokens[0].encode()
 
 
 # loads
@@ -326,7 +288,7 @@ Lh = make_load("lh", 0b0100001)
 Lb = make_load("lb", 0b0100010)
 
 
-class TwigSInstruction(Instruction):
+class TwigSInstruction(TwigInstruction):
     tokens = [TwigSToken]
     isa = isa
 
@@ -375,12 +337,12 @@ Sb = make_store("sb", 0b0110010)
 
 
 # Predicate memory instructions (prsw / prlw)
-class TwigPredLWInstruction(Instruction):
+class TwigPredLWInstruction(TwigInstruction):
     tokens = [TwigPredLWToken]
     isa = isa
 
 
-class TwigPredSWInstruction(Instruction):
+class TwigPredSWInstruction(TwigInstruction):
     tokens = [TwigPredSWToken]
     isa = isa
 
@@ -405,7 +367,7 @@ class Prlw(TwigPredLWInstruction):
     patterns = {"opcode": 0b1101101, "prd": prd, "rs2": rs2, "imm": imm}
 
 
-class TwigJInstruction(Instruction):
+class TwigJInstruction(TwigInstruction):
     tokens = [TwigJToken]
     isa = isa
 
@@ -439,7 +401,7 @@ class Bl_disasm(TwigJInstruction):
 
 
 # Check if change to str
-# class Blr_disas(TwigJrInstruction):
+# class Blr_disasm(TwigJrInstruction):
 #     rd = Operand("rd", TwigRegister, write=True)
 #     rs1 = Operand("rs1", TwigRegister, read=True)
 #     imm = Operand("imm", int)
@@ -454,25 +416,26 @@ class Bl(TwigJInstruction):
     rd = Operand("rd", TwigRegister, write=True)
     imm = Operand("imm", str)
     syntax = Syntax(["jal", " ", rd, ",", " ", imm])
-    patterns = {"opcode": 0b1100000, "rd": rd, "imm": imm}
+    # Handle label imm in relocations
+    patterns = {"opcode": 0b1100000, "rd": rd, "imm": 0}
     is_branch = True
     is_mem_read = False
     is_mem_write = False
 
-    def encode(self):
-        tokens = self.get_tokens()
-        tokens[0][0:7] = 0b1100000  # jal opcode
-        tokens[0][7:13] = self.rd.num
-        tokens[0][13:30] = 0
-        # tokens[0][30] = 0b0 #start of new packet
-        # tokens[0][31] = 0b1 # end of curr packet
-        return tokens[0].encode()
+    # def encode(self):
+    #     tokens = self.get_tokens()
+    #     tokens[0][0:7] = 0b1100000  # jal opcode
+    #     tokens[0][7:13] = self.rd.num
+    #     tokens[0][13:30] = 0
+    #     # tokens[0][30] = 0b0 #start of new packet
+    #     # tokens[0][31] = 0b1 # end of curr packet
+    #     return tokens[0].encode()
 
     def relocations(self):
         return [JImm17Relocation(self.imm)]
 
 
-class TwigJrInstruction(Instruction):
+class TwigJrInstruction(TwigInstruction):
     tokens = [TwigJrToken]
     isa = isa
 
@@ -489,19 +452,19 @@ class Blr(TwigJrInstruction):
     is_mem_read = False
     is_mem_write = False
 
-    def encode(self):
-        tokens = self.get_tokens()
-        tokens[0][0:7] = 0b0100011  # jalr opcode
-        tokens[0][7:13] = self.rd.num
-        tokens[0][13:19] = self.rs1.num
-        tokens[0][19:30] = self.imm
-        # tokens[0][30] = 0b0 #start of new packet
-        # tokens[0][31] = 0b1 #end of new packet
-        return tokens[0].encode()
+    # def encode(self):
+    #     tokens = self.get_tokens()
+    #     tokens[0][0:7] = 0b0100011  # jalr opcode
+    #     tokens[0][7:13] = self.rd.num
+    #     tokens[0][13:19] = self.rs1.num
+    #     tokens[0][19:30] = self.imm
+    #     # tokens[0][30] = 0b0 #start of new packet
+    #     # tokens[0][31] = 0b1 #end of new packet
+    #     return tokens[0].encode()
 
 
 # btype instructions
-class TwigBInstruction(Instruction):
+class TwigBInstruction(TwigInstruction):
     tokens = [TwigBToken]
     isa = isa
 
@@ -554,7 +517,7 @@ def make_pb(mnemonic, opcode):
 
     syntax = Syntax([mnemonic, " ", rs1, ",", " ", target])
 
-    tokens = [TwigPDisasToken]
+    tokens = [TwigPDisasmToken]
     patterns = {
         "opcode": opcode,
         "rs1": rs1,
@@ -614,8 +577,8 @@ Jpnz = make_pb("jpnz", 0b1101000)
 
 # For disassembly: decode jpnz with correct ISA fields
 # jpnz rs1, imm  where rs1=predicate [12:7], imm=jump target [24:13]
-class Jpnz_disas(TwigBInstruction):
-    tokens = [TwigPDisasToken]
+class Jpnz_disasm(TwigBInstruction):
+    tokens = [TwigPDisasmToken]
     rs1 = Operand("rs1", int)
     imm = Operand("imm", int)
     syntax = Syntax(["jpnz", " ", rs1, ",", " ", imm])
@@ -642,7 +605,7 @@ Bne = make_b("bne", 0b1000001)
 
 
 # u type
-class TwigUInstruction(Instruction):
+class TwigUInstruction(TwigInstruction):
     tokens = [TwigUToken]
     isa = isa
 
@@ -702,7 +665,7 @@ Lui = make_u("lui", 0b1010100)
 
 
 # h type (halt)
-class TwigHInstruction(Instruction):
+class TwigHInstruction(TwigInstruction):
     tokens = [TwigHToken]
     isa = isa
 
@@ -714,14 +677,11 @@ class Halt(TwigHInstruction):
     syntax = Syntax(["halt", ",", " ", pred])
     patterns = {"opcode": 0b1111111, "pred": pred}
 
-    def encode(self):
-        tokens = self.get_tokens()
-        tokens[0][0:7] = 0b1111111
-        tokens[0][7:25] = 0x3FFFF
-        tokens[0][25:30] = self.pred
-        tokens[0][30] = 1
-        tokens[0][31] = 1
-        return tokens[0].encode()
+    def set_user_patterns(self, tokens):
+        super().set_user_patterns(tokens)
+        tokens[0].data = 0x3FFFF
+        tokens[0].pstart = 0
+        tokens[0].pend = 1
 
 
 class PseudoTwigInstruction(ArtificialInstruction):
