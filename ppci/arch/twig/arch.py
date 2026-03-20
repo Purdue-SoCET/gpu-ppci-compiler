@@ -182,6 +182,7 @@ class TwigArch(Architecture):
             self.asm_printer = TwigAsmPrinter()
         self.assembler = TwigAssembler()
         self.assembler.gen_asm_parser(self.isa)
+        self._entry_totalstack = None
 
         self.info = ArchInfo(
             type_infos={
@@ -407,6 +408,9 @@ class TwigArch(Architecture):
         totalstack = round_up(
             stack_size + savespace + outspace + lrfpspace + predsavespace
         )
+        # Record the per-thread stack size for the emulator sidecar.
+        self._entry_totalstack = totalstack
+
         # R9=tid, R11=Bid, R3=BlkDim (avoid R10, R12-R17)
         yield Csrr(R9, 0, pred)
         yield Csrr(R11, 1, pred)
@@ -706,6 +710,13 @@ class TwigArch(Architecture):
         return saved_registers
 
     def packetize(self, instructions, max_packet_size=None):
+        # --- Respond to command line ---
+        if getattr(self, "no_packetize", False):
+            for inst in instructions:
+                inst.is_packet_start = True
+                inst.is_packet_end = True
+            return
+
         # --- Partition into Basic Blocks ---
         blocks = []
         current_block = []
@@ -869,14 +880,21 @@ def round_up(s):
 
 
 def get_inst_info(instr):
-    reads = set(str(r) for r in getattr(instr, "used_registers", []))
-    writes = set(str(r) for r in getattr(instr, "defined_registers", []))
+    reads = set()
+    writes = set()
 
-    is_mem_read = getattr(instr, "is_mem_read", False)
-    is_mem_write = getattr(instr, "is_mem_write", False)
-    is_branch = getattr(instr, "is_branch", False)
+    if hasattr(instr, 'rd'):
+        writes.add(str(getattr(instr, 'rd')))
 
-    # x0 always be 0, no data hazard
+    for op in ['rs1', 'rs2', 'rs3']:
+        if hasattr(instr, op):
+            reads.add(str(getattr(instr, op)))
+
+    inst_name = instr.__class__.__name__.lower()
+    is_mem_read = getattr(instr, "is_mem_read", False) or inst_name in ['lw', 'prlw']
+    is_mem_write = getattr(instr, "is_mem_write", False) or inst_name in ['sw', 'prsw']
+    is_branch = getattr(instr, "is_branch", False) or inst_name in ['bl', 'blr', 'beq', 'bne', 'jal', 'jpnz']
+
     reads.discard("x0")
     writes.discard("x0")
 
