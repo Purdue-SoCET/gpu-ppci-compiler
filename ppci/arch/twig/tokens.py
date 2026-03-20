@@ -140,7 +140,7 @@ class TwigPToken(Token):
     pend = bit_range(31, 32)
 
 
-class TwigPDisasToken(Token):
+class TwigPDisasmToken(Token):
     """Token for jpnz disassembly with correct ISA field layout:
     opcode [6:0], rs1/pred [12:7], imm/target [24:13]"""
 
