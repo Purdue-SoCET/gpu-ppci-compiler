@@ -62,3 +62,6 @@ fix-package-check:
 clean:
 	@echo Cleaning project...
 	@$(CLEAN_CMD)
+
+clean-cache:
+	find . | grep -E "(/__pycache__$|\.pyc$|\.pyo$)" | xargs rm -rf
