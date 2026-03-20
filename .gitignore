@@ -6,9 +6,7 @@ __pycache__/
 .cache
 
 dist
-*.xml
-
-*.out
+f.out
 *.hex
 compiled_binaries/
 
@@ -18,6 +16,7 @@ lib
 lib64
 *pyvenv*
 
+/.idea/
 /build/
 /GPUTest/**/build/
 /GPUTest/emulator/test_diffs/
