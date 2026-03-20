@@ -408,7 +408,6 @@ class TwigArch(Architecture):
         totalstack = round_up(
             stack_size + savespace + outspace + lrfpspace + predsavespace
         )
-        # Record the per-thread stack size for the emulator sidecar.
         self._entry_totalstack = totalstack
 
         # R9=tid, R11=Bid, R3=BlkDim (avoid R10, R12-R17)
@@ -599,18 +598,19 @@ class TwigArch(Architecture):
         # Compute base address of pred save area in R63.
         pred_save_offset = self._get_pred_save_offset(frame)
         yield from self.immUsed(R63, FP, pred_save_offset, "addi")
+        # TODO: change this so that imm is not hardcoded i * 4; can overflow
         for i in range(pred + 1):
-            yield Prsw(i, R63, i * 4)
+            yield Prsw(i, i * 4, R63)
         # Initialize callee's P0 from caller's active predicate
         if pred != 0:
-            yield Prlw(0, R63, pred * 4)  # P0 = saved P[pred]
+            yield Prlw(0, pred * 4, R63)  # P0 = saved P[pred]
 
         yield self.branch(LR, label)
 
         # --- Restore predicates after call returns ---
         yield from self.immUsed(R63, FP, pred_save_offset, "addi")
         for i in range(pred + 1):
-            yield Prlw(i, R63, i * 4)
+            yield Prlw(i, i * 4, R63)
 
         if rv:
             retval_loc = self.determine_rv_location(rv[0])
