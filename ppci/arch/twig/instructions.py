@@ -6,9 +6,10 @@ from .tokens import (
     TwigFToken,
     TwigCRToken,
     TwigSToken,
+    TwigPToken,
+    TwigPDisasmToken,
     TwigPredLWToken,
     TwigPredSWToken,
-    TwigPDisasmToken,
     TwigJToken,
     TwigJrToken,
     TwigBToken,
@@ -337,13 +338,13 @@ Sb = make_store("sb", 0b0110010)
 
 
 # Predicate memory instructions (prsw / prlw)
-class TwigPredLWInstruction(TwigInstruction):
-    tokens = [TwigPredLWToken]
+class TwigPredSWInstruction(TwigInstruction):
+    tokens = [TwigPredSWToken]
     isa = isa
 
 
-class TwigPredSWInstruction(TwigInstruction):
-    tokens = [TwigPredSWToken]
+class TwigPredLWInstruction(TwigInstruction):
+    tokens = [TwigPredLWToken]
     isa = isa
 
 
@@ -442,11 +443,10 @@ class TwigJrInstruction(TwigInstruction):
 
 # jalr
 class Blr(TwigJrInstruction):
-    target = Operand("target", str)
     rd = Operand("rd", TwigRegister, write=True)
     rs1 = Operand("rs1", TwigRegister, read=True)
     imm = Operand("imm", int)  # TODO: int or str (jal take str)
-    syntax = Syntax(["jalr", " ", rd, ",", " ", rs1, ",", " ", imm])
+    syntax = Syntax(["jalr", " ", rd, ",", " ", imm, "(", rs1, ")"])
     patterns = {"opcode": 0b0100011, "rd": rd, "rs1": rs1, "imm": imm}
     is_branch = True
     is_mem_read = False
@@ -517,7 +517,7 @@ def make_pb(mnemonic, opcode):
 
     syntax = Syntax([mnemonic, " ", rs1, ",", " ", target])
 
-    tokens = [TwigPDisasmToken]
+    tokens = [TwigPToken]
     patterns = {
         "opcode": opcode,
         "rs1": rs1,
