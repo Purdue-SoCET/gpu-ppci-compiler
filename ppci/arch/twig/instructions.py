@@ -6,8 +6,7 @@ from .tokens import (
     TwigFToken,
     TwigCToken,
     TwigSToken,
-    TwigPToken,
-    TwigPDisasmToken,
+    TwigJpnzToken,
     TwigPredLWToken,
     TwigPredSWToken,
     TwigJToken,
@@ -510,88 +509,6 @@ def make_b(mnemonic, opcode):
     return type(mnemonic + "_ins", (TwigBInstruction,), members)
 
 
-def make_pb(mnemonic, opcode):
-    rs1 = Operand("rs1", int)
-    target = Operand("target", str)
-    fprel = False
-
-    syntax = Syntax([mnemonic, " ", rs1, ",", " ", target])
-
-    tokens = [TwigPToken]
-    patterns = {
-        "opcode": opcode,
-        "rs1": rs1,
-        "imm": 0,
-    }
-    members = {
-        "syntax": syntax,
-        "fprel": fprel,
-        "rs1": rs1,
-        "target": target,
-        "patterns": patterns,
-        "tokens": tokens,
-        "opcode": opcode,
-        "relocations": lambda self: [PBImm12Relocation(self.target)],
-        "is_mem_read": False,
-        "is_mem_write": False,
-        "is_branch": True,
-    }
-    return type(mnemonic + "_ins", (TwigBInstruction,), members)
-
-
-def make_sb(mnemonic, opcode):
-    pred = Operand("pred", int)
-    rs1 = Operand("rs1", TwigRegister, read=True)
-    rs2 = Operand("rs2", TwigRegister, read=True)
-    fprel = False
-    syntax = Syntax([mnemonic, " ", pred, ",", " ", rs1, ",", " ", rs2])
-    tokens = [TwigBToken]
-    patterns = {
-        "opcode": opcode,
-        "pred": pred,
-        "rs1": rs1,
-        "rs2": rs2,
-        # "pstart": pstart,
-        # "pend": pend
-    }
-    members = {
-        "syntax": syntax,
-        "fprel": fprel,
-        "pred": pred,
-        "rs1": rs1,
-        "rs2": rs2,
-        # "pstart": pstart,
-        # "pend": pend,
-        "patterns": patterns,
-        "tokens": tokens,
-        "opcode": opcode,
-        "is_mem_read": False,
-        "is_mem_write": False,
-        "is_branch": True,
-    }
-    return type(mnemonic + "_ins", (TwigBInstruction,), members)
-
-
-Jpnz = make_pb("jpnz", 0b1101000)
-
-
-# For disassembly: decode jpnz with correct ISA fields
-# jpnz rs1, imm  where rs1=predicate [12:7], imm=jump target [24:13]
-class Jpnz_disasm(TwigBInstruction):
-    tokens = [TwigPDisasmToken]
-    rs1 = Operand("rs1", int)
-    imm = Operand("imm", int)
-    syntax = Syntax(["jpnz", " ", rs1, ",", " ", imm])
-    patterns = {
-        "opcode": 0b1101000,
-        "rs1": rs1,
-        "imm": imm,
-    }
-
-    def encode(self):
-        return b""
-
-
 Beq = make_b("beq", 0b1000000)
 Bne = make_b("bne", 0b1000001)
 # Bge = make_b("bge", 0b1000010)
@@ -602,6 +519,57 @@ Bne = make_b("bne", 0b1000001)
 # Bnef = make_b("bnef", 0b1001001)
 # Bgef = make_b("bgef", 0b1001010)
 # Bltf = make_b("bltf", 0b1001100)
+
+
+class TwigJpnzInstruction(TwigInstruction):
+    tokens = [TwigJpnzToken]
+    isa = isa
+
+# For disassembly: decode jpnz with correct ISA fields
+# jpnz prs, imm  where rs1=predicate [12:7], imm=jump target [24:13]
+class Jpnz_disasm(TwigJpnzInstruction):
+    prs = Operand("prs", int)
+    imm = Operand("imm", int)
+    syntax = Syntax(["jpnz", " ", prs, ",", " ", imm])
+    patterns = {
+        "opcode": 0b1101000,
+        "prs": prs,
+        "imm": imm,
+    }
+
+    def encode(self):
+        return b""
+
+
+def make_pb(mnemonic, opcode):
+    prs = Operand("prs", int)
+    imm = Operand("imm", str)
+    fprel = False
+    syntax = Syntax([mnemonic, " ", prs, ",", " ", imm])
+
+    tokens = [TwigJpnzToken]
+    patterns = {
+        "opcode": opcode,
+        "prs": prs,
+        "imm": 0,
+    }
+    members = {
+        "syntax": syntax,
+        "fprel": fprel,
+        "prs": prs,
+        "imm": imm,
+        "patterns": patterns,
+        "tokens": tokens,
+        "opcode": opcode,
+        "relocations": lambda self: [PBImm12Relocation(self.imm)],
+        "is_mem_read": False,
+        "is_mem_write": False,
+        "is_branch": True,
+    }
+    return type(mnemonic + "_ins", (TwigJpnzInstruction,), members)
+
+
+Jpnz = make_pb("jpnz", 0b1101000)
 
 
 # u type

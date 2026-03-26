@@ -112,27 +112,13 @@ class TwigJrToken(Token):
     pend = bit_range(31, 32)
 
 
-class TwigPToken(Token):
+class TwigJpnzToken(Token):
     class Info:
         size = 32
 
     opcode = bit_range(0, 7)
-    rs1 = bit_range(7, 13)
+    prs = bit_range(7, 13)
     imm = bit_range(13, 25)     # imm[12:0] = {rs2[24:19], imm[18:13], 1'b0}
-    pstart = bit_range(30, 31)
-    pend = bit_range(31, 32)
-
-
-class TwigPDisasmToken(Token):
-    """Token for jpnz disassembly with correct ISA field layout:
-    opcode [6:0], rs1/pred [12:7], imm/target [24:13]"""
-
-    class Info:
-        size = 32
-
-    opcode = bit_range(0, 7)
-    rs1 = bit_range(7, 13)
-    imm = bit_range(13, 25)
     pstart = bit_range(30, 31)
     pend = bit_range(31, 32)
 

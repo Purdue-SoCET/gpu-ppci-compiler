@@ -1,6 +1,6 @@
 from ...utils.bitfun import wrap_negative
 from ..encoding import Relocation
-from .tokens import TwigJToken, TwigPToken
+from .tokens import TwigJToken, TwigJpnzToken
 
 
 # our btype doesn't jump, we can use it for 'jal' 17imm and jalr?
@@ -42,7 +42,7 @@ class PBImm12Relocation(Relocation):
     """Relocation for jpnz: 12-bit PC-relative offset in bits [24:13]."""
 
     name = "pb_imm12"
-    token = TwigPToken
+    token = TwigJpnzToken
     field = "imm"
 
     def calc(self, sym_value, reloc_value):
