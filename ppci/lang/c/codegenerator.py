@@ -624,9 +624,10 @@ class CCodeGenerator:
             if function.typ.return_type.is_void:
                 self.emit(ir.Exit())
             else:
+                # TODO: Warning triggered even though return value exists
                 warn_when_no_return = True
                 if warn_when_no_return:
-                    self.warning("Function does not return a value")
+                    self.warning(f"Function {function.name} does not return a {function.typ.return_type} value")
                     zero = self.emit_const(0, function.typ.return_type)
                     self.emit(ir.Return(zero))
                 else:
