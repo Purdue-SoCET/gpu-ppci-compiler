@@ -4,7 +4,7 @@ from .tokens import (
     TwigRToken,
     TwigIToken,
     TwigFToken,
-    TwigCRToken,
+    TwigCToken,
     TwigSToken,
     TwigPToken,
     TwigPDisasmToken,
@@ -225,7 +225,7 @@ class FtoI(TwigFInstruction):
 
 
 class TwigCRInstruction(TwigInstruction):
-    tokens = [TwigCRToken]
+    tokens = [TwigCToken]
     isa = isa
 
 

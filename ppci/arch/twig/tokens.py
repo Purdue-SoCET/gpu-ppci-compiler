@@ -77,19 +77,7 @@ class TwigUToken(Token):
     pend = bit_range(31, 32)
 
 
-class TwigCWToken(Token):
-    class Info:
-        size = 32
-
-    opcode = bit_range(0, 7)
-    rd = bit_concat(bit_range(19, 23), bit_range(7, 13))
-    rs1 = bit_range(13, 19)
-    # pred = bit_range(25,30)
-    pstart = bit_range(30, 31)
-    pend = bit_range(31, 32)
-
-
-class TwigCRToken(Token):
+class TwigCToken(Token):
     class Info:
         size = 32
 
