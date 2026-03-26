@@ -15,7 +15,13 @@ run:
 
 compile-%:
 	mkdir -p build
-	twig ../benchmark/kernels/$*.c --hex-output build/$*.hex --bin-output build/$*.bin --entry kernel_$* -O$(O) --stack-info-output build/$*.stack.json $(TWIG_ARGS)
+	twig ../benchmark/kernels/$*.c \
+		--hex-output build/$*.hex \
+		--bin-output build/$*.bin \
+		--entry kernel_$* -O$(O) \
+		--stack-info-output build/$*.stack.json \
+		--packet-histogram build/$*_packets.svg \
+		$(TWIG_ARGS)
 
 disasm-%: compile-%
 	tool --disasm build/$*.bin > build/$*_disasm.txt
