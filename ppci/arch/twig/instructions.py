@@ -355,6 +355,9 @@ class Prsw(TwigPredSWInstruction):
     imm = Operand("imm", int)  # offset
     syntax = Syntax(["prsw", " ", prs, ",", " ", imm, "(", rs2, ")"])
     patterns = {"opcode": 0b1101100, "prs": prs, "rs2": rs2, "imm": imm}
+    is_mem_read = False
+    is_mem_write = True
+    is_branch = False
 
 
 class Prlw(TwigPredLWInstruction):
@@ -365,6 +368,9 @@ class Prlw(TwigPredLWInstruction):
     imm = Operand("imm", int)  # offset
     syntax = Syntax(["prlw", " ", prd, ",", " ", imm, "(", rs2, ")"])
     patterns = {"opcode": 0b1101101, "prd": prd, "rs2": rs2, "imm": imm}
+    is_mem_read = True
+    is_mem_write = False
+    is_branch = False
 
 
 class TwigJInstruction(TwigInstruction):
