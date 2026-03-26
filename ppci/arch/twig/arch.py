@@ -1,7 +1,7 @@
 """TWIG architecture."""
 
 import logging
-
+from collections import Counter
 from ... import ir
 from ...binutils.assembler import BaseAssembler
 from ..arch import Architecture
@@ -11,6 +11,7 @@ from ..generic_instructions import Label, Global, Alignment, RegisterUseDef
 from ..encoding import Instruction
 from ..stack import FramePointerLocation, StackLocation
 from .asm_printer import TwigAsmPrinter
+from .reporter import write_packet_histogram_svg
 from .instructions import (
     Add,
     Addi,
@@ -182,6 +183,7 @@ class TwigArch(Architecture):
             self.asm_printer = TwigAsmPrinter()
         self.assembler = TwigAssembler()
         self.assembler.gen_asm_parser(self.isa)
+        self.reset_packet_histogram()
         self._entry_totalstack = None
 
         self.info = ArchInfo(
@@ -271,6 +273,27 @@ class TwigArch(Architecture):
             return Blr(reg, lab, 0, clobbers=self.caller_save)
         else:
             return Bl(reg, lab, clobbers=self.caller_save)
+
+    def reset_packet_histogram(self):
+        self._packet_histogram = Counter()
+        self._packet_total_packets = 0
+        self._packet_total_instructions = 0
+
+    def _record_packet_size(self, packet_size):
+        if packet_size <= 0:
+            return
+        self._packet_histogram[packet_size] += 1
+        self._packet_total_packets += 1
+        self._packet_total_instructions += packet_size
+
+    def write_packet_histogram(self, filename):
+        counts = dict(sorted(self._packet_histogram.items()))
+        write_packet_histogram_svg(
+            filename,
+            counts,
+            total_packets=self._packet_total_packets,
+            total_instructions=self._packet_total_instructions,
+        )
 
     # def get_runtime(self):
     #     """Implement compiler runtime functions"""
