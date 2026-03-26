@@ -736,8 +736,10 @@ class TwigArch(Architecture):
         # --- Respond to command line ---
         if getattr(self, "no_packetize", False):
             for inst in instructions:
-                inst.is_packet_start = True
-                inst.is_packet_end = True
+                if isinstance(inst, Instruction):
+                    inst.is_packet_start = True
+                    inst.is_packet_end = True
+                    self._record_packet_size(1)
             return
 
         # --- Partition into Basic Blocks ---
@@ -747,12 +749,11 @@ class TwigArch(Architecture):
         last_label_name = "prologue"
 
         for instr in instructions:
-            instr.is_packet_start = False
-            instr.is_packet_end = False
+            if isinstance(instr, Instruction):
+                instr.is_packet_start = False
+                instr.is_packet_end = False
 
-            if isinstance(instr, (Label, Global, Alignment)) or not isinstance(
-                instr, Instruction
-            ):
+            if isinstance(instr, (Label, Global, Alignment)) or not isinstance(instr, Instruction):
                 if current_block:
                     blocks.append(current_block)
                     current_block = []
@@ -890,6 +891,8 @@ class TwigArch(Architecture):
                     if inst != packet[-1]:
                         inst.is_packet_end = False
 
+                self._record_packet_size(len(packet))
+
                 new_instructions.extend(packet)
                 scheduled_set.update(packet_idx)
 
@@ -906,17 +909,26 @@ def get_inst_info(instr):
     reads = set()
     writes = set()
 
-    if hasattr(instr, 'rd'):
-        writes.add(str(getattr(instr, 'rd')))
+    def add_gpr(dep_set, *attrs):
+        for attr in attrs:
+            if hasattr(instr, attr):
+                value = getattr(instr, attr)
+                if not isinstance(value, int):
+                    dep_set.add(str(value))
 
-    for op in ['rs1', 'rs2', 'rs3']:
-        if hasattr(instr, op):
-            reads.add(str(getattr(instr, op)))
+    def add_pred(dep_set, *attrs):
+        for attr in attrs:
+            if hasattr(instr, attr):
+                dep_set.add(f"p{getattr(instr, attr)}")
 
-    inst_name = instr.__class__.__name__.lower()
-    is_mem_read = getattr(instr, "is_mem_read", False) or inst_name in ['lw', 'prlw']
-    is_mem_write = getattr(instr, "is_mem_write", False) or inst_name in ['sw', 'prsw']
-    is_branch = getattr(instr, "is_branch", False) or inst_name in ['bl', 'blr', 'beq', 'bne', 'jal', 'jpnz']
+    add_gpr(writes, "rd")
+    add_gpr(reads, "rs1", "rs2", "rs3")
+    add_pred(reads, "pred", "prs")
+    add_pred(writes, "prd")
+
+    is_mem_read = getattr(instr, "is_mem_read", False)
+    is_mem_write = getattr(instr, "is_mem_write", False)
+    is_branch = getattr(instr, "is_branch", False)
 
     reads.discard("x0")
     writes.discard("x0")
