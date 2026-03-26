@@ -378,20 +378,6 @@ class TwigJInstruction(TwigInstruction):
     isa = isa
 
 
-# class B(RiscvInstruction):
-#     target = Operand("target", str)
-#     syntax = Syntax(["j", " ", target])
-
-#     def encode(self):
-#         tokens = self.get_tokens()
-#         tokens[0][0:7] = 0b1101111
-#         tokens[0][7:12] = 0
-#         return tokens[0].encode()
-
-#     def relocations(self):
-#         return [BImm20Relocation(self.target)]
-
-
 # For disassembly
 class Bl_disasm(TwigJInstruction):
     rd = Operand("rd", TwigRegister, write=True)
@@ -404,17 +390,6 @@ class Bl_disasm(TwigJInstruction):
 
     def encode(self):
         return b""
-
-
-# Check if change to str
-# class Blr_disasm(TwigJrInstruction):
-#     rd = Operand("rd", TwigRegister, write=True)
-#     rs1 = Operand("rs1", TwigRegister, read=True)
-#     imm = Operand("imm", int)
-#     syntax = Syntax(["jalr", " ", rd, ",", rs1, ",", " ", imm])
-#     patterns = {"opcode": 0b0100011, "rd": rd, "rs1": rs1, "imm": imm}
-#     def encode(self):
-#         return b''
 
 
 # jal
@@ -446,6 +421,17 @@ class TwigJrInstruction(TwigInstruction):
     isa = isa
 
 
+# Check if imm change to str
+# class Blr_disasm(TwigJrInstruction):
+#     rd = Operand("rd", TwigRegister, write=True)
+#     rs1 = Operand("rs1", TwigRegister, read=True)
+#     imm = Operand("imm", int)
+#     syntax = Syntax(["jalr", " ", rd, ",", rs1, ",", " ", imm])
+#     patterns = {"opcode": 0b0100011, "rd": rd, "rs1": rs1, "imm": imm}
+#     def encode(self):
+#         return b''
+
+
 # jalr
 class Blr(TwigJrInstruction):
     rd = Operand("rd", TwigRegister, write=True)
@@ -456,16 +442,6 @@ class Blr(TwigJrInstruction):
     is_branch = True
     is_mem_read = False
     is_mem_write = False
-
-    # def encode(self):
-    #     tokens = self.get_tokens()
-    #     tokens[0][0:7] = 0b0100011  # jalr opcode
-    #     tokens[0][7:13] = self.rd.num
-    #     tokens[0][13:19] = self.rs1.num
-    #     tokens[0][19:30] = self.imm
-    #     # tokens[0][30] = 0b0 #start of new packet
-    #     # tokens[0][31] = 0b1 #end of new packet
-    #     return tokens[0].encode()
 
 
 # btype instructions
@@ -738,6 +714,7 @@ def pattern_int_to_float(context, tree, c0):
     return d
 
 
+# TODO: Unused Code
 def call_internal1(context, name, a, pred, clobbers=()):
     from .registers import R10, R12, LR
 
