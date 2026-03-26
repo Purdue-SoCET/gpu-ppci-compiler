@@ -270,7 +270,7 @@ class TwigArch(Architecture):
 
     def branch(self, reg, lab):
         if isinstance(lab, TwigRegister):
-            return Blr(reg, lab, 0, clobbers=self.caller_save)
+            return Blr(reg, 0, lab, clobbers=self.caller_save)
         else:
             return Bl(reg, lab, clobbers=self.caller_save)
 
@@ -526,7 +526,7 @@ class TwigArch(Architecture):
         if is_entry:
             yield Halt(0)
         else:
-            yield Blr(R0, LR, 0)
+            yield Blr(R0, 0, LR)
         # yield from self.litpool(frame)
         yield Align(4)
         return
