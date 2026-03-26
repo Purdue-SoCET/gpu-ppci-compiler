@@ -41,6 +41,9 @@ test:
 link:
 	$(TWIG) src/test.c src/a.c
 
+histogram:
+	$(TWIG) src/test.c src/a.c --packet-histogram packets.svg
+
 debug:
 	$(TWIG) -S src/test.c --log debug
 

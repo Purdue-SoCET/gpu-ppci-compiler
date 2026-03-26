@@ -68,6 +68,12 @@ parser.add_argument(
     help="Write stack info (base_stack,per_thread_stack_size) as JSON to FILE",
 )
 parser.add_argument(
+    "--packet-histogram",
+    default=None,
+    metavar="FILE",
+    help="Write packet size histogram as an SVG image to FILE",
+)
+parser.add_argument(
     "sources", metavar="source", nargs="+", type=argparse.FileType("r")
 )
 
@@ -77,6 +83,7 @@ def twig(args=None):
     with LogSetup(args) as log_setup:
         march = get_arch("twig")
         march.no_packetize = args.no_packetize
+        march.reset_packet_histogram()
         coptions = COptions()
         coptions.process_args(args)
 
@@ -116,6 +123,8 @@ def twig(args=None):
                 do_compile(
                     ir_modules, march, log_setup.reporter, log_setup.args
                 )
+                if args.packet_histogram and not args.ir:
+                    march.write_packet_histogram(args.packet_histogram)
             else:
                 # 2. Compile IR to Object (in-memory)
                 march.entry_symbol = args.entry
@@ -161,6 +170,8 @@ def twig(args=None):
                     write_meminit_bin(linked_obj, args.bin_output)
                 if args.hex_output:
                     write_meminit_hex(linked_obj, args.hex_output)
+                if args.packet_histogram:
+                    march.write_packet_histogram(args.packet_histogram)
 
                 # 7. Write stack info sidecar for emulator
                 if args.stack_info_output:
