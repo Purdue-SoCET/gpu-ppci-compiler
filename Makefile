@@ -39,7 +39,13 @@ test:
 	$(PYTHON) -m pytest
 
 link:
-	$(TWIG) test.c
+	$(TWIG) src/test.c src/a.c
+
+histogram:
+	$(TWIG) src/test.c src/a.c --packet-histogram packets.svg
+
+debug:
+	$(TWIG) -S src/test.c --log debug
 
 disasm:
 	$(TOOL) --disasm meminit.hex > disasm.S
@@ -47,3 +53,6 @@ disasm:
 clean:
 	@echo Cleaning project...
 	@$(CLEAN_CMD)
+
+clean-cache:
+	find . | grep -E "(/__pycache__$|\.pyc$|\.pyo$)" | xargs rm -rf

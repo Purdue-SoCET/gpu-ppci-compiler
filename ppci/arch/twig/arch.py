@@ -1,5 +1,7 @@
 """TWIG architecture."""
 
+import logging
+from collections import Counter
 from ... import ir
 from ...binutils.assembler import BaseAssembler
 from ..arch import Architecture
@@ -8,6 +10,7 @@ from ..data_instructions import DByte, data_isa
 from ..generic_instructions import Label, RegisterUseDef
 from ..stack import FramePointerLocation, StackLocation
 from .asm_printer import TwigAsmPrinter
+from .reporter import write_packet_histogram_svg
 from .instructions import (
     Add,
     Addi,
@@ -174,6 +177,8 @@ class TwigArch(Architecture):
             self.asm_printer = TwigAsmPrinter()
         self.assembler = TwigAssembler()
         self.assembler.gen_asm_parser(self.isa)
+        self.reset_packet_histogram()
+        self._entry_totalstack = None
 
         self.info = ArchInfo(
             type_infos={
@@ -259,9 +264,30 @@ class TwigArch(Architecture):
 
     def branch(self, reg, lab):
         if isinstance(lab, TwigRegister):
-            return Blr(reg, lab, 0, clobbers=self.caller_save)
+            return Blr(reg, 0, lab, clobbers=self.caller_save)
         else:
             return Bl(reg, lab, clobbers=self.caller_save)
+
+    def reset_packet_histogram(self):
+        self._packet_histogram = Counter()
+        self._packet_total_packets = 0
+        self._packet_total_instructions = 0
+
+    def _record_packet_size(self, packet_size):
+        if packet_size <= 0:
+            return
+        self._packet_histogram[packet_size] += 1
+        self._packet_total_packets += 1
+        self._packet_total_instructions += packet_size
+
+    def write_packet_histogram(self, filename):
+        counts = dict(sorted(self._packet_histogram.items()))
+        write_packet_histogram_svg(
+            filename,
+            counts,
+            total_packets=self._packet_total_packets,
+            total_instructions=self._packet_total_instructions,
+        )
 
     # def get_runtime(self):
     #     """Implement compiler runtime functions"""
@@ -400,6 +426,7 @@ class TwigArch(Architecture):
             stack_size + savespace + outspace + lrfpspace + predsavespace
         )
         self._entry_totalstack = totalstack
+
         # R9=tid, R11=Bid, R3=BlkDim (avoid R10, R12-R17)
         yield Csrr(R9, 0, pred)
         yield Csrr(R11, 1, pred)
@@ -493,7 +520,7 @@ class TwigArch(Architecture):
         if is_entry:
             yield Halt(0)
         else:
-            yield Blr(R0, LR, 0)
+            yield Blr(R0, 0, LR)
         # yield from self.litpool(frame)
         yield Align(4)
         return
@@ -699,6 +726,205 @@ class TwigArch(Architecture):
                 saved_registers.append(register)
         return saved_registers
 
+    def packetize(self, instructions, max_packet_size=None):
+        # --- Respond to command line ---
+        if getattr(self, "no_packetize", False):
+            for inst in instructions:
+                if isinstance(inst, Instruction):
+                    inst.is_packet_start = True
+                    inst.is_packet_end = True
+                    self._record_packet_size(1)
+            return
+
+        # --- Partition into Basic Blocks ---
+        blocks = []
+        current_block = []
+        block_names = {}
+        last_label_name = "prologue"
+
+        for instr in instructions:
+            if isinstance(instr, Instruction):
+                instr.is_packet_start = False
+                instr.is_packet_end = False
+
+            if isinstance(instr, (Label, Global, Alignment)) or not isinstance(instr, Instruction):
+                if current_block:
+                    blocks.append(current_block)
+                    current_block = []
+                if isinstance(instr, Label):
+                    last_label_name = instr.name
+                blocks.append([instr])
+                continue
+
+            if not current_block:
+                block_names[len(blocks)] = last_label_name
+            current_block.append(instr)
+
+            # End the current Basic Block if it is a branch or jump instruction
+            if getattr(instr, "is_branch", False):
+                blocks.append(current_block)
+                current_block = []
+
+        if current_block:
+            blocks.append(current_block)
+
+        # --- Build Data Dependency Graph and Greedy Packetize ---
+        new_instructions = []
+
+        for block_idx, block in enumerate(blocks):
+            # For non-instructions, place in order
+            if len(block) <= 1 and (
+                not block or not isinstance(block[0], Instruction)
+            ):
+                new_instructions.extend(block)
+                continue
+
+            N = len(block)
+            block_name = block_names.get(block_idx, f"Block_{block_idx}")
+            backward_edges = {i: [] for i in range(N)}
+            backward_edges_debug = {i: [] for i in range(N)}
+
+            # Build Data Dependency Graph (DDG)
+            for i in range(N):
+                reads_i, writes_i, is_mem_r_i, is_mem_w_i, is_br_i = (
+                    get_inst_info(block[i])
+                )
+
+                for j in range(i - 1, -1, -1):
+                    reads_j, writes_j, is_mem_r_j, is_mem_w_j, is_br_j = (
+                        get_inst_info(block[j])
+                    )
+
+                    # Data Hazard
+                    has_dep = False
+                    dep_type = None
+                    if reads_i & writes_j:
+                        has_dep = True
+                        dep_type = "RAW"
+                    elif writes_i & writes_j:
+                        has_dep = True
+                        dep_type = "WAW"
+                    elif writes_i & reads_j:
+                        has_dep = True
+                        dep_type = "WAR"
+                    # Memory Barrier
+                    elif is_mem_w_i and (is_mem_r_j or is_mem_w_j):
+                        has_dep = True
+                        dep_type = "MEM_WRITE"
+                    elif is_mem_r_i and is_mem_w_j:
+                        has_dep = True
+                        dep_type = "MEM_READ"
+                    # Control Barrier
+                    elif is_br_i or is_br_j:
+                        has_dep = True
+                        dep_type = "BRANCH"
+
+                    if has_dep:
+                        backward_edges[i].append(j)
+                        backward_edges_debug[i].append((j, dep_type))
+
+            # Print DDG
+            if self.logger.isEnabledFor(logging.DEBUG):
+                self.logger.debug("=== Basic Block: %s ===", block_name)
+                for i, inst in enumerate(block):
+                    deps = backward_edges_debug[i]
+                    dep_str = ", ".join(
+                        [f"[{src}]: {dtype}" for src, dtype in deps]
+                    )
+                    if not dep_str:
+                        dep_str = "None"
+                    self.logger.debug(
+                        "  [%2d] %-20s -> Deps: %s", i, str(inst), dep_str
+                    )
+
+            # Greedy Packetize
+            scheduled_set = set()
+            packet_count = 0
+
+            if self.logger.isEnabledFor(logging.DEBUG):
+                self.logger.debug("--- Packets for %s ---", block_name)
+
+            while len(scheduled_set) < N:
+                # Get all instructions whose dependencies have been completely
+                # met
+                ready_list = [
+                    i
+                    for i in range(N)
+                    if i not in scheduled_set
+                    and all(dep in scheduled_set for dep in backward_edges[i])
+                ]
+
+                # Sort to maintain original order when there are no
+                # dependencies, ensuring stable output
+                ready_list.sort()
+
+                if not ready_list:
+                    raise RuntimeError("DDG Cycle detected")
+
+                # Form the Packet
+                packet_idx = (
+                    ready_list[:max_packet_size]
+                    if max_packet_size
+                    else ready_list
+                )
+                packet = [block[i] for i in packet_idx]
+
+                packet_count += 1
+                if self.logger.isEnabledFor(logging.DEBUG):
+                    p_insts = ", ".join([f"[{idx}]" for idx in packet_idx])
+                    self.logger.debug("  Packet %d: %s", packet_count, p_insts)
+
+                # Mark Packet Start / End
+                packet[0].is_packet_start = True
+                packet[-1].is_packet_end = True
+
+                # Clear any residual markers on other instructions
+                for inst in packet:
+                    if inst != packet[0]:
+                        inst.is_packet_start = False
+                    if inst != packet[-1]:
+                        inst.is_packet_end = False
+
+                self._record_packet_size(len(packet))
+
+                new_instructions.extend(packet)
+                scheduled_set.update(packet_idx)
+
+        # Replace the original instruction list
+        # Passing the reordered result directly to the downstream stream filter
+        instructions[:] = new_instructions
+
 
 def round_up(s):
     return s + (16 - s % 16)
+
+
+def get_inst_info(instr):
+    reads = set()
+    writes = set()
+
+    def add_gpr(dep_set, *attrs):
+        for attr in attrs:
+            if hasattr(instr, attr):
+                value = getattr(instr, attr)
+                if not isinstance(value, int):
+                    dep_set.add(str(value))
+
+    def add_pred(dep_set, *attrs):
+        for attr in attrs:
+            if hasattr(instr, attr):
+                dep_set.add(f"p{getattr(instr, attr)}")
+
+    add_gpr(writes, "rd")
+    add_gpr(reads, "rs1", "rs2", "rs3")
+    add_pred(reads, "pred", "prs")
+    add_pred(writes, "prd")
+
+    is_mem_read = getattr(instr, "is_mem_read", False)
+    is_mem_write = getattr(instr, "is_mem_write", False)
+    is_branch = getattr(instr, "is_branch", False)
+
+    reads.discard("x0")
+    writes.discard("x0")
+
+    return reads, writes, is_mem_read, is_mem_write, is_branch

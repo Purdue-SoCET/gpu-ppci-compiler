@@ -15,15 +15,21 @@ run:
 
 compile-%:
 	mkdir -p build
-	twig ../benchmark/kernels/$*.c --hex-output build/$*.bin --entry kernel_$* -O$(O) --stack-info-output build/$*.stack.json
+	twig ../benchmark/kernels/$*.c \
+		--hex-output build/$*.hex \
+		--bin-output build/$*.bin \
+		--entry kernel_$* -O$(O) \
+		--stack-info-output build/$*.stack.json \
+		--packet-histogram build/$*_packets.svg \
+		$(TWIG_ARGS)
 
 disasm-%: compile-%
 	tool --disasm build/$*.bin > build/$*_disasm.txt
 
 build-%: disasm-%
 	mkdir -p tests/complex_tests/$*
-	awk 'NR>2 && $$3 != "" {print $$3}' build/$*_disasm.txt > tests/complex_tests/$*/$*.hex
-	cp build/$*.stack.json tests/complex_tests/$*/$*.stack.json
+	cp -f build/$*.hex tests/complex_tests/$*/$*.hex
+	cp -f build/$*.stack.json tests/complex_tests/$*/$*.stack.json
 
 test-%:
 	@TEST_ARGS=""; \
@@ -59,3 +65,30 @@ datacopy:
 			cp -f "$$bench_dir/$${kernel}Output0.txt" $$outdir/$${kernel}_exp_t32_b1.hex; \
 		fi; \
 	done
+
+fix:
+	sed -i 's/\r$$//' setup.sh
+	sed -i 's/\r$$//' test_hex.sh
+
+BLUE = \033[1;34m
+NC = \033[0m   # No Color
+SHELL := /bin/bash
+
+auto-data-%:
+	@echo -e "\n$(BLUE)>>> [1/5] Generating CPU standard test data (make data)...$(NC)"
+	make data
+
+	@echo -e "\n$(BLUE)>>> [2/5] Copying and converting test data (make datacopy)...$(NC)"
+	make datacopy
+
+auto-test-%:
+	@echo -e "\n$(BLUE)>>> [3/5] Compiling C code with twig and extracting Hex (make build-$*)...$(NC)"
+	#make build-$* TWIG_ARGS="--no-packetize"
+	make build-$*
+
+	@echo -e "\n$(BLUE)>>> [4/5] Starting emulator for comparison testing (make test-$*)...$(NC)"
+	-make test-$*
+
+	@echo -e "\n$(BLUE)>>> [5/5] Generating memory difference report (make diffs)...$(NC)"
+	make diffs
+	@echo -e "\n$(BLUE)>>> Test process completed! Please check the reports in the test_diffs/ directory.$(NC)"

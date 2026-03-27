@@ -77,19 +77,7 @@ class TwigUToken(Token):
     # pend = bit(31)
 
 
-class TwigCWToken(Token):
-    class Info:
-        size = 32
-
-    opcode = bit_range(0, 7)
-    rd = bit_concat(bit_range(19, 23), bit_range(7, 13))
-    rs1 = bit_range(13, 19)
-    # pred = bit_range(25,30)
-    # pstart = bit(30)
-    # pend = bit(31)
-
-
-class TwigCRToken(Token):
+class TwigCToken(Token):
     class Info:
         size = 32
 
@@ -124,45 +112,15 @@ class TwigJrToken(Token):
     # pend = bit(31)
 
 
-class TwigPToken(Token):
+class TwigJpnzToken(Token):
     class Info:
         size = 32
 
     opcode = bit_range(0, 7)
-    rd = bit_range(7, 13)
-    rs1 = bit_range(13, 19)
-
-    # imm = {imm[29:25], rs2[24:19]}
-    rs2 = bit_range(19, 25)
-    imm = bit_range(25, 30)
-
-    # pstart = bit(30)
-    # pend = bit(31)
-
-
-class TwigPDisasToken(Token):
-    """Token for jpnz disassembly with correct ISA field layout:
-    opcode [6:0], rs1/pred [12:7], imm/target [24:13]"""
-
-    class Info:
-        size = 32
-
-    opcode = bit_range(0, 7)
-    rs1 = bit_range(7, 13)
-    imm = bit_range(13, 25)
-
-
-class TwigPredLWToken(Token):
-    """Token for predicate memory instructions (prsw/prlw).
-    Stores/loads a predicate register to/from memory."""
-
-    class Info:
-        size = 32
-
-    opcode = bit_range(0, 7)
-    prd = bit_range(7, 12)
-    rs2 = bit_range(19, 25)  # 6 bits: GPR base address
-    imm = bit_range(13, 19)  # 6 bits: signed offset
+    prs = bit_range(7, 13)
+    imm = bit_range(13, 25)     # imm[12:0] = {rs2[24:19], imm[18:13], 1'b0}
+    pstart = bit_range(30, 31)
+    pend = bit_range(31, 32)
 
 
 class TwigPredSWToken(Token):
@@ -173,9 +131,25 @@ class TwigPredSWToken(Token):
         size = 32
 
     opcode = bit_range(0, 7)
-    prs = bit_range(25, 30)  # 5 bits: pred register index (P0-P31)
-    rs2 = bit_range(19, 25)  # 6 bits: GPR base address
     imm = bit_range(13, 19)  # 6 bits: signed offset
+    rs2 = bit_range(19, 25)  # 6 bits: GPR base address
+    prs = bit_range(25, 30)  # 5 bits: pred register index (P0-P31)
+    pstart = bit_range(30, 31)
+    pend = bit_range(31, 32)
+
+class TwigPredLWToken(Token):
+    """Token for predicate memory instructions (prsw/prlw).
+    Stores/loads a predicate register to/from memory."""
+
+    class Info:
+        size = 32
+
+    opcode = bit_range(0, 7)
+    prd = bit_range(7, 13)
+    imm = bit_range(13, 19)  # 6 bits: signed offset
+    rs2 = bit_range(19, 25)  # 6 bits: GPR base address
+    pstart = bit_range(30, 31)
+    pend = bit_range(31, 32)
 
 
 class TwigHToken(Token):
@@ -185,5 +159,5 @@ class TwigHToken(Token):
     opcode = bit_range(0, 7)
     data = bit_range(7, 25)
     pred = bit_range(25, 30)
-    # pstart = bit_range(30)
-    # pend = bit_range(31)
+    pstart = bit_range(30, 31)
+    pend = bit_range(31, 32)
