@@ -7,15 +7,13 @@ from ...binutils.assembler import BaseAssembler
 from ..arch import Architecture
 from ..arch_info import ArchInfo, TypeInfo
 from ..data_instructions import DByte, data_isa
-from ..generic_instructions import Label, Global, Alignment, RegisterUseDef
-from ..encoding import Instruction
+from ..generic_instructions import Label, RegisterUseDef
 from ..stack import FramePointerLocation, StackLocation
 from .asm_printer import TwigAsmPrinter
 from .reporter import write_packet_histogram_svg
 from .instructions import (
     Add,
     Addi,
-    And,
     Cos,
     Csrr,
     Halt,
@@ -31,8 +29,6 @@ from .instructions import (
     Prlw,
     Bl,
     Blr,
-    Slli,
-    Srli,
     Sw,
     Sin,
     isa,
@@ -125,7 +121,6 @@ BUILTIN_TABLE = {
 #     return bool(val <= (msb - 1) and (val >= ll))
 
 NUM_THREADS = 32
-
 # Fixed space for saving predicate registers during function calls.
 # 32 pred regs * 4 bytes each = 128 bytes. Predicates are shared masks
 # (not per-thread), so this is NOT multiplied by NUM_THREADS.
@@ -164,9 +159,8 @@ class TwigArch(Architecture):
     name = "twig"
 
     def __init__(self, options=None):
-        super().__init__(options=options)
+        super().__init__()
 
-        self.logger = logging.getLogger("ppci.arch.twig")
         self.isa = isa + data_isa
         self.store = Sw
         self.load = Lw

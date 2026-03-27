@@ -74,6 +74,12 @@ parser.add_argument(
     help="Write packet size histogram as an SVG image to FILE",
 )
 parser.add_argument(
+    "--stack-info-output",
+    default=None,
+    metavar="FILE",
+    help="Write stack info (base_stack,per_thread_stack_size) as JSON to FILE",
+)
+parser.add_argument(
     "sources", metavar="source", nargs="+", type=argparse.FileType("r")
 )
 
@@ -172,6 +178,22 @@ def twig(args=None):
                     write_meminit_hex(linked_obj, args.hex_output)
                 if args.packet_histogram:
                     march.write_packet_histogram(args.packet_histogram)
+
+                # 7. Write stack info sidecar for emulator
+                if args.stack_info_output:
+                    from ..arch.twig.arch import BASE_STACK
+
+                    per_thread_stack_size = getattr(
+                        march, "_entry_totalstack", 0
+                    )
+                    with open(args.stack_info_output, "w") as sf:
+                        json.dump(
+                            {
+                                "base_stack": BASE_STACK,
+                                "per_thread_stack_size": per_thread_stack_size,
+                            },
+                            sf,
+                        )
 
                 # 7. Write stack info sidecar for emulator
                 if args.stack_info_output:

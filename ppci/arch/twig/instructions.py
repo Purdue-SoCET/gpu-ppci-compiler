@@ -75,9 +75,6 @@ def make_r(mnemonic, opcode):
         "patterns": patterns,
         "tokens": tokens,
         "opcode": opcode,
-        "is_mem_read": False,
-        "is_mem_write": False,
-        "is_branch": False,
     }
     name = mnemonic.title() + "R"
     return type(name, (TwigRInstruction,), members)
@@ -158,9 +155,6 @@ def make_i(mnemonic, opcode):
         "tokens": tokens,
         "patterns": patterns,
         "opcode": opcode,
-        "is_mem_read": False,
-        "is_mem_write": False,
-        "is_branch": False,
     }
     return type(mnemonic + "_ins", (TwigIInstruction,), members)
 
@@ -276,9 +270,6 @@ def make_load(mnemonic, opcode):
         # "pstart": pstart,
         # "pend": pend,
         "opcode": opcode,
-        "is_mem_read": True,
-        "is_mem_write": False,
-        "is_branch": False,
     }
     return type(mnemonic.title(), (TwigIInstruction,), members)
 
@@ -324,9 +315,6 @@ def make_store(mnemonic, opcode):
         # "pstart": pstart,
         # "pend": pend,
         "opcode": opcode,
-        "is_mem_read": False,
-        "is_mem_write": True,
-        "is_branch": False,
     }
     return type(mnemonic.title(), (TwigSInstruction,), members)
 
@@ -379,14 +367,11 @@ class TwigJInstruction(TwigInstruction):
 
 
 # For disassembly
-class Bl_disasm(TwigJInstruction):
+class Bl_disas(TwigJInstruction):
     rd = Operand("rd", TwigRegister, write=True)
     imm = Operand("imm", int)
     syntax = Syntax(["jal", " ", rd, ",", " ", imm])
     patterns = {"opcode": 0b1100000, "rd": rd, "imm": imm}
-    is_branch = True
-    is_mem_read = False
-    is_mem_write = False
 
     def encode(self):
         return b""
@@ -439,9 +424,6 @@ class Blr(TwigJrInstruction):
     imm = Operand("imm", int)  # TODO: int or str (jal take str)
     syntax = Syntax(["jalr", " ", rd, ",", " ", imm, "(", rs1, ")"])
     patterns = {"opcode": 0b0100011, "rd": rd, "rs1": rs1, "imm": imm}
-    is_branch = True
-    is_mem_read = False
-    is_mem_write = False
 
 
 # btype instructions
@@ -484,9 +466,6 @@ def make_b(mnemonic, opcode):
         "patterns": patterns,
         "tokens": tokens,
         "opcode": opcode,
-        "is_mem_read": False,
-        "is_mem_write": False,
-        "is_branch": True,
     }
     return type(mnemonic + "_ins", (TwigBInstruction,), members)
 
@@ -575,9 +554,6 @@ def make_u(mnemonic, opcode):
         "tokens": tokens,
         "opcode": opcode,
         "pred": pred,
-        "is_mem_read": False,
-        "is_mem_write": False,
-        "is_branch": False,
     }
     return type(mnemonic + "_ins", (TwigUInstruction,), members)
 
@@ -601,9 +577,6 @@ def make_u_mod(mnemonic, opcode):
         "tokens": tokens,
         "opcode": opcode,
         "pred": pred,
-        "is_mem_read": False,
-        "is_mem_write": False,
-        "is_branch": False,
     }
     return type(mnemonic + "_ins", (TwigUInstruction,), members)
 
