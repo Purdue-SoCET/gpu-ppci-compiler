@@ -62,12 +62,6 @@ parser.add_argument(
     help="Output file for 32-bit hex strings (e.g. 1A2B3C4D)",
 )
 parser.add_argument(
-    "--stack-info-output",
-    default=None,
-    metavar="FILE",
-    help="Write stack info (base_stack,per_thread_stack_size) as JSON to FILE",
-)
-parser.add_argument(
     "--packet-histogram",
     default=None,
     metavar="FILE",
