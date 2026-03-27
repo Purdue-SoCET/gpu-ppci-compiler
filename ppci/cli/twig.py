@@ -37,8 +37,8 @@ parser.add_argument(
     "-c", action="store_true", default=False, help="Compile only, do not link"
 )
 parser.add_argument(
-    "-ld",
     "--layout",
+    "-ld",
     help="Custom layout file (overrides default MMIO layout)",
     metavar="LAYOUT",
 )
@@ -288,6 +288,7 @@ def _get_aligned_image_data(obj):
         data += b"\x00" * (4 - pad)
     return data
 
+
 def write_meminit_bin(obj, filename):
     """Output 32-character ASCII binary strings (e.g. 0101...)."""
     data = _get_aligned_image_data(obj)
@@ -297,8 +298,9 @@ def write_meminit_bin(obj, filename):
     with open(filename, "w") as f:
         for i in range(0, len(data), 4):
             # Read 4 bytes as a Little-Endian integer
-            val = int.from_bytes(data[i:i+4], byteorder='little')
+            val = int.from_bytes(data[i: i + 4], byteorder="little")
             f.write(f"{val:032b}\n")
+
 
 def write_meminit_hex(obj, filename):
     """Output 8-character uppercase ASCII hex strings without '0x' prefix. (e.g. 1A2B3C4D)"""
@@ -309,7 +311,7 @@ def write_meminit_hex(obj, filename):
     with open(filename, "w") as f:
         for i in range(0, len(data), 4):
             # Read 4 bytes as a Little-Endian integer
-            val = int.from_bytes(data[i:i+4], byteorder='little')
+            val = int.from_bytes(data[i: i + 4], byteorder="little")
             f.write(f"{val:08X}\n")
 
 
