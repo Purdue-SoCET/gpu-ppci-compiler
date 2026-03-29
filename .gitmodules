@@ -1,0 +1,3 @@
+[submodule "GPUTest/cardinal-ISS"]
+	path = GPUTest/cardinal-ISS
+	url = git@github.com:Purdue-SoCET/cardinal-ISS.git
