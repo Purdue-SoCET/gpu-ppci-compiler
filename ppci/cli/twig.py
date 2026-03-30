@@ -189,22 +189,6 @@ def twig(args=None):
                             sf,
                         )
 
-                # 7. Write stack info sidecar for emulator
-                if args.stack_info_output:
-                    from ..arch.twig.arch import BASE_STACK
-
-                    per_thread_stack_size = getattr(
-                        march, "_entry_totalstack", 0
-                    )
-                    with open(args.stack_info_output, "w") as sf:
-                        json.dump(
-                            {
-                                "base_stack": BASE_STACK,
-                                "per_thread_stack_size": per_thread_stack_size,
-                            },
-                            sf,
-                        )
-
 
 # Default memory layout based on MMIO.md
 ##############################################

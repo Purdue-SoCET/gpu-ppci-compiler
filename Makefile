@@ -50,9 +50,24 @@ debug:
 disasm:
 	$(TOOL) --disasm meminit.hex > disasm.S
 
+package-check:
+	@echo "Check code style"
+	black --check .
+	@echo "Static code analysis"
+	flake8 ppci test tools
+
+fix-package-check:
+	@echo "Fix code style"
+	black .
+	@echo "Fix Static code analysis"
+	autopep8 --in-place --aggressive --recursive .
+
 clean:
 	@echo Cleaning project...
 	@$(CLEAN_CMD)
 
 clean-cache:
-	find . | grep -E "(/__pycache__$|\.pyc$|\.pyo$)" | xargs rm -rf
+	#Linux: find . | grep -E "(/__pycache__$|\.pyc$|\.pyo$)" | xargs rm -rf
+	for /d /r . %%d in (__pycache__) do @if exist "%%d" rd /s /q "%%d"
+	del /s /q *.pyc 2>nul
+	del /s /q *.pyo 2>nul
