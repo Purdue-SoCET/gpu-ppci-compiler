@@ -22,6 +22,10 @@ classifiers = [
     "Topic :: Software Development :: Pre-processors",
 ]
 keywords = ["compiler", "assembler", "embedded", "riscv", "x86", "arm", "stm8", "msp430", "webassembly", "xtensa"]
+dependencies = [
+    "bitarray==3.7.2",
+    "bitstring==4.3.1"
+]
 
 [project.urls]
 homepage='https://ppci.readthedocs.io/'

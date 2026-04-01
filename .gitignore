@@ -19,3 +19,8 @@ venv
 lib
 lib64
 *pyvenv*
+
+/.idea/
+/build/
+/GPUTest/**/build/
+/GPUTest/emulator/test_diffs/

@@ -2,7 +2,8 @@ import argparse
 import sys
 import struct
 import io
-from ..api import asm, get_arch
+from ..api import get_arch, asm
+from ..binutils.objectfile import ObjectFile
 
 parser = argparse.ArgumentParser(
     description="Twig Tool: ASM, DisASM, and Format Conversion"
@@ -109,12 +110,21 @@ def bytes_to_bit_str(data):
 
 
 def do_convert(input_file, args):
-    """Handles format conversion between Bin, Bit-strings, and Hex-strings."""
+    """Handles format conversion between Bin,
+    Bit-strings, Hex-strings, and .oj."""
     print(f"Converting {input_file}...")
 
-    # 1. Read Input (Detect if it's a bit-string text file or raw binary)
-    # .hex, .txt, and .bin in this project refer to '0101' bit-string text
-    if input_file.endswith((".hex", ".txt", ".bin")):
+    # 1. Read Input
+    if input_file.endswith(".oj"):
+        # Object file: extract code section
+        with open(input_file, "r") as f:
+            obj = ObjectFile.load(f)
+        if obj.has_section("code"):
+            raw_data = obj.get_section("code").data
+        else:
+            raw_data = b""
+    elif input_file.endswith((".hex", ".txt", ".bin")):
+        # Bit-string text file
         raw_data = bit_str_to_bytes(input_file)
     else:
         with open(input_file, "rb") as f:
@@ -152,14 +162,32 @@ def do_asm(args):
     """Assembles and outputs in the requested format."""
     print(f"Assembling {args.asm}...")
     try:
+        from ..api import link
+        from ..binutils.layout import Layout, Memory, Section
+
         with open(args.asm, "r") as f:
             obj = asm(f, arch)
+
+        layout = Layout()
+        mem = Memory("flash")
+        mem.location = 0x0
+        mem.size = 0x400000  # Give it ample space
+        mem.add_input(Section("code"))
+        layout.add_memory(mem)
+
+        obj = link([obj], layout=layout)
     except Exception as e:
         print(f"Assembly failed: {e}")
         sys.exit(1)
 
-    image = obj.get_image("code") or (obj.images[0] if obj.images else None)
-    raw_data = image.data if image else b""
+    if "code" in obj.image_map:
+        raw_data = obj.get_image("code").data
+    elif obj.images:
+        raw_data = obj.images[0].data
+    elif obj.has_section("code"):
+        raw_data = obj.get_section("code").data
+    else:
+        raw_data = b""
 
     if args.hex:
         lines = bytes_to_hex_str(raw_data)
