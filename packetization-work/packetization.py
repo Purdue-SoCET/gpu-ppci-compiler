@@ -1,5 +1,6 @@
 import sys
 from ddg import parse_asm
+from reg_alloc import allocate_registers_chaitin
 
 
 def greedy_packetize(block, max_packet_size=None):
@@ -36,6 +37,11 @@ def greedy_packetize(block, max_packet_size=None):
 
 def packetize_file(asm_file, max_packet_size=None):
     blocks = parse_asm(asm_file)
+
+    allocate_registers_chaitin(blocks, num_registers=32)
+
+    for b in blocks:
+        b.build_ddg()
 
     for b in blocks:
         if not b.instructions:
