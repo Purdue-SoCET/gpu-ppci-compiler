@@ -12,6 +12,7 @@ class Instruction:
         self.is_mem_read = False
         self.is_mem_write = False
         self.is_branch = False
+        self.branch_target = None
         self.parse()
 
     def parse(self):
@@ -74,11 +75,13 @@ class Instruction:
         elif self.opcode in ["beq", "bne", "blt", "bge", "bltu", "bgeu"]:
             self.is_branch = True
             if len(parts) >= 4:
+                self.branch_target = parts[1]
                 self.srcs.update([parts[2], parts[3]])
         elif self.opcode in ["jal"]:
             self.is_branch = True
-            if len(parts) >= 2:
+            if len(parts) >= 3:
                 self.dest = parts[1]
+                self.branch_target = parts[2]
         elif self.opcode in ["jalr"]:
             self.is_branch = True
             if len(parts) >= 3:
@@ -87,7 +90,7 @@ class Instruction:
         elif self.opcode == "csrr":
             if len(parts) >= 3:
                 self.dest = parts[1]
-                self.srcs.add(parts[2])
+                # CSR indices are not general purpose registers
 
         # register x0 is hardwired to 0, no data dependencies on it
         if self.dest == "x0":
@@ -103,6 +106,10 @@ class BasicBlock:
         self.forward_edges = defaultdict(list)
         self.backward_edges = defaultdict(list)
 
+        # CFG Edges
+        self.predecessors = []
+        self.successors = []
+
     def add_instruction(self, inst):
         self.instructions.append(inst)
 
@@ -111,6 +118,9 @@ class BasicBlock:
         self.backward_edges[dst_idx].append((src_idx, dep_type))
 
     def build_ddg(self):
+        self.forward_edges.clear()
+        self.backward_edges.clear()
+
         last_writer = {}
         last_readers = defaultdict(list)
 
@@ -222,7 +232,47 @@ def parse_asm(file_path):
     for b in blocks:
         b.build_ddg()
 
+    build_cfg(blocks)
+
     return blocks
+
+def build_cfg(blocks):
+    block_map = {b.name: b for b in blocks}
+
+    for i, b in enumerate(blocks):
+        # check the last few instructions for branch/jump
+        ends_with_unconditional = False
+
+        for inst in reversed(b.instructions):
+            if inst.is_branch and inst.branch_target:
+                target_name = None
+
+                if inst.branch_target in block_map:
+                    target_name = inst.branch_target
+                else:
+                    for name in block_map.keys():
+                        if name.endswith(inst.branch_target) or name.endswith("block" + inst.branch_target):
+                            target_name = name
+                            break
+
+                if target_name:
+                    target_block = block_map[target_name]
+                    if target_block not in b.successors:
+                        b.successors.append(target_block)
+                        target_block.predecessors.append(b)
+
+                if inst.opcode == "jal":
+                    ends_with_unconditional = True
+                    break
+            elif inst.opcode == "jalr":
+                ends_with_unconditional = True
+                break
+
+        if not ends_with_unconditional and i + 1 < len(blocks):
+            next_block = blocks[i+1]
+            if next_block not in b.successors:
+                b.successors.append(next_block)
+                next_block.predecessors.append(b)
 
 
 if __name__ == "__main__":
