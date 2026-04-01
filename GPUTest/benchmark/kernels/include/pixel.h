@@ -3,6 +3,11 @@
 #include "graphics_lib.h"
 
 typedef struct {
+    float s;   /* perspective-corrected s before texel lookup */
+    float t;   /* perspective-corrected t before texel lookup */
+} debug_t;
+
+typedef struct {
     // Transformed Verticies
     vertex_t* verts;
     int num_verts;
@@ -19,7 +24,7 @@ typedef struct {
 
     // Texture Data
     texture_t texture;
-
+    // debug_t* debug_ptr;
 } pixel_arg_t;
 
 #ifdef CPU_SIM

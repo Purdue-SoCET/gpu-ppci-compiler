@@ -54,8 +54,8 @@ datacopy:
 		mkdir -p $$outdir; \
 		cp -f "$$infile" $$outdir/$${kernel}_data.hex; \
 		if [ -f "$$bench_dir/$${kernel}Output.txt" ]; then \
-			cp -f "$$bench_dir/$${kernel}Output.txt" $$outdir/$${kernel}_exp_t32_b1.hex; \
+			cp -f "$$bench_dir/$${kernel}Output.txt" $$outdir/$${kernel}_exp_t$(t)_b1.hex; \
 		elif [ -f "$$bench_dir/$${kernel}Output0.txt" ]; then \
-			cp -f "$$bench_dir/$${kernel}Output0.txt" $$outdir/$${kernel}_exp_t32_b1.hex; \
+			cp -f "$$bench_dir/$${kernel}Output0.txt" $$outdir/$${kernel}_exp_t$(t)_b1.hex; \
 		fi; \
 	done

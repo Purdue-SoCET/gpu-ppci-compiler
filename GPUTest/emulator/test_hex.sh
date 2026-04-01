@@ -157,7 +157,7 @@ while [[ $# -gt 0 ]]; do
             echo "Usage: $0 [-t N] [-a ADDR] [-l TID] <path/to/file.hex>"
             echo "  -t, --threads N    Number of threads (1-1024)"
             echo "  -a, --argptr ADDR  Argument pointer address (default: first data addr in input)"
-            echo "  -l, --log-thread TID  Only log trace for this thread (0-31). Omit to log all threads."
+            echo "  -l, --log-thread TID  Only log trace for this global thread id (blockIdx*blockDim+threadIdx). Omit to log all threads."
             exit 0
             ;;
         *)

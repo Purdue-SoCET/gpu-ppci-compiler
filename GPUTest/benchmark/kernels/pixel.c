@@ -14,15 +14,16 @@ void kernel_pixel()
     #else
     pixel_arg_t* args = (pixel_arg_t*) argPtr();
     #endif
-    
+
     u = (((threadIdx)) - (args->buff_w)*(((threadIdx))/(args->buff_w)));
     // u = mod(threadIdx, args->buff_w);
     v = (((threadIdx) / args->buff_w) - (args->buff_h)*(((threadIdx) / args->buff_w)/(args->buff_h)));
     // v = mod(threadIdx / args->buff_w, args->buff_h);
-    
+
     int tag = args->tag_buff[threadIdx];
 
-    if(tag < 0) return;
+    if(tag < 0){}
+    else {
 
     triangle_t tri = args->tris[tag];
 
@@ -57,11 +58,10 @@ void kernel_pixel()
     float det = m00 * (m11 * m22 - m21 * m12) -
                 m01 * (m10 * m22 - m12 * m20) +
                 m02 * (m10 * m21 - m11 * m20);
-
     if (det > -0.00001 && det < 0.00001) { // added to render teapot
-        return; 
-    }
-    
+        // return;
+    } else {
+
     float invDet = 1.0 / det;
 
     // Calculate Inverse Row 0 (only needed for Barycentric x/y/z)
@@ -93,32 +93,34 @@ void kernel_pixel()
 
     // args->color[threadIdx] = get_texture(args->texture, s, t);
     // REPLACE WITH INLINED LOGIC:
-    
+
     // 1. Abs function for s and t
-    float s_abs;
-    float t_abs;
+    float s_abs = 0.0-s;
+    float t_abs = 0.0-t;
 
     if(s>0.0){
         s_abs = s;
-    } else{
-        s_abs = 0.0-s;
     }
+    // else{
+    //     s_abs = 0.0-s;
+    // }
     if(t>0.0){
         t_abs = t;
     }
-    else{
-        t_abs = 0.0-t;
-    }
-
+    // else{
+    //     t_abs = 0.0-t;
+    // }
+    // args->debug_ptr[threadIdx].s = s_abs;
+    // args->debug_ptr[threadIdx].t = t_abs;
     // 2. Calculate Texel Coordinates
     // Note: Breaking down math to avoid tree coverage errors
     float w_minus_1 = itof(args->texture.w - 1);
     float h_minus_1 = itof(args->texture.h - 1);
-    
+
     // (s - (int)s)
     float s_fract = s_abs - itof(ftoi(s_abs));
     float t_fract = t_abs - itof(ftoi(t_abs));
-    
+
     int texel_x = ftoi(s_fract * w_minus_1 + 0.5);
     int texel_y = ftoi(t_fract * h_minus_1 + 0.5);
 
@@ -129,4 +131,6 @@ void kernel_pixel()
     #else
     args->color[threadIdx] = args->texture.color_arr[idx];
     #endif
+}
+}
 }

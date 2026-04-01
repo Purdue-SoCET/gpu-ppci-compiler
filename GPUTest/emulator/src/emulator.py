@@ -64,7 +64,7 @@ def parse_args():
         type=int,
         default=None,
         metavar="TID",
-        help="Only print trace output for this thread ID (0-31 within warp). Omit to log all threads.",
+        help="Only print trace for this global thread id (blockIdx*blockDim + threadIdx; same as CSR global id). Omit to log all threads.",
     )
     parser.add_argument(
         "--stack-base",
@@ -132,9 +132,12 @@ if __name__ == "__main__":
         csr_files = []
         threads = []
 
-        # Setup Warp
+        # Setup Warp (global_tid matches CsrRegFile.get_global_thread_id())
         for tid in range(32):
-            if args.log_thread is not None and tid != args.log_thread:
+            global_tid = (
+                block_id * args.threads_per_block + (32 * warp_id + tid)
+            )
+            if args.log_thread is not None and global_tid != args.log_thread:
                 sys.stdout = _NoOpWriter()
             rfiles.append(RegFile())
             states.append(State(memory=mem, rfile=rfiles[tid], pfile=pfile))
@@ -162,7 +165,10 @@ if __name__ == "__main__":
             for tid, thread in enumerate(threads):
                 if thread_halted[tid]:
                     continue
-                if args.log_thread is not None and tid != args.log_thread:
+                global_tid = (
+                    block_id * args.threads_per_block + (32 * warp_id + tid)
+                )
+                if args.log_thread is not None and global_tid != args.log_thread:
                     sys.stdout = _NoOpWriter()
                 else:
                     sys.stdout = _real_stdout
@@ -172,7 +178,7 @@ if __name__ == "__main__":
                     # Invalid memory access: addr not in mem (never stored/initialized)
                     # Always print to real stdout (bypass --log-thread filter)
                     _real_stdout.write(
-                        f"\n*** Invalid memory access: thread {tid}, PC 0x{thread.pc:04x} ***\n"
+                        f"\n*** Invalid memory access: thread {global_tid}, PC 0x{thread.pc:04x} ***\n"
                     )
                     _real_stdout.write(
                         f"*** KeyError: {e} (address {e.args[0]} = 0x{e.args[0]:x}) ***\n"
