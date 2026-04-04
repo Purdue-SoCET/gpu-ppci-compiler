@@ -2,6 +2,7 @@
 // Standard Includes
 #include <stdlib.h>
 #include <stdint.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <sys/mman.h>
 #include "include/kernel_run.h"
@@ -17,8 +18,8 @@
 uint8_t* memory_ptr;
 
 // Defines
-#define OUTPUT_W 800 // 680
-#define OUTPUT_H 800 // 480
+#define OUTPUT_W 32 // 680
+#define OUTPUT_H 32 // 480
 
 #define VERTEX_DEBUG 0
 #define TRIANGLE_DEBUG 0
@@ -64,7 +65,7 @@ uint8_t* memory_ptr;
     } \
 }
 
-int main(int argc, char** argv) {
+int main() {
     int frame = 0;
     // for (int frame = 0; frame < 300; frame++)
     {
@@ -197,21 +198,11 @@ int main(int argc, char** argv) {
         ALLOCATE_MEM(pVerts, vertex_t, num_verts);
         vertex_args->twoDVert = pVerts;
 
-        #define DEBUG_PTR_ADDR 0x08000000
-
-        void* debug_page = mmap((void*) DEBUG_PTR_ADDR, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-        if(debug_page == MAP_FAILED){
-            perror("mmap");
-            return 1;
-        }
-        volatile float* debug_ptr = (volatile float*) DEBUG_PTR_ADDR;
-        vertex_args->debug_ptr = debug_ptr;
-
         if(INPUT_ARGS_DEBUG && VERTEX_SHADER_PRINT_DEBUG){
             print_vertex_args("build/vertexShaderInput.txt", vertex_args, num_verts);
         }
 
-        printf("args size: %lu\n", sizeof(vertexShader_arg_t));
+        printf("args size: %u\n", sizeof(vertexShader_arg_t));
 
     // Running the Kernel
     {
@@ -300,6 +291,7 @@ int main(int argc, char** argv) {
         run_kernel(kernel_triangle, grid_dim, block_dim, (void*)triangle_args);
 
         if(OUTPUT_ARGS_DEBUG && TRIANGLE_PRINT_DEBUG){
+            printf("triange: grid_dim: %d, block_dim: %d \n", grid_dim, block_dim);
             char filename[30];
             sprintf(filename, "build/triangleOutput%d.txt", tri);
             print_triangle_args(filename, triangle_args);
@@ -327,7 +319,7 @@ int main(int argc, char** argv) {
             if(tbuff[i]+1 > 0)
             printf("%d", tbuff[i]+1);
             if(((i+1) % frame_w)) {
-                printf("");
+                // printf("");
             } else if (i+1 != frame_w*frame_h) {
                 printf("]\n\t[");
             } else {
@@ -366,6 +358,7 @@ int main(int argc, char** argv) {
     // Running the kernel
     {
         int grid_dim = 1; int block_dim = frame_w * frame_h;
+        printf("pixel grid_dim: %d, block_dim: %d \n", grid_dim, block_dim);
         run_kernel(kernel_pixel, grid_dim, block_dim, (void*)pixel_args);
     }
 
