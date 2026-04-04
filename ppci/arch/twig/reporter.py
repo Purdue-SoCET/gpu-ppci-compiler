@@ -42,7 +42,11 @@ def write_packet_histogram_svg(
     bar_width = max(12, min(64, slot_width - bar_gap))
 
     def sx(packet_size):
-        return margin_left + (packet_size - 1) * slot_width + (slot_width - bar_width) / 2
+        return (
+            margin_left
+            + (packet_size - 1) * slot_width
+            + (slot_width - bar_width) / 2
+        )
 
     def sy(count):
         if y_axis_max <= 0:
@@ -58,17 +62,19 @@ def write_packet_histogram_svg(
         f'<rect x="0" y="0" width="{width}" height="{height}" fill="white"/>',
         (
             f'<text x="{width / 2}" y="36" text-anchor="middle" '
-            'font-family="sans-serif" font-size="24">Packet Size Histogram</text>'
+            'font-family="sans-serif" font-size="24">'
+            "Packet Size Histogram</text>"
         ),
         (
             f'<text x="{width / 2}" y="60" text-anchor="middle" '
             'font-family="sans-serif" font-size="13">'
-            f'Total packets: {total_packets} | Total instructions: {total_instructions}'
-            '</text>'
+            f"Total packets: {total_packets} | "
+            f"Total instructions: {total_instructions}</text>"
         ),
         (
             f'<line x1="{margin_left}" y1="{margin_top + chart_height}" '
-            f'x2="{margin_left + chart_width}" y2="{margin_top + chart_height}" '
+            f'x2="{margin_left + chart_width}" '
+            f'y2="{margin_top + chart_height}" '
             'stroke="black" stroke-width="2"/>'
         ),
         (
@@ -82,12 +88,14 @@ def write_packet_histogram_svg(
         count_value = y_tick_step * tick
         y = sy(count_value)
         lines.append(
-            f'<line x1="{margin_left - 6}" y1="{y}" x2="{margin_left}" y2="{y}" '
+            f'<line x1="{margin_left - 6}" y1="{y}" '
+            f'x2="{margin_left}" y2="{y}" '
             'stroke="black" stroke-width="1"/>'
         )
         if tick > 0:
             lines.append(
-                f'<line x1="{margin_left}" y1="{y}" x2="{margin_left + chart_width}" y2="{y}" '
+                f'<line x1="{margin_left}" y1="{y}" '
+                f'x2="{margin_left + chart_width}" y2="{y}" '
                 'stroke="#dddddd" stroke-width="1"/>'
             )
         lines.append(
@@ -105,27 +113,37 @@ def write_packet_histogram_svg(
             'fill="#4e79a7" stroke="#2f4b6c" stroke-width="1"/>'
         )
         lines.append(
-            f'<text x="{x + bar_width / 2}" y="{margin_top + chart_height + 20}" '
-            f'text-anchor="middle" font-family="sans-serif" font-size="12">{packet_size}</text>'
+            f'<text x="{x + bar_width / 2}" '
+            f'y="{margin_top + chart_height + 20}" '
+            f'text-anchor="middle" font-family="sans-serif" '
+            f'font-size="12">{packet_size}</text>'
         )
         if count:
             lines.append(
-                f'<text x="{x + bar_width / 2}" y="{max(y - 6, margin_top - 4)}" '
-                f'text-anchor="middle" font-family="sans-serif" font-size="12">{count}</text>'
+                f'<text x="{x + bar_width / 2}" '
+                f'y="{max(y - 6, margin_top - 4)}" '
+                f'text-anchor="middle" font-family="sans-serif" '
+                f'font-size="12">{count}</text>'
             )
 
-    lines.extend([
-        (
-            f'<text x="{width / 2}" y="{height - 24}" text-anchor="middle" '
-            'font-family="sans-serif" font-size="14">Packet size (instructions per packet)</text>'
-        ),
-        (
-            f'<text x="22" y="{margin_top + chart_height / 2}" text-anchor="middle" '
-            'font-family="sans-serif" font-size="14" '
-            f'transform="rotate(-90 22 {margin_top + chart_height / 2})">Packet count</text>'
-        ),
-        '</svg>',
-    ])
+    lines.extend(
+        [
+            (
+                f'<text x="{width / 2}" y="{height - 24}" '
+                f'text-anchor="middle" '
+                'font-family="sans-serif" font-size="14">'
+                "Packet size (instructions per packet)</text>"
+            ),
+            (
+                f'<text x="22" y="{margin_top + chart_height / 2}" '
+                f'text-anchor="middle" '
+                'font-family="sans-serif" font-size="14" '
+                f'transform="rotate(-90 22 {margin_top + chart_height / 2})">'
+                "Packet count</text>"
+            ),
+            "</svg>",
+        ]
+    )
 
-    with open(filename, 'w', encoding='utf-8') as out_file:
-        out_file.write('\n'.join(lines))
+    with open(filename, "w", encoding="utf-8") as out_file:
+        out_file.write("\n".join(lines))

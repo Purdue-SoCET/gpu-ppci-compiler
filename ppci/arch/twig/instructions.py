@@ -33,11 +33,14 @@ isa = Isa()
 isa.register_relocation(JImm17Relocation)
 isa.register_relocation(PBImm12Relocation)
 
+
 class TwigInstruction(Instruction):
     def set_user_patterns(self, tokens):
-        if hasattr(tokens[0], 'pstart'):
-            tokens[0].pstart = 1 if getattr(self, "is_packet_start", True) else 0
-        if hasattr(tokens[0], 'pend'):
+        if hasattr(tokens[0], "pstart"):
+            tokens[0].pstart = (
+                1 if getattr(self, "is_packet_start", True) else 0
+            )
+        if hasattr(tokens[0], "pend"):
             tokens[0].pend = 1 if getattr(self, "is_packet_end", True) else 0
 
 
@@ -503,6 +506,7 @@ Bne = make_b("bne", 0b1000001)
 class TwigJpnzInstruction(TwigInstruction):
     tokens = [TwigJpnzToken]
     isa = isa
+
 
 # For disassembly: decode jpnz with correct ISA fields
 # jpnz prs, imm  where rs1=predicate [12:7], imm=jump target [24:13]

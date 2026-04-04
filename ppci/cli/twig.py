@@ -298,12 +298,12 @@ def write_meminit_bin(obj, filename):
     with open(filename, "w") as f:
         for i in range(0, len(data), 4):
             # Read 4 bytes as a Little-Endian integer
-            val = int.from_bytes(data[i: i + 4], byteorder="little")
+            val = int.from_bytes(data[i : i + 4], byteorder="little")
             f.write(f"{val:032b}\n")
 
 
 def write_meminit_hex(obj, filename):
-    """Output 8-character uppercase ASCII hex strings without '0x' prefix. (e.g. 1A2B3C4D)"""
+    """Output 8-char uppercase hex per line; no 0x prefix (e.g. 1A2B3C4D)."""
     data = _get_aligned_image_data(obj)
     if data is None:
         return
@@ -311,7 +311,7 @@ def write_meminit_hex(obj, filename):
     with open(filename, "w") as f:
         for i in range(0, len(data), 4):
             # Read 4 bytes as a Little-Endian integer
-            val = int.from_bytes(data[i: i + 4], byteorder="little")
+            val = int.from_bytes(data[i : i + 4], byteorder="little")
             f.write(f"{val:08X}\n")
 
 

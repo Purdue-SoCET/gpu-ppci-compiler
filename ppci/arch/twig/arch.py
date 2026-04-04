@@ -15,7 +15,6 @@ from .reporter import write_packet_histogram_svg
 from .instructions import (
     Add,
     Addi,
-    And,
     Cos,
     Csrr,
     Halt,
@@ -31,8 +30,6 @@ from .instructions import (
     Prlw,
     Bl,
     Blr,
-    Slli,
-    Srli,
     Sw,
     Sin,
     isa,
@@ -753,7 +750,9 @@ class TwigArch(Architecture):
                 instr.is_packet_start = False
                 instr.is_packet_end = False
 
-            if isinstance(instr, (Label, Global, Alignment)) or not isinstance(instr, Instruction):
+            if isinstance(instr, (Label, Global, Alignment)) or not isinstance(
+                instr, Instruction
+            ):
                 if current_block:
                     blocks.append(current_block)
                     current_block = []

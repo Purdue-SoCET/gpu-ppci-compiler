@@ -69,6 +69,7 @@ build-backend = "flit_core.buildapi"
 
 [tool.black]
 line-length = 79
+extend-exclude = "GPUTest/emulator-test/cardinal-ISS"
 
 [tool.ruff]
 line-length = 79

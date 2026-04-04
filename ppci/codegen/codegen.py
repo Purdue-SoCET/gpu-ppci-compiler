@@ -33,6 +33,7 @@ from .peephole import PeepHoleStream
 from .registerallocator import GraphColoringRegisterAllocator
 from .packetize import PacketizeStream
 
+
 class CodeGenerator:
     """Machine code generator"""
 
