@@ -86,6 +86,7 @@ def collect_prefixes(diff_dir: Path) -> list[str]:
 
 
 def main() -> None:
+    # emu_dir is GPUTest/emulator-test/ (parent of this tests/ package), not cardinal-ISS/.
     script_dir = Path(__file__).resolve().parent
     emu_dir = script_dir.parent
     diff_dir = emu_dir / "test_diffs"
