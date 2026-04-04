@@ -23,6 +23,7 @@ classifiers = [
 ]
 keywords = ["compiler", "assembler", "embedded", "riscv", "x86", "arm", "stm8", "msp430", "webassembly", "xtensa"]
 dependencies = [
+    "numpy",
     "bitarray==3.7.2",
     "bitstring==4.3.1"
 ]
