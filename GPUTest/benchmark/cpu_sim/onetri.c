@@ -179,16 +179,6 @@ int main(int argc, char** argv) {
         ALLOCATE_MEM(pVerts, vertex_t, num_verts);
         vertex_args->twoDVert = pVerts;
 
-        #define DEBUG_PTR_ADDR 0x08000000
-
-        void* debug_page = mmap((void*) DEBUG_PTR_ADDR, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-        if(debug_page == MAP_FAILED){
-            perror("mmap");
-            return 1;
-        }
-        volatile float* debug_ptr = (volatile float*) DEBUG_PTR_ADDR;
-        vertex_args->debug_ptr = debug_ptr;
-
         if(INPUT_ARGS_DEBUG && VERTEX_SHADER_PRINT_DEBUG){
             print_vertex_args("build/vertexShaderInput.txt", vertex_args, num_verts);
         }

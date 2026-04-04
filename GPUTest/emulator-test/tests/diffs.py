@@ -14,8 +14,17 @@ Output format per differing address:
   - N/A if address does not exist in that file
 """
 
+from __future__ import annotations
+
+import math
 import re
+import struct
+import sys
 from pathlib import Path
+
+# Align with test_hex.sh DATA_START: instructions below, data at/above.
+DATA_REGION_START = 0x20000000
+MAX_FLOAT_ULP = 12
 
 
 def load_hex(path: Path) -> dict[int, int]:
@@ -40,9 +49,86 @@ def format_hex(val: int) -> str:
     return f"0x{val:08X}"
 
 
+def _uint32_to_f32(u: int) -> float:
+    return struct.unpack("f", struct.pack("I", u & 0xFFFFFFFF))[0]
+
+
+def float_bits_ordered(u: int) -> int:
+    """Map IEEE f32 bits to a linearly ordered int for ULP distance (finite values)."""
+    u &= 0xFFFFFFFF
+    if u & 0x80000000:
+        return ~u & 0xFFFFFFFF
+    return u + 0x80000000
+
+
+def ulp_distance_f32(u1: int, u2: int) -> int:
+    return abs(float_bits_ordered(u1) - float_bits_ordered(u2))
+
+
+def _is_nan_or_inf_bits(u: int) -> bool:
+    return ((u >> 23) & 0xFF) == 0xFF
+
+
+def values_equal(addr: int, u1: int, u2: int, *, allow_approx: bool = False) -> bool:
+    """
+    Instruction region: exact uint32 match.
+    If allow_approx and addr >= DATA_REGION_START: allow up to MAX_FLOAT_ULP float32 ULP.
+    NaN/Inf require identical bits. +0/-0 count as equal via float equality.
+    Integer data that collides with float ULP slack is rare; see plan caveat.
+    """
+    if u1 == u2:
+        return True
+    if not allow_approx:
+        return False
+    if addr < DATA_REGION_START:
+        return False
+    if _is_nan_or_inf_bits(u1) or _is_nan_or_inf_bits(u2):
+        return False
+    f1 = _uint32_to_f32(u1)
+    f2 = _uint32_to_f32(u2)
+    if f1 == f2:
+        return True
+    if not (math.isfinite(f1) and math.isfinite(f2)):
+        return False
+    return ulp_distance_f32(u1, u2) <= MAX_FLOAT_ULP
+
+
+def compare_hex_files(
+    actual: Path,
+    expected: Path,
+    error_log: Path | None = None,
+    *,
+    allow_approx: bool = False,
+) -> bool:
+    """Compare two hex memory dumps; optional float ULP tolerance in the data region."""
+    a = load_hex(actual)
+    e = load_hex(expected)
+    all_addrs = set(a.keys()) | set(e.keys())
+    mismatches: list[tuple[int, int | None, int | None]] = []
+    for addr in sorted(all_addrs):
+        d1 = a.get(addr)
+        d2 = e.get(addr)
+        if d1 is None or d2 is None:
+            mismatches.append((addr, d1, d2))
+            continue
+        if not values_equal(addr, d1, d2, allow_approx=allow_approx):
+            mismatches.append((addr, d1, d2))
+    if not mismatches:
+        return True
+    if error_log is not None:
+        with open(error_log, "w", encoding="utf-8") as f:
+            for addr, d1, d2 in mismatches:
+                s1 = "N/A" if d1 is None else format_hex(d1)
+                s2 = "N/A" if d2 is None else format_hex(d2)
+                f.write(f"0x{addr:08X} {s1} {s2}\n")
+    return False
+
+
 def diff_addrs(
     other: dict[int, int],
     meminit: dict[int, int],
+    *,
+    allow_approx: bool = False,
 ) -> list[tuple[int, str, str]]:
     """
     Compare address-by-address. Return list of (addr, data1_str, data2_str)
@@ -57,7 +143,9 @@ def diff_addrs(
             continue
         s1 = "N/A" if d1 is None else format_hex(d1)
         s2 = "N/A" if d2 is None else format_hex(d2)
-        if d1 != d2:
+        if d1 is None or d2 is None:
+            diffs.append((addr, s1, s2))
+        elif not values_equal(addr, d1, d2, allow_approx=allow_approx):
             diffs.append((addr, s1, s2))
     return diffs
 
@@ -87,6 +175,16 @@ def collect_prefixes(diff_dir: Path) -> list[str]:
 
 def main() -> None:
     # emu_dir is GPUTest/emulator-test/ (parent of this tests/ package), not cardinal-ISS/.
+    argv = sys.argv[1:]
+    allow_approx = False
+    if argv and argv[0] == "--allow-approx":
+        allow_approx = True
+        argv = argv[1:]
+    if argv:
+        print(f"Error: unexpected arguments: {' '.join(argv)}", file=sys.stderr)
+        print("Usage: python3 tests/diffs.py [--allow-approx]", file=sys.stderr)
+        sys.exit(2)
+
     script_dir = Path(__file__).resolve().parent
     emu_dir = script_dir.parent
     diff_dir = emu_dir / "test_diffs"
@@ -110,7 +208,7 @@ def main() -> None:
 
         output_base = prefix.split("_", 1)[0]  # cut at first underscore
         # gen vs exp
-        gen_exp_diffs = diff_addrs(gen_data, exp_data)
+        gen_exp_diffs = diff_addrs(gen_data, exp_data, allow_approx=allow_approx)
         gen_exp_out = diff_dir / f"{output_base}_diff.txt"
         with open(gen_exp_out, "w", encoding="utf-8") as f:
             for addr, d1, d2 in gen_exp_diffs:
@@ -118,7 +216,7 @@ def main() -> None:
         print(f"Wrote {gen_exp_out.name} ({len(gen_exp_diffs)} diffs)")
 
         # actual: gen vs meminit
-        actual_diffs = diff_addrs(gen_data, meminit_data)
+        actual_diffs = diff_addrs(gen_data, meminit_data, allow_approx=allow_approx)
         actual_out = diff_dir / f"{output_base}_actual_diff.txt"
         with open(actual_out, "w", encoding="utf-8") as f:
             for addr, d1, d2 in actual_diffs:
@@ -126,7 +224,7 @@ def main() -> None:
         print(f"Wrote {actual_out.name} ({len(actual_diffs)} diffs)")
 
         # expected: exp vs meminit
-        expected_diffs = diff_addrs(exp_data, meminit_data)
+        expected_diffs = diff_addrs(exp_data, meminit_data, allow_approx=allow_approx)
         expected_out = diff_dir / f"{output_base}_expected_diff.txt"
         with open(expected_out, "w", encoding="utf-8") as f:
             for addr, d1, d2 in expected_diffs:
@@ -135,4 +233,25 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    # argv: --compare [--allow-approx] ACTUAL EXPECTED [ERROR_LOG]
+    argv = sys.argv[1:]
+    if argv and argv[0] == "--compare":
+        argv = argv[1:]
+        allow_approx = False
+        if argv and argv[0] == "--allow-approx":
+            allow_approx = True
+            argv = argv[1:]
+        if len(argv) < 2:
+            print(
+                "Usage: python3 tests/diffs.py --compare [--allow-approx] ACTUAL EXPECTED [ERROR_LOG]",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        actual_path = Path(argv[0])
+        expected_path = Path(argv[1])
+        err_path = Path(argv[2]) if len(argv) >= 3 else None
+        ok = compare_hex_files(
+            actual_path, expected_path, err_path, allow_approx=allow_approx
+        )
+        sys.exit(0 if ok else 1)
     main()

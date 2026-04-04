@@ -103,6 +103,17 @@ with open(path, 'w') as f:
 " "$file"
 }
 
+# Compare EMU_OUTPUT to FINAL_EXPECTED; pass --allow-approx to diffs.py when ALLOW_APPROX=1.
+compare_hex_against_expected() {
+    local error_log="$1"
+    local cmp_args=("$PYTHON" "$SCRIPT_DIR/tests/diffs.py" --compare)
+    if [ "$ALLOW_APPROX" = "1" ]; then
+        cmp_args+=(--allow-approx)
+    fi
+    cmp_args+=("$EMU_OUTPUT" "$FINAL_EXPECTED" "$error_log")
+    "${cmp_args[@]}"
+}
+
 # ==========================================
 # Run emulator (replaces: make run INPUT=... THREADS=... BLOCKS=...)
 # ==========================================
@@ -133,11 +144,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR" || exit 1
 
 # ==========================================
-# Parse arguments: -t/--threads (1-1024), -a/--argptr, -l/--log-thread
+# Parse arguments: -t/--threads (1-1024), -a/--argptr, -l/--log-thread, --allow-approx
 # ==========================================
 THREADS_OVERRIDE=""
 ARGPTR=""  # default: first data-region addr in input file
 LOG_THREAD=""
+# 0 = strict uint32 compare; 1 = allow float ULP slack in data region (see tests/diffs.py)
+ALLOW_APPROX=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -153,11 +166,16 @@ while [[ $# -gt 0 ]]; do
             LOG_THREAD="$2"
             shift 2
             ;;
+        --allow-approx)
+            ALLOW_APPROX=1
+            shift
+            ;;
         -h|--help)
-            echo "Usage: $0 [-t N] [-a ADDR] [-l TID] <path/to/file.hex>"
+            echo "Usage: $0 [options] <path/to/file.hex>"
             echo "  -t, --threads N    Number of threads (1-1024)"
             echo "  -a, --argptr ADDR  Argument pointer address (default: first data addr in input)"
             echo "  -l, --log-thread TID  Only log trace for this global thread id (blockIdx*blockDim+threadIdx). Omit to log all threads."
+            echo "  --allow-approx     Allow float32 ULP tolerance (<=12) for data addresses >= 0x20000000"
             exit 0
             ;;
         *)
@@ -168,7 +186,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [ -z "${HEX_FILE:-}" ]; then
-    echo -e "${RED}Error:${NC} Usage: $0 [-t N] [-a ADDR] <path/to/file.hex>"
+    echo -e "${RED}Error:${NC} Usage: $0 [options] <path/to/file.hex>"
     exit 1
 fi
 
@@ -239,6 +257,11 @@ echo "      GPU Emulator - Hex Input Test"
 echo "      Input:   $HEX_FILE"
 echo "      Base:    $base_name"
 echo "      Argptr:  $ARGPTR"
+if [ "$ALLOW_APPROX" = "1" ]; then
+    echo "      ULP:     allow (data region float tolerance)"
+else
+    echo "      ULP:     strict (exact words)"
+fi
 echo "========================================"
 
 # ==========================================
@@ -280,7 +303,7 @@ if [ -n "$THREADS_OVERRIDE" ]; then
         cat "$INSTR_PART" "$exp_file" > "$FINAL_EXPECTED"
         sort_hex_by_addr "$EMU_OUTPUT"
         sort_hex_by_addr "$FINAL_EXPECTED"
-        diff -u -w -i "$EMU_OUTPUT" "$FINAL_EXPECTED" > "$error_log"
+        compare_hex_against_expected "$error_log"
         if [ $? -eq 0 ]; then
             echo -e "${GREEN}[PASS]${NC}     $base_name (t=$THREADS, b=$BLOCKS)"
             rm -f "$error_log"
@@ -339,7 +362,7 @@ else
         sort_hex_by_addr "$EMU_OUTPUT"
         sort_hex_by_addr "$FINAL_EXPECTED"
 
-        diff -u -w -i "$EMU_OUTPUT" "$FINAL_EXPECTED" > "$error_log"
+        compare_hex_against_expected "$error_log"
 
         if [ $? -eq 0 ]; then
             echo -e "${GREEN}[PASS]${NC}     $base_name (t=$THREADS, b=$BLOCKS)"

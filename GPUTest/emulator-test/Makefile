@@ -8,6 +8,9 @@ START_PC ?= 0
 INPUT ?= meminit.hex
 FORMAT ?= hex
 
+# ULP=1: pass --allow-approx to test_hex.sh (float tolerance in data region). ULP=0: strict.
+ULP ?= 0
+
 # The Interface
 run:
 	$(PYTHON) $(EMULATOR) -t $(THREADS) -b $(BLOCKS) --start-pc $(START_PC) --mem-format $(FORMAT) $(INPUT)
@@ -40,10 +43,11 @@ test-%:
 	@TEST_ARGS=""; \
 	if [ -n "$(t)" ]; then TEST_ARGS="$$TEST_ARGS -t $(t)"; fi; \
 	if [ -n "$(l)" ]; then TEST_ARGS="$$TEST_ARGS -l $(l)"; fi; \
+	if [ "$(ULP)" = "1" ]; then TEST_ARGS="$$TEST_ARGS --allow-approx"; fi; \
 	./test_hex.sh $$TEST_ARGS tests/complex_tests/$*/$*.hex
 
 diffs:
-	python3 tests/diffs.py
+	python3 tests/diffs.py $(if $(filter 1,$(ULP)),--allow-approx,)
 
 data:
 	make -C ../benchmark clean && make -C ../benchmark run32
