@@ -10,7 +10,7 @@
 # ==========================================
 TEST_ROOT="tests"
 DIFF_DIR="test_diffs"
-EMULATOR="src/emulator.py"
+EMULATOR="cardinal-ISS/src/emulator.py"
 DATA_START=0x20000000  # Address threshold: below = instructions, above = data
 
 # Intermediate files (we never delete the user's input .hex)

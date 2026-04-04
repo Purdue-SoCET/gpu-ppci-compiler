@@ -1,5 +1,5 @@
 PYTHON := python3
-EMULATOR := src/emulator.py
+EMULATOR := cardinal-ISS/src/emulator.py
 
 # Default Parameters (Overridden by the generic test script)
 THREADS ?= 32
@@ -7,12 +7,17 @@ BLOCKS ?= 1
 START_PC ?= 0
 INPUT ?= meminit.hex
 FORMAT ?= hex
-O ?= 0
 
 # The Interface
 run:
 	$(PYTHON) $(EMULATOR) -t $(THREADS) -b $(BLOCKS) --start-pc $(START_PC) --mem-format $(FORMAT) $(INPUT)
 
+clean:
+	rm -f *.out *.log *.hex
+	rm -rf test_diffs/* build/*
+
+# compiler commands
+O ?= 0
 compile-%:
 	mkdir -p build
 	twig ../benchmark/kernels/$*.c \
@@ -36,10 +41,6 @@ test-%:
 	if [ -n "$(t)" ]; then TEST_ARGS="$$TEST_ARGS -t $(t)"; fi; \
 	if [ -n "$(l)" ]; then TEST_ARGS="$$TEST_ARGS -l $(l)"; fi; \
 	./test_hex.sh $$TEST_ARGS tests/complex_tests/$*/$*.hex
-
-clean:
-	rm -f *.out *.log *.hex
-	rm -rf test_diffs/* build/*
 
 diffs:
 	python3 tests/diffs.py

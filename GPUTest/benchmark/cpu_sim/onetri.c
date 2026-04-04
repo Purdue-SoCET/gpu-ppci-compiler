@@ -2,7 +2,6 @@
 // Standard Includes
 #include <stdlib.h>
 #include <stdint.h>
-#include <stddef.h>
 #include <stdio.h>
 #include <sys/mman.h>
 #include "include/kernel_run.h"
@@ -18,15 +17,15 @@
 uint8_t* memory_ptr;
 
 // Defines
-#define OUTPUT_W 32 // 680
-#define OUTPUT_H 32 // 480
+#define OUTPUT_W 800 // 680
+#define OUTPUT_H 800 // 480
 
 #define VERTEX_DEBUG 0
 #define TRIANGLE_DEBUG 0
 #define PIXEL_DEBUG 0
 
-#define VERTEX_SHADER_PRINT_DEBUG 1
-#define TRIANGLE_PRINT_DEBUG 0
+#define VERTEX_SHADER_PRINT_DEBUG 0
+#define TRIANGLE_PRINT_DEBUG 1
 #define PIXEL_PRINT_DEBUG 0
 
 #define INPUT_ARGS_DEBUG 1
@@ -65,7 +64,7 @@ uint8_t* memory_ptr;
     } \
 }
 
-int main() {
+int main(int argc, char** argv) {
     int frame = 0;
     // for (int frame = 0; frame < 300; frame++)
     {
@@ -76,28 +75,32 @@ int main() {
     // Single Triangle, all in a single plane
 
     // Vertexs
-        const int num_verts = 32;
+        const int num_verts = 3;
 
         // Allocation
         ALLOCATE_MEM(verts, vertex_t, num_verts);
 
         // Definition
         // Front Face
-        for(int i = 0; i < 4; i++){
-            MAKE_VERTEX(verts[i*8 + 0], -10, -10, -20, 0, 0); // BL
-            MAKE_VERTEX(verts[i*8 + 1], -10,  10, -20, 0, 1); // TL
-            MAKE_VERTEX(verts[i*8 + 2],  10, -10, -20, 1, 0); // BR
-            MAKE_VERTEX(verts[i*8 + 3],  10,  10, -20, 1, 1); // TR
+        // for(int i = 0; i < 4; i++){
+        //     MAKE_VERTEX(verts[i*8 + 0], -10, -10, -20, 0, 0); // BL
+        //     MAKE_VERTEX(verts[i*8 + 1], -10,  10, -20, 0, 1); // TL
+        //     MAKE_VERTEX(verts[i*8 + 2],  10, -10, -20, 1, 0); // BR
+        //     MAKE_VERTEX(verts[i*8 + 3],  10,  10, -20, 1, 1); // TR
 
-            // Back Face
-            MAKE_VERTEX(verts[i*8 + 4], -10, -10, -40, 0, 1); // BL
-            MAKE_VERTEX(verts[i*8 + 5], -10,  10, -40, 1, 1); // TL
-            MAKE_VERTEX(verts[i*8 + 6],  10, -10, -40, 0, 0); // BR
-            MAKE_VERTEX(verts[i*8 + 7],  10,  10, -40, 1, 0); // TR
-        }
+        //     // Back Face
+        //     MAKE_VERTEX(verts[i*8 + 4], -10, -10, -40, 0, 1); // BL
+        //     MAKE_VERTEX(verts[i*8 + 5], -10,  10, -40, 1, 1); // TL
+        //     MAKE_VERTEX(verts[i*8 + 6],  10, -10, -40, 0, 0); // BR
+        //     MAKE_VERTEX(verts[i*8 + 7],  10,  10, -40, 1, 0); // TR
+        // }
 
-    // Triangles
-        const int num_tris = 12;
+        MAKE_VERTEX(verts[0], 0, 0, -20, 0, 0);
+        MAKE_VERTEX(verts[1], 4.266667f, 0, -20, 1, 0);
+        MAKE_VERTEX(verts[2], 2.133333f, 4.266667f, -20, 0.5f, 0.5f);
+
+        // Triangles
+        const int num_tris = 1;
 
         // Allocation
         ALLOCATE_MEM(tris, triangle_t, num_tris);
@@ -105,28 +108,6 @@ int main() {
         // Definition
         // Front of Cube
         MAKE_TRI(tris[0], 0, 1, 2);
-        MAKE_TRI(tris[1], 3, 1, 2);
-
-        // Back of Cube
-        MAKE_TRI(tris[6], 4, 5, 6);
-        MAKE_TRI(tris[7], 7, 5, 6);
-
-        // Top of Cube
-        MAKE_TRI(tris[2], 1, 3, 5);
-        MAKE_TRI(tris[3], 7, 3, 5);
-
-        // Bottom of Cube
-        MAKE_TRI(tris[4], 0, 2, 4);
-        MAKE_TRI(tris[5], 6, 2, 4);
-
-        // Left of Cube
-        MAKE_TRI(tris[8], 0, 1, 4);
-        MAKE_TRI(tris[9], 5, 1, 4);
-
-        // Right of Cube
-        MAKE_TRI(tris[10], 2, 3, 6);
-        MAKE_TRI(tris[11], 7, 3, 6);
-
 
 
     // Texture
@@ -198,11 +179,21 @@ int main() {
         ALLOCATE_MEM(pVerts, vertex_t, num_verts);
         vertex_args->twoDVert = pVerts;
 
+        #define DEBUG_PTR_ADDR 0x08000000
+
+        void* debug_page = mmap((void*) DEBUG_PTR_ADDR, 4096, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+        if(debug_page == MAP_FAILED){
+            perror("mmap");
+            return 1;
+        }
+        volatile float* debug_ptr = (volatile float*) DEBUG_PTR_ADDR;
+        vertex_args->debug_ptr = debug_ptr;
+
         if(INPUT_ARGS_DEBUG && VERTEX_SHADER_PRINT_DEBUG){
             print_vertex_args("build/vertexShaderInput.txt", vertex_args, num_verts);
         }
 
-        printf("args size: %u\n", sizeof(vertexShader_arg_t));
+        printf("args size: %lu\n", sizeof(vertexShader_arg_t));
 
     // Running the Kernel
     {
@@ -229,6 +220,12 @@ int main() {
         printf(" --- Vertex end --- \n");
     }
 
+    // Override pVerts for 32×32 bounding box (1024 pixels)
+    // Span 31 in each axis → 32 after ±0.5 rounding
+    pVerts[0].coords.x = 100.0f;  pVerts[0].coords.y = 100.0f;  pVerts[0].coords.z = 1.0f;
+    pVerts[1].coords.x = 131.0f;  pVerts[1].coords.y = 100.0f;  pVerts[1].coords.z = 1.0f;
+    pVerts[2].coords.x = 100.0f;  pVerts[2].coords.y = 131.0f;  pVerts[2].coords.z = 1.0f;
+
     // --- Triangle Kernel ---
     // Only one call - still implement multi triangle framework
     ALLOCATE_MEM(triangle_args, triangle_arg_t, 1);
@@ -246,6 +243,7 @@ int main() {
         triangle_args->tag_buff = tbuff;
 
     // Setup and launch each triangle kernel
+    int count = 0;
     for(int tri = 0; tri < num_tris; tri++) {
         // Set Tag
         triangle_args->tag = tri;
@@ -282,18 +280,19 @@ int main() {
 
         if(INPUT_ARGS_DEBUG && TRIANGLE_PRINT_DEBUG){
             char filename[30];
-            sprintf(filename, "build/triangleInput%d.txt", tri);
+            sprintf(filename, "build/triangleInput%d.txt", count);
             print_triangle_args(filename, triangle_args);
         }
 
         // Running the Kernel
         int grid_dim = 1; int block_dim = (u_max-u_min)*(v_max-v_min);
+        printf("grid_dim: %d, block_dim: %d\n", grid_dim, block_dim);
+        // triangle_args->threads = grid_dim * block_dim;
         run_kernel(kernel_triangle, grid_dim, block_dim, (void*)triangle_args);
 
         if(OUTPUT_ARGS_DEBUG && TRIANGLE_PRINT_DEBUG){
-            printf("triange: grid_dim: %d, block_dim: %d \n", grid_dim, block_dim);
             char filename[30];
-            sprintf(filename, "build/triangleOutput%d.txt", tri);
+            sprintf(filename, "build/triangleOutput%d.txt", count++);
             print_triangle_args(filename, triangle_args);
         }
     }
@@ -319,7 +318,7 @@ int main() {
             if(tbuff[i]+1 > 0)
             printf("%d", tbuff[i]+1);
             if(((i+1) % frame_w)) {
-                // printf("");
+                printf("");
             } else if (i+1 != frame_w*frame_h) {
                 printf("]\n\t[");
             } else {
@@ -358,7 +357,6 @@ int main() {
     // Running the kernel
     {
         int grid_dim = 1; int block_dim = frame_w * frame_h;
-        printf("pixel grid_dim: %d, block_dim: %d \n", grid_dim, block_dim);
         run_kernel(kernel_pixel, grid_dim, block_dim, (void*)pixel_args);
     }
 
