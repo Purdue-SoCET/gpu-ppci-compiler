@@ -44,8 +44,10 @@ clean:
 diffs:
 	python3 tests/diffs.py
 
-data:
-	make -C ../benchmark clean && make -C ../benchmark run32
+KERNEL ?= vertexShader
+
+data-%:
+	make -C ../benchmark clean && make -C ../benchmark run32 KERNEL=$*
 
 dataclean:
 	find tests/complex_tests -type f \( -name "*_data*" -o -name "*_exp*" \) -name "*.hex" -delete
@@ -75,8 +77,8 @@ NC = \033[0m   # No Color
 SHELL := /bin/bash
 
 auto-data-%:
-	@echo -e "\n$(BLUE)>>> [1/5] Generating CPU standard test data (make data)...$(NC)"
-	make data
+	@echo -e "\n$(BLUE)>>> [1/5] Generating CPU standard test data (make data-$*)...$(NC)"
+	make data-$*
 
 	@echo -e "\n$(BLUE)>>> [2/5] Copying and converting test data (make datacopy)...$(NC)"
 	make datacopy
