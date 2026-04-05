@@ -24,12 +24,22 @@ uint8_t* memory_ptr;
 #define TRIANGLE_DEBUG 0
 #define PIXEL_DEBUG 0
 
-#define VERTEX_SHADER_PRINT_DEBUG 0
-#define TRIANGLE_PRINT_DEBUG 1
+#define VERTEX_SHADER_PRINT_DEBUG 1
+#define TRIANGLE_PRINT_DEBUG 0
 #define PIXEL_PRINT_DEBUG 0
 
 #define INPUT_ARGS_DEBUG 1
 #define OUTPUT_ARGS_DEBUG 1
+
+#ifndef KERNEL_BASENAME
+#define KERNEL_BASENAME "vertexShader"
+#endif
+
+#ifndef KERNEL_ENTRY
+#define KERNEL_ENTRY kernel_vertexShader
+#endif
+
+extern void kernel_vertexShader_pred(void* arg);
 
 // Macros
 #define ALLOCATE_MEM(dest, type, num) \
@@ -208,7 +218,9 @@ int main(int argc, char** argv) {
         vertex_args->debug_ptr = debug_ptr;
 
         if(INPUT_ARGS_DEBUG && VERTEX_SHADER_PRINT_DEBUG){
-            print_vertex_args("build/vertexShaderInput.txt", vertex_args, num_verts);
+            char input_path[128];
+            snprintf(input_path, sizeof(input_path), "build/%sInput.txt", KERNEL_BASENAME);
+            print_vertex_args(input_path, vertex_args, num_verts);
         }
 
         printf("args size: %lu\n", sizeof(vertexShader_arg_t));
@@ -216,11 +228,13 @@ int main(int argc, char** argv) {
     // Running the Kernel
     {
         int grid_dim = 1; int block_dim = num_verts;
-        run_kernel(kernel_vertexShader, grid_dim, block_dim, (void*)vertex_args);
+        run_kernel(KERNEL_ENTRY, grid_dim, block_dim, (void*)vertex_args);
     }
 
     if(OUTPUT_ARGS_DEBUG && VERTEX_SHADER_PRINT_DEBUG){
-        print_vertex_args("build/vertexShaderOutput.txt", vertex_args, num_verts);
+        char output_path[128];
+        snprintf(output_path, sizeof(output_path), "build/%sOutput.txt", KERNEL_BASENAME);
+        print_vertex_args(output_path, vertex_args, num_verts);
     }
 
     // Checking Vertex Output
