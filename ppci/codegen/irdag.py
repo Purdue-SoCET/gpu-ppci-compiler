@@ -301,7 +301,7 @@ class SelectionGraphBuilder:
             node.cond,
             self.function_info.label_map[node.lab_yes],
             node.pred_yes_id,
-            getattr(node, "pred", 0),
+            node.pred_parent_id,
         )
 
         self.chain(sgnode)
@@ -320,7 +320,7 @@ class SelectionGraphBuilder:
             self.function_info.label_map[node.lab_no],
             node.pred_yes_id,
             node.pred_no_id,
-            getattr(node, "pred", 0),
+            node.pred_parent_id,
         )
 
         self.chain(sgnode)
