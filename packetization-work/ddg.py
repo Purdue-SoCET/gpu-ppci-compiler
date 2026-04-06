@@ -198,10 +198,10 @@ def parse_asm(file_path):
             if not line:
                 continue
 
-            if line.startswith("section code"):
+            if line.startswith("section code") or line.startswith(".section code"):
                 in_code_section = True
                 continue
-            elif line.startswith("section data"):
+            elif line.startswith("section data") or line.startswith(".section data"):
                 in_code_section = False
                 continue
 
