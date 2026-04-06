@@ -78,6 +78,7 @@ def color_graph(adj_list, num_registers):
     num_colors = len(colors_available)
 
     stack = []
+    spilled_nodes = []
     # make a destructible copy of the graph
     current_graph = {u: set(v) for u, v in adj_list.items()}
     degrees = {u: len(v) for u, v in current_graph.items()}
@@ -139,10 +140,11 @@ def color_graph(adj_list, num_registers):
             else:
                 allocation[node] = possible_colors[0] # Fallback
         else:
-            # TODO: implement iterative spilling logic
-            raise Exception(f"Failed to color node {node}. All {num_colors} registers taken by adjacent nodes. Iterative Spilling needs to be implemented here!")
+            spilled_nodes.append(node)
 
-    return allocation
+    if spilled_nodes:
+        return None, spilled_nodes
+    return allocation, []
 
 def rewrite_instructions(blocks, allocation):
     """
@@ -298,29 +300,100 @@ def split_live_ranges(blocks):
             inst.srcs = new_srcs
 
 
+spill_offset = 1024
+
+def insert_spill_code(blocks, spilled_nodes):
+    global spill_offset
+    from ddg import Instruction
+    
+    spill_counter = 0
+    spill_offsets = {}
+    for node in spilled_nodes:
+        if node not in spill_offsets:
+            spill_offsets[node] = spill_offset
+            spill_offset += 4
+
+    spilled_set = set(spilled_nodes)
+    
+    for b in blocks:
+        new_instructions = []
+        for inst in b.instructions:
+            
+            # 1) If an instruction USES a spilled node
+            used_spills = [s for s in inst.srcs if s in spilled_set]
+            for s in used_spills:
+                spill_counter += 1
+                temp_reg = f"{s}_use{spill_counter}"
+                offset = spill_offsets[s]
+                
+                # Create a load instruction BEFORE the use
+                load_text = f"lw {temp_reg}, {offset}(x0)"
+                load_idx = len(new_instructions)
+                load_inst = Instruction(load_idx, load_text)
+                new_instructions.append(load_inst)
+                
+                # Replace the use in the original instruction
+                inst.original_text = re.sub(rf"\b{s}\b", temp_reg, inst.original_text)
+                inst.srcs.remove(s)
+                inst.srcs.add(temp_reg)
+
+            # Re-index the original instruction
+            inst.id = len(new_instructions)
+            new_instructions.append(inst)
+
+            # 2) If an instruction DEFINES a spilled node
+            if inst.dest in spilled_set:
+                spill_counter += 1
+                temp_reg = f"{inst.dest}_def{spill_counter}"
+                offset = spill_offsets[inst.dest]
+                
+                # Replace the define in the original instruction
+                inst.original_text = re.sub(rf"\b{inst.dest}\b", temp_reg, inst.original_text)
+                inst.dest = temp_reg
+
+                # Create a store instruction AFTER the def
+                store_text = f"sw {temp_reg}, {offset}(x0)"
+                store_idx = len(new_instructions)
+                store_inst = Instruction(store_idx, store_text)
+                new_instructions.append(store_inst)
+                
+        b.instructions = new_instructions
+
 def allocate_registers_chaitin(blocks, num_registers=32):
     print("\n--- Live Range Splitting Phase ---")
     split_live_ranges(blocks)
 
-    compute_liveness(blocks)
-    adj_list = build_interference_graph(blocks)
+    max_iter = 10
+    iteration = 0
+    while True:
+        compute_liveness(blocks)
+        adj_list = build_interference_graph(blocks)
 
-    print("--- Register Allocation Phase ---")
-    print(f"Extracted {len(adj_list)} Virtual Variables")
+        print(f"--- Register Allocation Phase (Iter {iteration}) ---")
+        print(f"Extracted {len(adj_list)} Virtual Variables")
 
-    allocation = color_graph(adj_list, num_registers)
-    rewrite_instructions(blocks, allocation)
+        allocation, spilled_nodes = color_graph(adj_list, num_registers)
+        
+        if not spilled_nodes:
+            rewrite_instructions(blocks, allocation)
+            
+            # verification
+            valid = True
+            for u in adj_list:
+                for v in adj_list[u]:
+                    if allocation.get(u) == allocation.get(v):
+                        print(f"VERIFICATION FAILED: {u} and {v} interfere but both got {allocation[u]}")
+                        valid = False
 
-    # verification
-    valid = True
-    for u in adj_list:
-        for v in adj_list[u]:
-            if allocation.get(u) == allocation.get(v):
-                print(f"VERIFICATION FAILED: {u} and {v} interfere but both got {allocation[u]}")
-                valid = False
+            if valid:
+                print("Verification: SUCCESS (No interfering variables share the same physical register)")
 
-    if valid:
-        print("Verification: SUCCESS (No interfering variables share the same physical register)")
-
-    print("Allocation Map: ", allocation)
-    print("--- End Register Allocation ---")
+            print("Allocation Map: ", allocation)
+            print("--- End Register Allocation ---")
+            break
+        else:
+            print(f"Spilling nodes: {spilled_nodes}")
+            insert_spill_code(blocks, spilled_nodes)
+            iteration += 1
+            if iteration > max_iter:
+                raise Exception("Exceeded max iterations for spilling. Graph won't color.")
