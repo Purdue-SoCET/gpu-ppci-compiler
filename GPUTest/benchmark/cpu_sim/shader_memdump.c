@@ -10,7 +10,7 @@ void print_vertex_args(char* fname, vertexShader_arg_t* vertex_args, int num_ver
 
     // 1. Struct Header (8 pointers)
     uint32_t* s_raw = (uint32_t*)vertex_args;
-    for (int i = 0; i < 9; i++) print_line(f, (uintptr_t)&s_raw[i], s_raw[i]);
+    for (int i = 0; i < 8; i++) print_line(f, (uintptr_t)&s_raw[i], s_raw[i]);
 
     // 2. Pointed Constant Data
     if (vertex_args->Oa)      for(int i=0; i<3; i++) print_line(f, (uintptr_t)&((uint32_t*)vertex_args->Oa)[i], ((uint32_t*)vertex_args->Oa)[i]);
@@ -29,9 +29,9 @@ void print_vertex_args(char* fname, vertexShader_arg_t* vertex_args, int num_ver
         for(int j=0; j<5; j++) print_line(f, (uintptr_t)&v2[j], v2[j]);
         for(int j=0; j<5; j++) print_line(f, (uintptr_t)&v3[j], v3[j]);
     }
-    for(int i = 0; i < 15*num_verts; i++) {
-        print_line(f, (uintptr_t)&vertex_args->debug_ptr[i], ((uint32_t*)vertex_args->debug_ptr)[i]);
-    }
+    // for(int i = 0; i < 15*num_verts; i++) {
+    //     print_line(f, (uintptr_t)&vertex_args->debug_ptr[i], ((uint32_t*)vertex_args->debug_ptr)[i]);
+    // }
     fclose(f);
 }
 
@@ -63,7 +63,27 @@ void print_pixel_args(char* fname, pixel_arg_t* pix_args) {
     uint32_t* s_raw = (uint32_t*)pix_args;
     for (int i = 0; i < 12; i++) print_line(f, (uintptr_t)&s_raw[i], s_raw[i]);
 
-    // 2. Global Buffers (Color, Depth, Tag)
+    // 2. Vertex array (vertex_t: coords xyz + s,t => 5 words each)
+    if (pix_args->verts) {
+        for (int i = 0; i < pix_args->num_verts; i++) {
+            uint32_t* v = (uint32_t*)&pix_args->verts[i];
+            for (int j = 0; j < 5; j++) {
+                print_line(f, (uintptr_t)&v[j], v[j]);
+            }
+        }
+    }
+
+    // 3. Triangle array (triangle_t: v1, v2, v3 => 3 words each)
+    if (pix_args->tris) {
+        for (int i = 0; i < pix_args->num_tris; i++) {
+            uint32_t* t = (uint32_t*)&pix_args->tris[i];
+            for (int j = 0; j < 3; j++) {
+                print_line(f, (uintptr_t)&t[j], t[j]);
+            }
+        }
+    }
+
+    // 4. Global Buffers (Color, Depth, Tag)
     int pix_count = pix_args->buff_w * pix_args->buff_h;
     uint32_t* c_ptr = (uint32_t*)pix_args->color;
     uint32_t* z_ptr = (uint32_t*)pix_args->depth_buff;
@@ -79,7 +99,7 @@ void print_pixel_args(char* fname, pixel_arg_t* pix_args) {
         if (t_ptr) print_line(f, (uintptr_t)&t_ptr[i], t_ptr[i]);
     }
 
-    // 3. Texture Data
+    // 5. Texture color_arr (w,h and color_arr pointer are in header)
     int tex_count = pix_args->texture.w * pix_args->texture.h;
     uint32_t* tx_ptr = (uint32_t*)pix_args->texture.color_arr;
     if (tx_ptr) {
@@ -89,5 +109,13 @@ void print_pixel_args(char* fname, pixel_arg_t* pix_args) {
             print_line(f, (uintptr_t)&tx_ptr[i*3+2], tx_ptr[i*3+2]);
         }
     }
+    // if (pix_args->debug_ptr) {
+    //     for (int i = 0; i < pix_count; i++) {
+    //         uint32_t* dbg = (uint32_t*)&pix_args->debug_ptr[i];
+    //         for (int j = 0; j < 2; j++) {
+    //             print_line(f, (uintptr_t)&dbg[j], dbg[j]);
+    //         }
+    //     }
+    // }
     fclose(f);
 }
