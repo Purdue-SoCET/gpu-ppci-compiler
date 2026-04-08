@@ -1,6 +1,7 @@
 import sys
 import re
 
+
 def compute_liveness(blocks):
     """
     computes DEF and USE sets, then calculates LIVE_IN and LIVE_OUT
@@ -36,6 +37,7 @@ def compute_liveness(blocks):
             if old_in != b.live_in or old_out != b.live_out:
                 changed = True
 
+
 def build_interference_graph(blocks):
     """
     constructs the register interference graph using backward traversal
@@ -44,8 +46,10 @@ def build_interference_graph(blocks):
     adj_list = {}
 
     def add_edge(u, v):
-        if u not in adj_list: adj_list[u] = set()
-        if v not in adj_list: adj_list[v] = set()
+        if u not in adj_list:
+            adj_list[u] = set()
+        if v not in adj_list:
+            adj_list[v] = set()
         if u != v:
             adj_list[u].add(v)
             adj_list[v].add(u)
@@ -68,6 +72,7 @@ def build_interference_graph(blocks):
                         adj_list[src] = set()
 
     return adj_list
+
 
 def color_graph(adj_list, num_registers):
     """
@@ -94,7 +99,9 @@ def color_graph(adj_list, num_registers):
         if node_to_remove is None:
             # spill: if we can't simplify, we heuristically pick a node to spill (max degree for now)
             spill_node = max(degrees, key=degrees.get)
-            print(f"Warning: Potential spill for {spill_node} as degree {degrees[spill_node]} >= {num_colors}.")
+            print(
+                f"Warning: Potential spill for {spill_node} as degree {degrees[spill_node]} >= {num_colors}."
+            )
             # TODO: iterative spilling phase should be implemented here modifying the block AST
             # optimistic coloring: we push it to the stack anyway; it might get a color if its neighbors share colors.
             node_to_remove = spill_node
@@ -138,13 +145,14 @@ def color_graph(adj_list, num_registers):
             if chosen_color:
                 allocation[node] = chosen_color
             else:
-                allocation[node] = possible_colors[0] # Fallback
+                allocation[node] = possible_colors[0]  # Fallback
         else:
             spilled_nodes.append(node)
 
     if spilled_nodes:
         return None, spilled_nodes
     return allocation, []
+
 
 def rewrite_instructions(blocks, allocation):
     """
@@ -154,7 +162,9 @@ def rewrite_instructions(blocks, allocation):
         for inst in b.instructions:
             for old, new in allocation.items():
                 if old in inst.original_text:
-                    inst.original_text = re.sub(rf"\b{old}\b", new, inst.original_text)
+                    inst.original_text = re.sub(
+                        rf"\b{old}\b", new, inst.original_text
+                    )
 
             if inst.dest and inst.dest != "x0":
                 inst.dest = allocation[inst.dest]
@@ -164,6 +174,7 @@ def rewrite_instructions(blocks, allocation):
                 if src != "x0":
                     new_srcs.add(allocation[src])
             inst.srcs = new_srcs
+
 
 def split_live_ranges(blocks):
     """
@@ -203,7 +214,8 @@ def split_live_ranges(blocks):
 
             for pred in b.predecessors:
                 for reg, defs in pred.rd_out.items():
-                    if reg not in new_in: new_in[reg] = set()
+                    if reg not in new_in:
+                        new_in[reg] = set()
                     new_in[reg].update(defs)
             b.rd_in = new_in
 
@@ -219,8 +231,10 @@ def split_live_ranges(blocks):
                 changed = True
 
     parent = {}
+
     def find(i):
-        if parent[i] == i: return i
+        if parent[i] == i:
+            return i
         parent[i] = find(parent[i])
         return parent[i]
 
@@ -264,7 +278,7 @@ def split_live_ranges(blocks):
     for b in blocks:
         current_defs = {reg: set(defs) for reg, defs in b.rd_in.items()}
         for i, inst in enumerate(b.instructions):
-            tokens = re.split(r'(\W+)', inst.original_text)
+            tokens = re.split(r"(\W+)", inst.original_text)
 
             # map old src -> new web name for this specific instruction instance
             src_map = {}
@@ -302,10 +316,11 @@ def split_live_ranges(blocks):
 
 spill_offset = 1024
 
+
 def insert_spill_code(blocks, spilled_nodes):
     global spill_offset
     from ddg import Instruction
-    
+
     spill_counter = 0
     spill_offsets = {}
     for node in spilled_nodes:
@@ -314,26 +329,27 @@ def insert_spill_code(blocks, spilled_nodes):
             spill_offset += 4
 
     spilled_set = set(spilled_nodes)
-    
+
     for b in blocks:
         new_instructions = []
         for inst in b.instructions:
-            
             # 1) If an instruction USES a spilled node
             used_spills = [s for s in inst.srcs if s in spilled_set]
             for s in used_spills:
                 spill_counter += 1
                 temp_reg = f"{s}_use{spill_counter}"
                 offset = spill_offsets[s]
-                
+
                 # Create a load instruction BEFORE the use
                 load_text = f"lw {temp_reg}, {offset}(x0)"
                 load_idx = len(new_instructions)
                 load_inst = Instruction(load_idx, load_text)
                 new_instructions.append(load_inst)
-                
+
                 # Replace the use in the original instruction
-                inst.original_text = re.sub(rf"\b{s}\b", temp_reg, inst.original_text)
+                inst.original_text = re.sub(
+                    rf"\b{s}\b", temp_reg, inst.original_text
+                )
                 inst.srcs.remove(s)
                 inst.srcs.add(temp_reg)
 
@@ -346,9 +362,11 @@ def insert_spill_code(blocks, spilled_nodes):
                 spill_counter += 1
                 temp_reg = f"{inst.dest}_def{spill_counter}"
                 offset = spill_offsets[inst.dest]
-                
+
                 # Replace the define in the original instruction
-                inst.original_text = re.sub(rf"\b{inst.dest}\b", temp_reg, inst.original_text)
+                inst.original_text = re.sub(
+                    rf"\b{inst.dest}\b", temp_reg, inst.original_text
+                )
                 inst.dest = temp_reg
 
                 # Create a store instruction AFTER the def
@@ -356,8 +374,9 @@ def insert_spill_code(blocks, spilled_nodes):
                 store_idx = len(new_instructions)
                 store_inst = Instruction(store_idx, store_text)
                 new_instructions.append(store_inst)
-                
+
         b.instructions = new_instructions
+
 
 def allocate_registers_chaitin(blocks, num_registers=32):
     print("\n--- Live Range Splitting Phase ---")
@@ -373,20 +392,24 @@ def allocate_registers_chaitin(blocks, num_registers=32):
         print(f"Extracted {len(adj_list)} Virtual Variables")
 
         allocation, spilled_nodes = color_graph(adj_list, num_registers)
-        
+
         if not spilled_nodes:
             rewrite_instructions(blocks, allocation)
-            
+
             # verification
             valid = True
             for u in adj_list:
                 for v in adj_list[u]:
                     if allocation.get(u) == allocation.get(v):
-                        print(f"VERIFICATION FAILED: {u} and {v} interfere but both got {allocation[u]}")
+                        print(
+                            f"VERIFICATION FAILED: {u} and {v} interfere but both got {allocation[u]}"
+                        )
                         valid = False
 
             if valid:
-                print("Verification: SUCCESS (No interfering variables share the same physical register)")
+                print(
+                    "Verification: SUCCESS (No interfering variables share the same physical register)"
+                )
 
             print("Allocation Map: ", allocation)
             print("--- End Register Allocation ---")
@@ -396,4 +419,6 @@ def allocate_registers_chaitin(blocks, num_registers=32):
             insert_spill_code(blocks, spilled_nodes)
             iteration += 1
             if iteration > max_iter:
-                raise Exception("Exceeded max iterations for spilling. Graph won't color.")
+                raise Exception(
+                    "Exceeded max iterations for spilling. Graph won't color."
+                )
