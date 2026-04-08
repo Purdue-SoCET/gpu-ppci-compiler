@@ -1,5 +1,13 @@
 import sys
 import re
+import heapq
+
+
+MRF_WRITE_COST_NJ = 0.0322
+MRF_READ_COST_NJ = 0.0208
+RFC_READ_COST_NJ = 0.0033
+RFC_WRITE_COST_NJ = 0.0034
+DEFAULT_RFC_ENTRIES = ("x61", "x62")
 
 def compute_liveness(blocks):
     """
@@ -69,12 +77,16 @@ def build_interference_graph(blocks):
 
     return adj_list
 
-def color_graph(adj_list, num_registers):
+def color_graph(adj_list, num_registers, reserved_registers=(), precolored=None):
     """
     Chaitin's
     Colors from x1 to x{num_registers-1}. x0 is hardwired.
     """
-    colors_available = [f"x{i}" for i in range(1, num_registers)]
+    colors_available = [
+        f"x{i}"
+        for i in range(1, num_registers)
+        if f"x{i}" not in set(reserved_registers)
+    ]
     num_colors = len(colors_available)
 
     stack = []
@@ -108,7 +120,7 @@ def color_graph(adj_list, num_registers):
         del current_graph[node_to_remove]
         del degrees[node_to_remove]
 
-    allocation = {}
+    allocation = dict(precolored or {})
 
     # spread colors using round-robin to maximize ILP
     # by minimizing false WAW and WAR dependencies on physical registers
@@ -116,6 +128,9 @@ def color_graph(adj_list, num_registers):
 
     while stack:
         node = stack.pop()
+        if node in allocation:
+            # Pre-assigned (e.g. RFC entry)
+            continue
         used_colors = set()
         for neighbor in adj_list[node]:
             if neighbor in allocation:
@@ -143,6 +158,80 @@ def color_graph(adj_list, num_registers):
             raise Exception(f"Failed to color node {node}. All {num_colors} registers taken by adjacent nodes. Iterative Spilling needs to be implemented here!")
 
     return allocation
+
+
+def _compute_register_metrics(blocks):
+    """Compute per-register read count and live-range span."""
+    reads = {}
+    first_pos = {}
+    last_pos = {}
+    pos = 0
+    for block in blocks:
+        for inst in block.instructions:
+            for src in inst.srcs:
+                if src == "x0":
+                    continue
+                reads[src] = reads.get(src, 0) + 1
+                if src not in first_pos:
+                    first_pos[src] = pos
+                last_pos[src] = pos
+            if inst.dest and inst.dest != "x0":
+                reg = inst.dest
+                if reg not in first_pos:
+                    first_pos[reg] = pos
+                last_pos[reg] = pos
+            pos += 1
+
+    metrics = {}
+    all_regs = set(reads) | set(first_pos) | set(last_pos)
+    for reg in all_regs:
+        lr = max(1, last_pos.get(reg, 0) - first_pos.get(reg, 0) + 1)
+        metrics[reg] = {"num_reads": reads.get(reg, 0), "live_range": lr}
+    return metrics
+
+
+def _get_energy_savings(num_reads):
+    return (MRF_WRITE_COST_NJ - RFC_WRITE_COST_NJ) + (
+        MRF_READ_COST_NJ - RFC_READ_COST_NJ
+    ) * num_reads
+
+
+def allocate_rfc_registers(
+    blocks, adj_list, rfc_entries=DEFAULT_RFC_ENTRIES
+):
+    """Allocate profitable virtual registers into RFC-only entries.
+
+    Policy:
+      averageSavings = getEnergySavings(registerInstance) / getLiveRange(registerInstance)
+      if averageSavings > 0: push to priority queue
+      pop best and greedily assign first available RFC entry
+    """
+    metrics = _compute_register_metrics(blocks)
+    queue = []
+    counter = 0
+    for reg in adj_list:
+        if reg == "x0":
+            continue
+        info = metrics.get(reg, {"num_reads": 0, "live_range": 1})
+        savings = _get_energy_savings(info["num_reads"])
+        avg = savings / max(1, info["live_range"])
+        if avg > 0:
+            heapq.heappush(queue, (-avg, counter, reg))
+            counter += 1
+
+    chosen = {}
+    while queue:
+        _, _, reg = heapq.heappop(queue)
+        for entry in rfc_entries:
+            available = True
+            for other_reg, other_entry in chosen.items():
+                if other_entry == entry and other_reg in adj_list.get(reg, set()):
+                    available = False
+                    break
+            if available:
+                chosen[reg] = entry
+                break
+    return chosen
 
 def rewrite_instructions(blocks, allocation):
     """
@@ -298,7 +387,12 @@ def split_live_ranges(blocks):
             inst.srcs = new_srcs
 
 
-def allocate_registers_chaitin(blocks, num_registers=32):
+def allocate_registers_chaitin(
+    blocks,
+    num_registers=64,
+    enable_rfc=True,
+    rfc_entries=DEFAULT_RFC_ENTRIES,
+):
     print("\n--- Live Range Splitting Phase ---")
     split_live_ranges(blocks)
 
@@ -308,7 +402,19 @@ def allocate_registers_chaitin(blocks, num_registers=32):
     print("--- Register Allocation Phase ---")
     print(f"Extracted {len(adj_list)} Virtual Variables")
 
-    allocation = color_graph(adj_list, num_registers)
+    rfc_assignment = {}
+    if enable_rfc and rfc_entries:
+        rfc_assignment = allocate_rfc_registers(
+            blocks, adj_list, rfc_entries=rfc_entries
+        )
+        print(f"RFC assignments: {rfc_assignment}")
+
+    allocation = color_graph(
+        adj_list,
+        num_registers,
+        reserved_registers=rfc_entries,
+        precolored=rfc_assignment,
+    )
     rewrite_instructions(blocks, allocation)
 
     # verification

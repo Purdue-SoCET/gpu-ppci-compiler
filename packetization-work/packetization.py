@@ -35,11 +35,37 @@ def greedy_packetize(block, max_packet_size=None):
     return packets
 
 
+def reorder_block_by_packets(block, packets):
+    """Physically reorder block instructions by packet schedule order."""
+    new_order = []
+    for packet in packets:
+        for inst_idx in packet:
+            new_order.append(block.instructions[inst_idx])
+    block.instructions = new_order
+    for idx, inst in enumerate(block.instructions):
+        inst.id = idx
+
+
 def packetize_file(asm_file, max_packet_size=None):
     blocks = parse_asm(asm_file)
 
-    allocate_registers_chaitin(blocks, num_registers=32)
+    # Stage 1: Packetize on virtual registers first.
+    # This follows the intended flow where ILP grouping happens before
+    # final register allocation/RFC placement decisions.
+    for b in blocks:
+        if not b.instructions:
+            continue
+        packets = greedy_packetize(b, max_packet_size)
+        reorder_block_by_packets(b, packets)
 
+    # Rebuild DDG after schedule/reorder.
+    for b in blocks:
+        b.build_ddg()
+
+    # Stage 2: Register allocation (with RFC support) on packetized order.
+    allocate_registers_chaitin(blocks, num_registers=64, enable_rfc=True)
+
+    # Stage 3: Rebuild DDG and emit final packets post-RA.
     for b in blocks:
         b.build_ddg()
 
