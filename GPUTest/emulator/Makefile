@@ -4,6 +4,8 @@ EMULATOR := src/emulator.py
 # Default Parameters (Overridden by the generic test script)
 THREADS ?= 32
 BLOCKS ?= 1
+REF_THREADS ?= 32
+REF_BLOCKS ?= 1
 START_PC ?= 0
 INPUT ?= meminit.hex
 FORMAT ?= hex
@@ -21,6 +23,7 @@ compile-%:
 		--entry kernel_$* -O$(O) \
 		--stack-info-output build/$*.stack.json \
 		--packet-histogram build/$*_packets.svg \
+#		--log debug \
 		$(TWIG_ARGS)
 
 disasm-%: compile-%
@@ -35,7 +38,8 @@ test-%:
 	@TEST_ARGS=""; \
 	if [ -n "$(t)" ]; then TEST_ARGS="$$TEST_ARGS -t $(t)"; fi; \
 	if [ -n "$(l)" ]; then TEST_ARGS="$$TEST_ARGS -l $(l)"; fi; \
-	./test_hex.sh $$TEST_ARGS tests/complex_tests/$*/$*.hex
+	export TEST_ARGS; \
+	bash -c './test_hex.sh $$TEST_ARGS tests/complex_tests/$*/$*.hex'
 
 clean:
 	rm -f *.out *.log *.hex
@@ -62,9 +66,9 @@ datacopy:
 		mkdir -p $$outdir; \
 		cp -f "$$infile" $$outdir/$${kernel}_data.hex; \
 		if [ -f "$$bench_dir/$${kernel}Output.txt" ]; then \
-			cp -f "$$bench_dir/$${kernel}Output.txt" $$outdir/$${kernel}_exp_t32_b1.hex; \
+			cp -f "$$bench_dir/$${kernel}Output.txt" $$outdir/$${kernel}_exp_t$(REF_THREADS)_b$(REF_BLOCKS).hex; \
 		elif [ -f "$$bench_dir/$${kernel}Output0.txt" ]; then \
-			cp -f "$$bench_dir/$${kernel}Output0.txt" $$outdir/$${kernel}_exp_t32_b1.hex; \
+			cp -f "$$bench_dir/$${kernel}Output0.txt" $$outdir/$${kernel}_exp_t$(REF_THREADS)_b$(REF_BLOCKS).hex; \
 		fi; \
 	done
 
