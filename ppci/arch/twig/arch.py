@@ -109,6 +109,7 @@ from .registers import (
     TwigRegister,
     gdb_registers,
     register_classes_swfp,
+    RFC_RESERVED_REGS,
 )
 
 BUILTIN_TABLE = {
@@ -185,6 +186,7 @@ class TwigArch(Architecture):
         self.assembler.gen_asm_parser(self.isa)
         self.reset_packet_histogram()
         self._entry_totalstack = None
+        self.rfc_reserved_registers = RFC_RESERVED_REGS
 
         self.info = ArchInfo(
             type_infos={
@@ -264,9 +266,29 @@ class TwigArch(Architecture):
             R58,
             R59,
             R60,
-            R61,
-            R62,
         )  # + tuple(predregisters)
+
+    def get_rfc_energy_savings(self, frame, node):
+        """Architecture hook for RFC profitability.
+
+        Return a positive value to prioritize mapping this node to RFC.
+        Energy model:
+            savings = (MRF.write - RFC.write)
+                    + (MRF.read - RFC.read) * num_reads
+        """
+        # nJ costs from hardware model:
+        mrf_write_cost = 0.0322
+        mrf_read_cost = 0.0208
+        rfc_write_cost = 0.0034
+        rfc_read_cost = 0.0033
+
+        num_reads = 0
+        for tmp in node.temps:
+            num_reads += len(frame.ig.uses(tmp))
+
+        return (mrf_write_cost - rfc_write_cost) + (
+            mrf_read_cost - rfc_read_cost
+        ) * num_reads
 
     def branch(self, reg, lab):
         if isinstance(lab, TwigRegister):

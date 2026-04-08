@@ -114,6 +114,7 @@ The following class can be used to perform register allocation.
 """
 
 import logging
+import heapq
 from functools import lru_cache
 
 from ..arch.arch import Architecture, Frame
@@ -303,6 +304,7 @@ class GraphColoringRegisterAllocator:
         self.frame = frame
 
         cfg = FlowGraph(self.frame.instructions)
+        self.frame.cfg = cfg
         self.logger.debug(
             "Constructed flowgraph with %s nodes", len(cfg.nodes)
         )
@@ -359,6 +361,82 @@ class GraphColoringRegisterAllocator:
             len(self.freeze_worklist),
             len(self.simplify_worklist),
         )
+        self.rfc_node_assignment = self._build_rfc_allocation()
+
+    def _get_rfc_reserved_entries(self):
+        """Return RFC-only physical registers grouped per register class."""
+        regs = getattr(self.arch, "rfc_reserved_registers", ())
+        by_class = {}
+        for reg in regs:
+            reg_cls = type(reg)
+            by_class.setdefault(reg_cls, []).append(reg)
+        return by_class
+
+    def _get_node_live_range(self, node):
+        """Estimate live range length for RFC prioritization."""
+        if hasattr(self.frame, "cfg"):
+            segs = 0
+            for tmp in node.temps:
+                segs += len(self.frame.cfg._live_ranges.get(tmp, ()))
+            if segs > 0:
+                return segs
+        uses_defs = 0
+        for tmp in node.temps:
+            uses_defs += len(self.frame.ig.uses(tmp))
+            uses_defs += len(self.frame.ig.defs(tmp))
+        return max(1, uses_defs)
+
+    def _get_node_energy_savings(self, node):
+        """Ask architecture for RFC energy savings of this node."""
+        energy_fn = getattr(self.arch, "get_rfc_energy_savings", None)
+        if callable(energy_fn):
+            return float(energy_fn(self.frame, node))
+        return 0.0
+
+    def _rfc_entry_available(self, rfc_entry, node, chosen):
+        """RFC entry is available when class matches and no interference."""
+        if not issubclass(node.reg_class, type(rfc_entry)):
+            return False
+        for other, other_entry in chosen.items():
+            if other_entry is rfc_entry and self.has_edge(other, node):
+                return False
+        return True
+
+    def _build_rfc_allocation(self):
+        """Assign profitable virtual nodes to RFC-only registers.
+
+        Implements the queue-based policy:
+        - priority = energy_savings / live_range
+        - only positive priority nodes enter queue
+        - allocate highest-priority nodes into first compatible free RFC entry
+        """
+        rfc_entries_by_class = self._get_rfc_reserved_entries()
+        if not rfc_entries_by_class:
+            return {}
+
+        queue = []
+        counter = 0
+        all_nodes = list(self.frame.ig.nodes)
+        for node in all_nodes:
+            if node.is_colored:
+                continue
+            if node.reg_class not in rfc_entries_by_class:
+                continue
+            live_range = self._get_node_live_range(node)
+            savings = self._get_node_energy_savings(node)
+            avg_savings = savings / live_range
+            if avg_savings > 0:
+                heapq.heappush(queue, (-avg_savings, counter, node))
+                counter += 1
+
+        chosen = {}
+        while queue:
+            _, _, node = heapq.heappop(queue)
+            for entry in rfc_entries_by_class.get(node.reg_class, ()):
+                if self._rfc_entry_available(entry, node, chosen):
+                    chosen[node] = entry
+                    break
+        return chosen
 
     def node(self, vreg):
         return self.frame.ig.get_node(vreg)
@@ -752,6 +830,10 @@ class GraphColoringRegisterAllocator:
         for node in reversed(self.select_stack):
             # Place node back into graph:
             self.frame.ig.unmask_node(node)
+
+            if node in self.rfc_node_assignment:
+                node.reg = self.rfc_node_assignment[node]
+                continue
 
             # Check registers occupied by neighbours:
             takenregs = set()
