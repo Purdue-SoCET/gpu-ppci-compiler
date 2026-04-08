@@ -130,3 +130,59 @@ Current tests are generic allocator tests; they do **not** yet assert Twig RFC-s
 - RFC assignment happens for positive savings nodes.
 - RFC assignment respects interference for shared RFC entries.
 - RFC-off / empty-reserved-reg scenarios.
+
+---
+
+## Packetization-Work Alignment Update
+
+To align with the packetization prototype flow in `packetization-work/`, the RFC work was also integrated there so both code paths reflect the same intent.
+
+### 1) RFC-aware allocation added to `packetization-work/reg_alloc.py`
+
+- Added RFC energy constants and reserved entries:
+  - `MRF_WRITE_COST_NJ = 0.0322`
+  - `MRF_READ_COST_NJ = 0.0208`
+  - `RFC_WRITE_COST_NJ = 0.0034`
+  - `RFC_READ_COST_NJ = 0.0033`
+  - `DEFAULT_RFC_ENTRIES = ("x61", "x62")`
+- Added `_compute_register_metrics(blocks)` to estimate:
+  - `num_reads` per virtual register
+  - `live_range` span per virtual register
+- Added `_get_energy_savings(num_reads)` implementing:
+  - `(MRF.write - RFC.write) + (MRF.read - RFC.read) * num_reads`
+- Added `allocate_rfc_registers(...)`:
+  - Builds priority queue with `averageSavings = energySavings / liveRange`
+  - Keeps only positive priorities
+  - Greedily maps best candidates onto RFC entries with interference checks
+- Extended `color_graph(...)` to support:
+  - `reserved_registers` (exclude RFC regs from normal MRF pool)
+  - `precolored` (force RFC assignments)
+- Extended `allocate_registers_chaitin(...)`:
+  - RFC pre-assignment first
+  - regular coloring second
+  - defaults to `num_registers=64` for Twig-like register naming
+
+### 2) Packetization/RA ordering updated in `packetization-work/packetization.py`
+
+The prototype pipeline now does:
+
+1. Parse ASM (`parse_asm`)
+2. Initial packetization on virtual registers
+3. Reorder block instructions by packet schedule (`reorder_block_by_packets`)
+4. Rebuild DDG
+5. Run Chaitin RA with RFC (`allocate_registers_chaitin(..., enable_rfc=True)`)
+6. Rebuild DDG again
+7. Packetize/print final post-RA packets
+
+This ordering was intentionally changed so RFC assignment is based on packetized instruction order, matching the requested direction for WAR-risk reduction.
+
+### 3) Scope clarification
+
+- Main compiler path (`ppci/codegen/...`) still performs RA before stream-time packetization.
+- `packetization-work/` now reflects the “packetize before RFC-aware RA” strategy.
+- These two paths are currently separate implementations; they are aligned in RFC policy (energy/live-range queue + reserved RFC regs), but not yet unified into one compiler pipeline.
+
+### 4) Validation of this update
+
+- Syntax checks passed for all prototype files:
+  - `python3 -m py_compile packetization-work/reg_alloc.py packetization-work/ddg.py packetization-work/packetization.py`
