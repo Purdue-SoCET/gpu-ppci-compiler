@@ -130,7 +130,7 @@ PRED_SAVE_SPACE = 128
 
 # Base address for stack in entry function setup:
 # SP = BASE_STACK + global_tid * totalstack
-BASE_STACK = 0x100000
+BASE_STACK = 0xFFFFFFF0
 
 
 class TwigAssembler(BaseAssembler):

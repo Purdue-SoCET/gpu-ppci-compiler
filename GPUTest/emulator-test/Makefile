@@ -45,6 +45,7 @@ test-%:
 	if [ -n "$(l)" ]; then TEST_ARGS="$$TEST_ARGS -l $(l)"; fi; \
 	if [ "$(ULP)" = "1" ]; then TEST_ARGS="$$TEST_ARGS --allow-approx"; fi; \
 	./test_hex.sh $$TEST_ARGS tests/complex_tests/$*/$*.hex
+	./test_hex.sh $$TEST_ARGS --start-pc 0x24 --arg-pointer 0x1C tests/complex_tests/$*/$*.hex
 
 diffs:
 	python3 tests/diffs.py $(if $(filter 1,$(ULP)),--allow-approx,)
