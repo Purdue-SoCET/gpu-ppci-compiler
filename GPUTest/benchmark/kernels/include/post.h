@@ -4,7 +4,7 @@
 
 typedef struct {
     //Image
-    vector_t* color;
+    vec4_t* color;
 
     // Pixel buffers
     int buff_w, buff_h;
@@ -14,10 +14,10 @@ typedef struct {
     int threshold;
 } post_arg_t;
 
-#ifdef CPU_SIM
-void kernel_post(void*);
+#ifdef GPU_SIM
+void main(void*);
 #else
-void kernel_post();
+void kernel_post(void*);
 #endif
 
 #endif

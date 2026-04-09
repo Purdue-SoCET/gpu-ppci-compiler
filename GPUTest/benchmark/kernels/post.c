@@ -2,23 +2,31 @@
 #include "include/post.h"
 #include "include/graphics_lib.h"
 
-#define F_ABS(n) ((n) < 0.0f ? -(n) : (n))
+float F_ABS(float n) { //Changed from define to function bc compiler can't do ternary operator
+    if (n < 0.0) {
+        return -n;
+    }
+    return n;
+}
+
 
 //Don't pad, just check for out of bounds. This is doing FXAA currently. Should probably have called all this FXAA.
 
-#ifdef CPU_SIM
-void kernel_post(void* arg)
+#ifdef GPU_SIM
+void main(void* arg)
 #else
-void kernel_post()
+void kernel_post(void* arg)
 #endif
 {
 
-#ifdef CPU_SIM
-    post_arg_t* args = (post_arg_t*) arg;
-#else
+#ifdef GPU_SIM
     post_arg_t* args = (post_arg_t*) argPtr();
-#endif
+    int ctr_idx = threadIdx();
+    #else
+    post_arg_t* args = (post_arg_t*) arg;
     int ctr_idx = threadIdx;
+    #endif
+
     //Make 3x3 idxs
     //tl up tr
     //ml ctr mr
@@ -34,7 +42,7 @@ void kernel_post()
     int right_idx = ctr_idx + 1;
 
     float* zbuff = args->depth_buff;
-    vector_t* out = args->color;
+    vec4_t* out = args->color;
 
     //Bounds and edge check (if you're out of bounds you don't want to seg fault you just want to ignore!)
     float ctr = zbuff[ctr_idx];
@@ -75,18 +83,35 @@ void kernel_post()
         }
     }
     
-    int edge_check = max > args->threshold ? 1 : 0;
+    int edge_check;
+    if(max > args->threshold) {
+        edge_check = 1;
+    } else {
+        edge_check = 0;
+    }
 
     //Perform vertical and horizontal strength check then pick dominant edge
 
-    if (edge_check) {
-        float vert = edge[0] != -1 && edge[1] != -1 ? F_ABS((out[up_idx].x - out[down_idx].x)) + 
+    if (edge_check != 0) {
+        float vert;
+        if(edge[0] != -1 && edge[1] != -1){
+            vert = F_ABS((out[up_idx].x - out[down_idx].x)) + 
                      F_ABS(((out[up_idx].y - out[down_idx].y))) + 
-                     F_ABS(((out[up_idx].z - out[down_idx].z))) : -1; 
+                     F_ABS(((out[up_idx].z - out[down_idx].z)));
+        }
+        else {
+            vert = -1;
+        }
 
-        float horz = edge[6] != -1 && edge[7] != -1 ? F_ABS((out[right_idx].x - out[left_idx].x)) + 
+        float horz;
+        if(edge[6] != -1 && edge[7] != -1){
+            horz = F_ABS((out[right_idx].x - out[left_idx].x)) + 
                      F_ABS(((out[right_idx].y - out[left_idx].y))) + 
-                     F_ABS(((out[right_idx].z - out[left_idx].z))) : -1;
+                     F_ABS(((out[right_idx].z - out[left_idx].z)));
+        }
+        else {
+            horz = -1;
+        }
 
         //Do linear interpolation (saxpy op) perpendicular to the most dominant edge
 

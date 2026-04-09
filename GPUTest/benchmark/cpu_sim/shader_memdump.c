@@ -1,7 +1,7 @@
 #include "include/shader_memdump.h"
-
+/*
 void print_line(FILE* f, uintptr_t addr, uint32_t data) {
-    fprintf(f, "0x%08X \t 0x%08X\n", (unsigned int)addr, data);
+    fprintf(f, "0x%08X \t %08X\n", (unsigned int)addr, data);
 }
 
 void print_vertex_args(char* fname, vertexShader_arg_t* vertex_args, int num_verts) {
@@ -15,7 +15,7 @@ void print_vertex_args(char* fname, vertexShader_arg_t* vertex_args, int num_ver
     // 2. Pointed Constant Data
     if (vertex_args->Oa)      for(int i=0; i<3; i++) print_line(f, (uintptr_t)&((uint32_t*)vertex_args->Oa)[i], ((uint32_t*)vertex_args->Oa)[i]);
     if (vertex_args->a_dist)  for(int i=0; i<3; i++) print_line(f, (uintptr_t)&((uint32_t*)vertex_args->a_dist)[i], ((uint32_t*)vertex_args->a_dist)[i]);
-    if (vertex_args->alpha_r) print_line(f, (uintptr_t)vertex_args->alpha_r, *(uint32_t*)vertex_args->alpha_r);
+    if (vertex_args->alpha_r) for(int i=0; i<3; i++) print_line(f, (uintptr_t)&((uint32_t*)vertex_args->alpha_r)[i], ((uint32_t*)vertex_args->alpha_r)[i]);
     if (vertex_args->camera)   for(int i=0; i<3; i++) print_line(f, (uintptr_t)&((uint32_t*)vertex_args->camera)[i], ((uint32_t*)vertex_args->camera)[i]);
     if (vertex_args->invTrans) for(int i=0; i<9; i++) print_line(f, (uintptr_t)&((uint32_t*)vertex_args->invTrans)[i], ((uint32_t*)vertex_args->invTrans)[i]);
 
@@ -29,9 +29,6 @@ void print_vertex_args(char* fname, vertexShader_arg_t* vertex_args, int num_ver
         for(int j=0; j<5; j++) print_line(f, (uintptr_t)&v2[j], v2[j]);
         for(int j=0; j<5; j++) print_line(f, (uintptr_t)&v3[j], v3[j]);
     }
-    // for(int i = 0; i < 15*num_verts; i++) {
-    //     print_line(f, (uintptr_t)&vertex_args->debug_ptr[i], ((uint32_t*)vertex_args->debug_ptr)[i]);
-    // }
     fclose(f);
 }
 
@@ -63,27 +60,7 @@ void print_pixel_args(char* fname, pixel_arg_t* pix_args) {
     uint32_t* s_raw = (uint32_t*)pix_args;
     for (int i = 0; i < 12; i++) print_line(f, (uintptr_t)&s_raw[i], s_raw[i]);
 
-    // 2. Vertex array (vertex_t: coords xyz + s,t => 5 words each)
-    if (pix_args->verts) {
-        for (int i = 0; i < pix_args->num_verts; i++) {
-            uint32_t* v = (uint32_t*)&pix_args->verts[i];
-            for (int j = 0; j < 5; j++) {
-                print_line(f, (uintptr_t)&v[j], v[j]);
-            }
-        }
-    }
-
-    // 3. Triangle array (triangle_t: v1, v2, v3 => 3 words each)
-    if (pix_args->tris) {
-        for (int i = 0; i < pix_args->num_tris; i++) {
-            uint32_t* t = (uint32_t*)&pix_args->tris[i];
-            for (int j = 0; j < 3; j++) {
-                print_line(f, (uintptr_t)&t[j], t[j]);
-            }
-        }
-    }
-
-    // 4. Global Buffers (Color, Depth, Tag)
+    // 2. Global Buffers (Color, Depth, Tag)
     int pix_count = pix_args->buff_w * pix_args->buff_h;
     uint32_t* c_ptr = (uint32_t*)pix_args->color;
     uint32_t* z_ptr = (uint32_t*)pix_args->depth_buff;
@@ -99,7 +76,7 @@ void print_pixel_args(char* fname, pixel_arg_t* pix_args) {
         if (t_ptr) print_line(f, (uintptr_t)&t_ptr[i], t_ptr[i]);
     }
 
-    // 5. Texture color_arr (w,h and color_arr pointer are in header)
+    // 3. Texture Data
     int tex_count = pix_args->texture.w * pix_args->texture.h;
     uint32_t* tx_ptr = (uint32_t*)pix_args->texture.color_arr;
     if (tx_ptr) {
@@ -109,13 +86,34 @@ void print_pixel_args(char* fname, pixel_arg_t* pix_args) {
             print_line(f, (uintptr_t)&tx_ptr[i*3+2], tx_ptr[i*3+2]);
         }
     }
-    // if (pix_args->debug_ptr) {
-    //     for (int i = 0; i < pix_count; i++) {
-    //         uint32_t* dbg = (uint32_t*)&pix_args->debug_ptr[i];
-    //         for (int j = 0; j < 2; j++) {
-    //             print_line(f, (uintptr_t)&dbg[j], dbg[j]);
-    //         }
-    //     }
-    // }
     fclose(f);
+}
+*/
+
+void dump_memory(const char* filename, uint8_t* host_memory_ptr, uint32_t simulated_base_address, size_t num_bytes) {
+    FILE* file = fopen(filename, "w");
+    if (file == NULL) {
+        fprintf(stderr, "Error: Could not open %s for writing.\n", filename);
+        return;
+    }
+
+    uint32_t* memory_words = (uint32_t*) host_memory_ptr;
+    size_t num_words = num_bytes / sizeof(uint32_t);
+
+    for (size_t i = 0; i < num_words; i++) {
+        uint32_t value = memory_words[i];
+        
+        if (value != 0) {
+            uint32_t flipped_value = ((value << 24) & 0xFF000000) | // Move byte 0 to 3
+                                     ((value <<  8) & 0x00FF0000) | // Move byte 1 to 2
+                                     ((value >>  8) & 0x0000FF00) | // Move byte 2 to 1
+                                     ((value >> 24) & 0x000000FF);  // Move byte 3 to 0
+
+            uint32_t current_address = simulated_base_address + (i * sizeof(uint32_t));
+            
+            fprintf(file, "0x%08X %08X\n", current_address, flipped_value);
+        }
+    }
+
+    fclose(file);
 }

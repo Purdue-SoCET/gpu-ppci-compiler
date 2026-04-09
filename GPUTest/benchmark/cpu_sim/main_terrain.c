@@ -1,0 +1,437 @@
+// Standard Includes
+#include <stdlib.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <math.h>
+#include "include/kernel_run.h"
+#include "include/graphics_lib.h"
+
+// Include all needed kernels
+#include "../kernels/include/vertex.h"
+#include "../kernels/include/triangle.h"
+#include "../kernels/include/pixel.h"
+#include "../kernels/include/post.h"
+
+// Globals
+uint8_t* memory_ptr;
+
+// Defines
+#define OUTPUT_W 800 // 680
+#define OUTPUT_H 800 // 480
+
+#define VERTEX_DEBUG 0
+#define TRIANGLE_DEBUG 0
+#define PIXEL_DEBUG 0
+
+#define X_ANGLE 238
+#define Y_ANGLE 0
+#define Z_ANGLE 0
+
+#define PATH "cpu_sim/data/geometry/terrain.bin"
+
+// Macros
+#define ALLOCATE_MEM(dest, type, num) \
+    type* dest = (type*) memory_ptr; \
+    memory_ptr += num * sizeof(type);
+
+#define MAKE_VECTOR(vector, ix, iy, iz) { \
+    vector.x = ix; \
+    vector.y = iy; \
+    vector.z = iz; \
+}
+
+#define MAKE_VERTEX(vertex, ix, iy, iz, is, it) { \
+    MAKE_VECTOR(vertex.coords, ix, iy, iz); \
+    vertex.s = is; vertex.t = it; \
+}
+
+#define MAKE_TRI(tri, iv1, iv2, iv3) { \
+    tri.v1 = iv1; \
+    tri.v2 = iv2; \
+    tri.v3 = iv3; \
+}
+
+#define MAX2(a, b) (a > b ? a : b)
+#define MIN2(a, b) (a < b ? a : b)
+#define MAX3(a, b, c) MAX2(a, MAX2(b, c))
+#define MIN3(a, b, c) MIN2(a, MIN2(b, c))
+
+#define DEFAULT_ARR(arr, len, def) { \
+    for(int DFAx = 0; DFAx < len; DFAx++) { \
+        arr[DFAx] = def; \
+    } \
+}
+
+// Make video from Frames:
+//ffmpeg -framerate 30 -pattern_type glob -i "build/output/*.ppm" -c:v libx264 -pix_fmt yuv420p output.mp4
+
+int main(int argc, char** argv) {
+    int frame = 0;
+    model_t model = {0};
+    loadbin(PATH, &model);
+
+    if (model.vertsN == 0) {
+        fprintf(stderr, "Failed to load terrain model!\n");
+        return -1;
+    }
+    for (int frame = 0; frame < 300; frame++)
+    {
+    uint8_t* memory_base = (uint8_t*) malloc(MEMORY_SIZE - STACK_SIZE - TEXT_SIZE);
+    uint8_t* memory_ptr = memory_base;
+
+    // ---- Setup Geometry ----
+
+    const int num_verts = model.vertsN;
+    const int num_tris = model.trisN;
+
+    ALLOCATE_MEM(verts, vertex_t, num_verts);
+    ALLOCATE_MEM(tris, triangle_t, num_tris);
+
+    for (int i = 0; i < num_verts; i++) {
+        verts[i] = model.vertices[i]; 
+    }
+
+    for (int i = 0; i < num_tris; i++) {
+        tris[i] = model.triangles[i]; 
+    }
+
+    vector_t center = findCenter(model);
+
+    float maxDistSq = 0;
+    for (int i = 0; i < num_verts; i++) {
+        float dx = verts[i].coords.x - center.x;
+        float dy = verts[i].coords.y - center.y;
+        float dz = verts[i].coords.z - center.z;
+        float distSq = dx*dx + dy*dy + dz*dz;
+        if (distSq > maxDistSq) maxDistSq = distSq;
+    }
+    float radius = sqrtf(maxDistSq);
+
+    float fov_radians = 90.0f * (3.14159 / 180.0f); 
+    float distance = radius / sinf(fov_radians / 2.0f);
+
+    // Texture
+        const int text_w = 5, text_h = 5;
+
+        // Allocation
+        ALLOCATE_MEM(texture, texture_t, 1);
+        ALLOCATE_MEM(color_map, vec4_t, (text_w * text_h));
+
+        // Definition
+        texture->w = text_w; texture->h = text_h;
+        texture->color_arr = color_map;
+        for(int u = 0; u < text_w; u++) {
+            for(int v = 0; v < text_h; v++) {
+                // Make red/blue checkerboard texture
+                const vec4_t red = {1.0f, 1.0f, 1.0f, 1.0f}; const vec4_t blue = {0.0f, 0.0f, 0.0f, 1.0f};
+                texture->color_arr[GET_1D_INDEX(u, v, text_w)] = (u+v+1) % 2 ? red : blue;
+            }
+        }
+
+    // Camera
+        const vector_t abc[3] = {
+            {1.0f, 0.0f, 0.0f}, 
+            {0.0f, 1.0f, 0.0f},
+            {0.0f, 0.0f, 1.0f},
+        };
+
+        const vector_t abcTranspose[3] = {
+            {abc[0].x, abc[1].x, abc[2].x},
+            {abc[0].y, abc[1].y, abc[2].y},
+            {abc[0].z, abc[1].z, abc[2].z}
+        };
+
+        // Allocation
+        ALLOCATE_MEM(camera_C, vector_t, 1);
+        ALLOCATE_MEM(cameraProjMatrix, float, 9);
+
+        // Definition
+        float cam_dist = (frame*1.5f + 1)/300.0f + .5f;
+
+        camera_C->x = center.x; 
+        camera_C->y = center.y; 
+        camera_C->z = (center.z - distance)*cam_dist; 
+
+        float aspect_ratio = (float)OUTPUT_W / (float)OUTPUT_H;
+        float f = 1.0f / tanf(fov_radians / 2.0f);
+
+        float x_scaled = f / aspect_ratio;
+        float y_scaled = f;
+
+        cameraProjMatrix[0] = x_scaled * abcTranspose[0].x; 
+        cameraProjMatrix[1] = x_scaled * abcTranspose[0].y;
+        cameraProjMatrix[2] = x_scaled * abcTranspose[0].z;
+
+        cameraProjMatrix[3] = y_scaled * abcTranspose[1].x;
+        cameraProjMatrix[4] = y_scaled * abcTranspose[1].y;
+        cameraProjMatrix[5] = y_scaled * abcTranspose[1].z;
+
+        cameraProjMatrix[6] = abcTranspose[2].x;
+        cameraProjMatrix[7] = abcTranspose[2].y;
+        cameraProjMatrix[8] = abcTranspose[2].z;
+
+    // --- Vertex Kernel ---
+    ALLOCATE_MEM(vertex_args, vertex_arg_t, 1);
+
+    vertex_args->num_verts = num_verts;
+    
+    // Setup Transformation
+        ALLOCATE_MEM(Oa, vector_t, 1);
+        vertex_args->Oa = Oa;
+        MAKE_VECTOR((*Oa), 0, 0, 0);
+
+        // Pre-compute 3x3 rotation matrix on CPU
+        ALLOCATE_MEM(combined_matrix, float, 9);
+        vertex_args->combined_matrix = combined_matrix;
+
+        float ax = 3.14f * 2 * X_ANGLE / 300.0f; 
+        float ay = 3.14f * 2 * Y_ANGLE / 300.0f;
+        float az = 3.14f * 2 * Z_ANGLE / 300.0f;
+
+        build_rotation_matrix_from_euler(ax, ay, az, combined_matrix);
+
+        // Viewport Settings
+        vertex_args->viewport_w = (float)OUTPUT_W;
+        vertex_args->viewport_h = (float)OUTPUT_H;
+
+    // Give geometry inputs
+        vertex_args->threeDVert = verts;
+        vertex_args->camera = camera_C;
+        vertex_args->invTrans = cameraProjMatrix;
+    
+    // Allocate Output Space
+        ALLOCATE_MEM(tVerts, vertex_t, num_verts);
+        vertex_args->threeDVertTrans = tVerts;
+        ALLOCATE_MEM(pVerts, vertex_t, num_verts);
+        vertex_args->twoDVert = pVerts;
+    
+    // Running the Kernel
+    {
+        int grid_dim = 1; int block_dim = num_verts;
+        run_kernel(kernel_vertex, grid_dim, block_dim, (void*)vertex_args);
+    }
+
+    // Checking Vertex Output
+    if(VERTEX_DEBUG) 
+    {
+        FILE *f = fopen("build/vertexdebug.txt", "w");
+        if (f == NULL) {
+            printf("Error opening file!\n");
+        }
+
+        fprintf(f, " --- Vertex Debug Dump (Count: %d) --- \n", num_verts);
+        
+        for(int i = 0; i < num_verts; i++) {
+            fprintf(f, " --- Vertex %d --- \n", i);
+            
+            fprintf(f, "3D (Model):\n");
+            fprintf(f, "\tX:%+06.2f Y:%+06.2f Z:%+06.2f | U:%.2f V:%.2f\n", 
+                vertex_args->threeDVert[i].coords.x, 
+                vertex_args->threeDVert[i].coords.y, 
+                vertex_args->threeDVert[i].coords.z, 
+                vertex_args->threeDVert[i].s, 
+                vertex_args->threeDVert[i].t);
+
+            fprintf(f, "3D (Trans):\n");
+            fprintf(f, "\tX:%+06.2f Y:%+06.2f Z:%+06.2f | U:%.2f V:%.2f\n", 
+                vertex_args->threeDVertTrans[i].coords.x, 
+                vertex_args->threeDVertTrans[i].coords.y, 
+                vertex_args->threeDVertTrans[i].coords.z, 
+                vertex_args->threeDVertTrans[i].s, 
+                vertex_args->threeDVertTrans[i].t);
+
+            fprintf(f, "2D (Screen):\n");
+            fprintf(f, "\tX:%+06.2f Y:%+06.2f Z:%+06.2f | U:%.2f V:%.2f\n", 
+                vertex_args->twoDVert[i].coords.x, 
+                vertex_args->twoDVert[i].coords.y, 
+                vertex_args->twoDVert[i].coords.z, 
+                vertex_args->twoDVert[i].s, 
+                vertex_args->twoDVert[i].t);
+            
+            fprintf(f, "\n");
+        }
+
+        fprintf(f, " --- End of Dump --- \n");
+        fclose(f);
+        printf(" --- Vertex end --- \n");
+    }
+
+    // --- Triangle Kernel ---
+    // Only one call - still implement multi triangle framework
+    ALLOCATE_MEM(triangle_args, triangle_arg_t, 1);
+
+    // Setup Pixel Buffers
+        const int frame_w = OUTPUT_W; const int frame_h = OUTPUT_H;
+        ALLOCATE_MEM(zbuff, float, frame_w*frame_h);
+        DEFAULT_ARR(zbuff, frame_w*frame_h, 0);
+        ALLOCATE_MEM(tbuff, int, frame_w*frame_h);
+        DEFAULT_ARR(tbuff, frame_w*frame_h, -1);
+
+        triangle_args->buff_w = frame_w;
+        triangle_args->buff_h = frame_h;
+        triangle_args->depth_buff = zbuff;
+        triangle_args->tag_buff = tbuff;
+
+    // Setup and launch each triangle kernel
+    for(int tri = 0; tri < num_tris; tri++) {
+        // Set Tag
+        triangle_args->tag = tri;
+
+        // Collect Verticies
+        triangle_args->pVs[0] = pVerts[tris[tri].v1].coords;
+        triangle_args->pVs[1] = pVerts[tris[tri].v2].coords;
+        triangle_args->pVs[2] = pVerts[tris[tri].v3].coords;
+        
+        // Find Bounding Box
+        int u_min, u_max;
+        u_min = MIN3(triangle_args->pVs[0].x, triangle_args->pVs[1].x, triangle_args->pVs[2].x) - .5f;
+        u_min = u_min < 0 ? 0 : u_min;
+        u_max = MAX3(triangle_args->pVs[0].x, triangle_args->pVs[1].x, triangle_args->pVs[2].x) + .5f;
+        u_max = u_max > (frame_w-1) ? (frame_w-1) : u_max;
+        int v_min, v_max;
+        v_min = MIN3(triangle_args->pVs[0].y, triangle_args->pVs[1].y, triangle_args->pVs[2].y) - .5f;
+        v_min = v_min < 0 ? 0 : v_min;
+        v_max = MAX3(triangle_args->pVs[0].y, triangle_args->pVs[1].y, triangle_args->pVs[2].y) + .5f;
+        v_max = v_max > (frame_h-1) ? (frame_h-1) : v_max;
+
+        if (u_min >= frame_w || u_max < 0 || v_min >= frame_h || v_max < 0) {
+            continue; 
+        }
+
+        u_min = u_min < 0 ? 0 : u_min;
+        u_max = u_max > (frame_w-1) ? (frame_w-1) : u_max;
+        v_min = v_min < 0 ? 0 : v_min;
+        v_max = v_max > (frame_h-1) ? (frame_h-1) : v_max;
+
+        triangle_args->bb_start[0] = u_min;
+        triangle_args->bb_start[1] = v_min;
+        triangle_args->bb_size[0] = u_max-u_min;
+        triangle_args->bb_size[1] = v_max-v_min;
+
+        // Find barycentric Matrix
+        float m[3][3] = {
+            {1, 1, 1},
+            {triangle_args->pVs[0].x, triangle_args->pVs[1].x, triangle_args->pVs[2].x},
+            {triangle_args->pVs[0].y, triangle_args->pVs[1].y, triangle_args->pVs[2].y}
+        };
+
+        float det = m[0][0]*(m[1][1]*m[2][2] - m[1][2]*m[2][1]) 
+          - m[0][1]*(m[1][0]*m[2][2] - m[1][2]*m[2][0]) 
+          + m[0][2]*(m[1][0]*m[2][1] - m[1][1]*m[2][0]);
+
+        // If the determinant is extremely close to 0, it's a line/point. Skip it.
+        if (fabs(det) < 0.00001f) {
+            continue; 
+        }
+
+        matrix_inversion((float*)m, (float*) triangle_args->bc_im);
+
+        // Running the Kernel
+        int grid_dim = 1; int block_dim = (u_max-u_min)*(v_max-v_min);
+        run_kernel(kernel_triangle, grid_dim, block_dim, (void*)triangle_args);
+    }
+
+    // Checking TRIANGLE Output
+    if(TRIANGLE_DEBUG) 
+    {
+        FILE *f = fopen("build/triangledebug.txt", "w");
+        if (f == NULL) {
+            printf("Error opening file!\n");
+        }
+        fprintf(f, " --- Post Triangle Depths --- \n");
+        fprintf(f, "\t[");
+        for(int i = 0; i < frame_w * frame_h; i++) {
+            fprintf(f, "%+06.2f", zbuff[i]);
+            if(((i+1) % frame_w)) {
+                fprintf(f, ", ");
+            } else if (i+1 != frame_w*frame_h) {
+                fprintf(f, "]\n\t[");
+            } else {
+                fprintf(f, "]\n");
+            }
+        }
+        fprintf(f, " --- Post Triangle Tags --- \n");
+        fprintf(f, "\t[");
+        for(int i = 0; i < frame_w * frame_h; i++) {
+            if(tbuff[i]+1 > 0)
+            fprintf(f, "%d", tbuff[i]+1);
+            if(((i+1) % frame_w)) {
+                fprintf(f, ", ");
+            } else if (i+1 != frame_w*frame_h) {
+                fprintf(f, "]\n\t[");
+            } else {
+                fprintf(f, "]\n");
+            }
+        }
+        fclose(f);
+        printf(" --- Triangle Printing DONE ---\n");
+    }
+
+    // --- Pixel Kernel ---
+    ALLOCATE_MEM(pixel_args, pixel_arg_t, 1);
+
+    // Setup Output
+        ALLOCATE_MEM(color_output, vec4_t, frame_w*frame_h);
+        vec4_t color_default = {0.6f, 0.6f, 0.6f, 1.0f};
+        DEFAULT_ARR(color_output, frame_w*frame_h, color_default);
+        pixel_args->color = color_output;
+
+    // Setup Arguments
+        pixel_args->verts = pVerts;
+        pixel_args->num_verts = num_verts;
+        
+        pixel_args->tris = tris;
+        pixel_args->num_tris = num_tris;
+
+        pixel_args->buff_w = frame_w;
+        pixel_args->buff_h = frame_h;
+        pixel_args->depth_buff = zbuff;
+        pixel_args->tag_buff = tbuff;
+
+        pixel_args->texture = *texture;
+
+    // Running the kernel
+    {
+        int grid_dim = 1; int block_dim = frame_w * frame_h;
+        run_kernel(kernel_pixel, grid_dim, block_dim, (void*)pixel_args);
+    }
+
+    // --- FXAA Kernel --- 
+    ALLOCATE_MEM(post_args, post_arg_t, 1);
+
+    post_args->color = color_output;
+    post_args->depth_buff = zbuff;
+    post_args->buff_w = frame_w;
+    post_args->buff_h = frame_h;
+    post_args->threshold = 2;
+
+    // Running the kernel
+    {
+        int grid_dim = 1; int block_dim = frame_w * frame_h;
+        run_kernel(kernel_post, grid_dim, block_dim, (void*)post_args);
+    }
+
+    // --- Create Image from Data ---
+    
+    // Convert vector colors into rgb values
+    int* int_color_output = malloc(sizeof(int) * frame_w * frame_h * 3);
+    for(int i = 0; i < frame_w*frame_h; i++) {
+        int_color_output[i*3 + 0] = color_output[i].x * 255 + .5f;
+        int_color_output[i*3 + 1] = color_output[i].y * 255 + .5f;
+        int_color_output[i*3 + 2] = color_output[i].z * 255 + .5f;
+    }
+
+    char fname[30];
+    snprintf(fname, sizeof(fname), "build/output/frame_%03d.ppm", frame);
+
+    createPPMFile(fname, int_color_output, frame_w, frame_h);
+    free(int_color_output);
+
+    // --- Clean Up ---
+    free(memory_base);
+    }
+
+    free(model.vertices);
+    free(model.triangles);
+    
+}
