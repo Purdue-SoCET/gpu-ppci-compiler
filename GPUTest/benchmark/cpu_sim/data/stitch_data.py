@@ -3,15 +3,15 @@ import json
 
 # --- Configuration ---
 compiled = {
-    "vs": "compiled/vs",
-    "tri": "compiled/tri",
-    "pix": "compiled/pix"
+    "vs": "compiled/vs.bin",
+    "tri": "compiled/tri.bin",
+    "pix": "compiled/pix.bin"
 }
 
 args_sizes = {"vs": 0x28, "tri": 108, "pix": 0x34} # tri is 108 bytes (27 words)
-block_dims = {"vs": 8, "tri": [12,12,10,12,10,12,30,30,8,10,8,10], "pix": 1024} #[81,81,65,85,65,85,289,289,65,85,65,85]
+block_dims = {"vs": 8, "tri": [81,81,65,85,65,85,289,289,65,85,65,85], "pix": 1024} #[81,81,65,85,65,85,289,289,65,85,65,85]
 # [12,12,10,12,10,12,30,30,8,10,8,10]
-grid_dims  = {"vs": 1, "tri": 1, "pix": 2}
+grid_dims  = {"vs": 1, "tri": 1, "pix": 1}
 
 ARGS_BASE_ADDR = 0x00100000 
 DUMP_FOLDER = "build/mem_dump"
@@ -56,18 +56,18 @@ def stitch_system_memory(kernel_key, dump_dir, output_file, filter_prefix, is_in
     total_threads = block_dim * grid_dim
     
     # We write these to the map. If it's an output dump, status is "Done"
-    status = "00000003" if not is_input else "00000000"
-    control = "00000000" if not is_input else "00000001"
+    status = "00000000000000000000000000000011" if not is_input else "00000000000000000000000000000000"
+    control = "00000000000000000000000000000000" if not is_input else "00000000000000000000000000000001"
 
     memory_map[0x00] = control
     memory_map[0x04] = status
-    memory_map[0x08] = "00000000" 
-    memory_map[0x0C] = f"{entry_point:08X}"
-    memory_map[0x10] = f"{block_dim:08X}"
-    memory_map[0x14] = f"{grid_dim:08X}"
-    memory_map[0x18] = f"{total_threads:08X}"
-    memory_map[0x1C] = f"{args_addr:08X}"
-    memory_map[0x20] = f"{args_size:08X}"
+    memory_map[0x08] = "00000000000000000000000000000000" 
+    memory_map[0x0C] = f"{entry_point:032b}"
+    memory_map[0x10] = f"{block_dim:032b}"
+    memory_map[0x14] = f"{grid_dim:032b}"
+    memory_map[0x18] = f"{total_threads:032b}"
+    memory_map[0x1C] = f"{args_addr:032b}"
+    memory_map[0x20] = f"{args_size:032b}"
 
     # 4. Write sorted output
     output_path = Path(output_file)

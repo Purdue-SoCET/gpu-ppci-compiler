@@ -111,7 +111,7 @@ void dump_memory(const char* filename, uint8_t* host_memory_ptr, uint32_t simula
 
             uint32_t current_address = simulated_base_address + (i * sizeof(uint32_t));
             
-            fprintf(file, "0x%08X %08X\n", current_address, flipped_value);
+            fprintf(file, "0x%08X %032b\n", current_address, flipped_value);
         }
     }
 

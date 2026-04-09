@@ -20,8 +20,8 @@
 uint8_t* memory_ptr;
 
 // Defines
-#define OUTPUT_W 103
-#define OUTPUT_H 10
+#define OUTPUT_W 800
+#define OUTPUT_H 800
 
 #define VERTEX_DEBUG 0
 #define TRIANGLE_DEBUG 0
