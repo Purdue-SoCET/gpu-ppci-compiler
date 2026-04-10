@@ -8,19 +8,22 @@ TOOL = tool
 ifeq ($(OS),Windows_NT)
     SHELL = cmd.exe
 
+    CLEAN_CACHE_CMD = for /d /r . %%d in (__pycache__) do @if exist "%%d" rd /s /q "%%d" & \
+                      del /s /q *.pyc 2>nul & \
+                      del /s /q *.pyo 2>nul || exit 0
     CLEAN_CMD = if exist build rd /s /q build & \
                 if exist dist rd /s /q dist & \
-                if exist *.egg-info rd /s /q *.egg-info & \
-                for /d /r . %%d in (__pycache__) do @if exist "%%d" rd /s /q "%%d" & \
-                del /s /q *.pyc 2>nul || exit 0
+                for /d %%d in (*.egg-info) do @if exist "%%d" rd /s /q "%%d" & \
+                $(CLEAN_CACHE_CMD)
 else
     # Linux/Unix/MacOS
+    CLEAN_CACHE_CMD = find . -type d -name "__pycache__" -exec rm -rf {} + && \
+                      find . -type f \( -name "*.pyc" -o -name "*.pyo" \) -delete
     CLEAN_CMD = rm -rf build/ dist/ *.egg-info && \
-                find . -type d -name "__pycache__" -exec rm -rf {} + && \
-                find . -type f -name "*.pyc" -delete
+                $(CLEAN_CACHE_CMD)
 endif
 
-.PHONY: help install dev-install clean test
+.PHONY: help install dev-install clean clean-cache test
 
 help:
 	@echo "Usage:"
@@ -67,7 +70,5 @@ clean:
 	@$(CLEAN_CMD)
 
 clean-cache:
-	#Linux: find . | grep -E "(/__pycache__$|\.pyc$|\.pyo$)" | xargs rm -rf
-	for /d /r . %%d in (__pycache__) do @if exist "%%d" rd /s /q "%%d"
-	del /s /q *.pyc 2>nul
-	del /s /q *.pyo 2>nul
+	@echo Cleaning cache...
+	@$(CLEAN_CACHE_CMD)
