@@ -20,3 +20,4 @@ lib64
 /build/
 /GPUTest/**/build/
 /GPUTest/emulator/test_diffs/
+/GPUTest/emulator-test/cardinal-ISS
