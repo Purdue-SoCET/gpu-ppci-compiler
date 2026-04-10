@@ -1217,7 +1217,9 @@ def pattern_pjmp(context, tree):
     pred_test, lab_yes, lab_no = tree.value
     pred_val = int(pred_test) if type(pred_test) is str else pred_test
 
-    lab_yes_name = str(lab_yes.name) if hasattr(lab_yes, "name") else str(lab_yes)
+    lab_yes_name = (
+        str(lab_yes.name) if hasattr(lab_yes, "name") else str(lab_yes)
+    )
     lab_no_name = str(lab_no.name) if hasattr(lab_no, "name") else str(lab_no)
 
     yes_stub = context.new_label()
@@ -1755,10 +1757,12 @@ def pattern_xor_i32_const_reg(context, tree, c0):
     context.emit(Xori(d, c0, c1, p))
     return d
 
+
 def clear_pred(context, pred_id):
     # Clear destination predicate for all lanes using parent predicate p0.
     # BNE with R0,R0 always writes 0.
     context.emit(Bne(pred_id, R0, R0, 0))
+
 
 # legacy code grandfathered in since May 22, 2019 at 10:33 AM
 def round_up(s):

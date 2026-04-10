@@ -98,7 +98,7 @@ class CCodeGenerator:
         return "11111"  # All ones (all threads active)
 
     def _get_active_predicate_regs(self):
-        """Return all predicate registers that are still active on the stack."""
+        """Return predicate registers that are still active on the stack."""
         return {ctx["pred_reg"] for ctx in self.predicate_stack}
 
     def _free_predicate_registers(self, *pred_regs):
@@ -1049,7 +1049,9 @@ class CCodeGenerator:
         )
 
         loop_pred_reg = self._allocate_predicate_register()
-        exit_pred_reg = self._allocate_predicate_register() if stmt.condition else None
+        exit_pred_reg = (
+            self._allocate_predicate_register() if stmt.condition else None
+        )
         if exit_pred_reg is not None:
             self._reserve_predicate_registers(exit_pred_reg)
 
@@ -1394,7 +1396,9 @@ class CCodeGenerator:
             result = self._emit_condition_as_value(condition)
             ir_typ = result.ty
             zero = self.builder.emit_const(0, ir_typ)
-            self.emit(ir.SJump(result, "!=", zero, yes_block, pred_yes, pred_parent))
+            self.emit(
+                ir.SJump(result, "!=", zero, yes_block, pred_yes, pred_parent)
+            )
             return
 
         cmp_ops = {">", "<", "==", "!=", "<=", ">="}
@@ -1411,9 +1415,7 @@ class CCodeGenerator:
             op = "!="
         self.emit(ir.SJump(lhs, op, rhs, yes_block, pred_yes, pred_parent))
 
-    def gen_pcondition(
-        self, pred_reg, yes_block, no_block, pred_parent=None
-    ):
+    def gen_pcondition(self, pred_reg, yes_block, no_block, pred_parent=None):
         """Generate a predicate jump for loop back-edge / exit.
 
         PJMP in the current backend is predicate-based:
@@ -1452,9 +1454,14 @@ class CCodeGenerator:
             zero = self.builder.emit_const(0, ir_typ)
             self.emit(
                 ir.BJump(
-                    result, "!=", zero,
-                    yes_block, no_block,
-                    pred_yes, pred_no, pred_parent,
+                    result,
+                    "!=",
+                    zero,
+                    yes_block,
+                    no_block,
+                    pred_yes,
+                    pred_no,
+                    pred_parent,
                 )
             )
             return
@@ -1466,9 +1473,14 @@ class CCodeGenerator:
                 op = condition.op
                 self.emit(
                     ir.BJump(
-                        lhs, op, rhs,
-                        yes_block, no_block,
-                        pred_yes, pred_no, pred_parent,
+                        lhs,
+                        op,
+                        rhs,
+                        yes_block,
+                        no_block,
+                        pred_yes,
+                        pred_no,
+                        pred_parent,
                     )
                 )
             else:
@@ -1476,25 +1488,39 @@ class CCodeGenerator:
                 zero = self.emit_const(0, condition.typ)
                 self.emit(
                     ir.BJump(
-                        value, "!=", zero,
-                        yes_block, no_block,
-                        pred_yes, pred_no, pred_parent,
+                        value,
+                        "!=",
+                        zero,
+                        yes_block,
+                        no_block,
+                        pred_yes,
+                        pred_no,
+                        pred_parent,
                     )
                 )
         elif isinstance(condition, expressions.UnaryOperator):
             if condition.op == "!":
                 self.gen_bcondition(
-                    condition.a, no_block, yes_block,
-                    pred_no, pred_yes, pred_parent,
+                    condition.a,
+                    no_block,
+                    yes_block,
+                    pred_no,
+                    pred_yes,
+                    pred_parent,
                 )
             else:
                 value = self.gen_expr(condition, rvalue=True)
                 zero = self.emit_const(0, condition.typ)
                 self.emit(
                     ir.BJump(
-                        value, "!=", zero,
-                        yes_block, no_block,
-                        pred_yes, pred_no, pred_parent,
+                        value,
+                        "!=",
+                        zero,
+                        yes_block,
+                        no_block,
+                        pred_yes,
+                        pred_no,
+                        pred_parent,
                     )
                 )
         else:
@@ -1502,9 +1528,14 @@ class CCodeGenerator:
             zero = self.emit_const(0, condition.typ)
             self.emit(
                 ir.BJump(
-                    value, "!=", zero,
-                    yes_block, no_block,
-                    pred_yes, pred_no, pred_parent,
+                    value,
+                    "!=",
+                    zero,
+                    yes_block,
+                    no_block,
+                    pred_yes,
+                    pred_no,
+                    pred_parent,
                 )
             )
 

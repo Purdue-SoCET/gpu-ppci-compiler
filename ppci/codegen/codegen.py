@@ -179,9 +179,12 @@ class CodeGenerator:
         self.debug_db.map(ir_function, frame)
 
         # Predicate allocator entry
-        # Allocate physical predicates after IR is fully built, before instruction selection
+        # Allocate physical predicates after IR is fully built,
+        # before instruction selection.
         mapping = allocate_predicates_for_function(ir_function)
-        self.logger.debug("Predicate mapping for %s: %s", ir_function.name, mapping)
+        self.logger.debug(
+            "Predicate mapping for %s: %s", ir_function.name, mapping
+        )
 
         # Select instructions and schedule them:
         self.select_and_schedule(ir_function, frame)

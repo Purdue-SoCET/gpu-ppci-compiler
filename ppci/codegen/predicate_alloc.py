@@ -80,7 +80,9 @@ def compute_liveness(ir_function, block_defs, block_uses):
             live_out[block] = (
                 set().union(*(live_in[s] for s in succs)) if succs else set()
             )
-            live_in[block] = block_uses[block] | (live_out[block] - block_defs[block])
+            live_in[block] = block_uses[block] | (
+                live_out[block] - block_defs[block]
+            )
 
             if live_in[block] != old_in or live_out[block] != old_out:
                 changed = True
@@ -136,9 +138,7 @@ def assign_physical_predicates(interference, all_preds, max_physical=32):
 
     for vpred in alloc_order:
         used = {
-            mapping[n]
-            for n in interference.get(vpred, set())
-            if n in mapping
+            mapping[n] for n in interference.get(vpred, set()) if n in mapping
         }
 
         assigned = None
@@ -149,7 +149,8 @@ def assign_physical_predicates(interference, all_preds, max_physical=32):
 
         if assigned is None:
             raise RuntimeError(
-                f"Predicate allocation failed: no free physical predicate for VP{vpred}"
+                "Predicate allocation failed: no free physical "
+                f"predicate for VP{vpred}"
             )
 
         mapping[vpred] = assigned
@@ -177,7 +178,9 @@ def rewrite_predicates(ir_function, mapping):
                 )
 
             if isinstance(ins, ir.PJump):
-                ins.pred_test_id = mapping.get(ins.pred_test_id, ins.pred_test_id)
+                ins.pred_test_id = mapping.get(
+                    ins.pred_test_id, ins.pred_test_id
+                )
                 ins.pred_parent_id = mapping.get(
                     ins.pred_parent_id, ins.pred_parent_id
                 )

@@ -1461,12 +1461,11 @@ class PJump(JumpBase):
     else:
         jump lab_no
     """
+
     lab_yes = block_use("lab_yes")
     lab_no = block_use("lab_no")
 
-    def __init__(
-        self, lab_yes, lab_no, pred_test_id, pred_parent_id=0
-    ):
+    def __init__(self, lab_yes, lab_no, pred_test_id, pred_parent_id=0):
         super().__init__()
         self.lab_yes = lab_yes
         self.lab_no = lab_no
@@ -1483,6 +1482,7 @@ class PJump(JumpBase):
             f"{self.lab_yes.name} : {self.lab_no.name}, "
             f"parent=p{self.pred_parent_id}"
         )
+
 
 class BJump(CJump):
     """Conditional jump to true or false labels."""
