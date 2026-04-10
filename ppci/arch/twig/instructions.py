@@ -1208,17 +1208,19 @@ def pattern_cmpset_float(context, tree, c0, c1):
     return d
 
 
-@isa.pattern("stm", "PJMP(reg, CONSTI32)", size=6)
+@isa.pattern("stm", "PJMP(reg, CONSTI32)", size=12)
 def pattern_pjmp(context, tree):
-    pred, lab_yes, lab_no = tree.value
-    pred_val = int(pred) if type(pred) is str else pred
-    lab_yes_name = (
-        str(lab_yes.name) if hasattr(lab_yes, "name") else str(lab_yes)
-    )
+    pred_test, lab_yes, lab_no = tree.value
+    pred_val = int(pred_test) if type(pred_test) is str else pred_test
+
+    lab_yes_name = str(lab_yes.name) if hasattr(lab_yes, "name") else str(lab_yes)
     lab_no_name = str(lab_no.name) if hasattr(lab_no, "name") else str(lab_no)
 
-    context.emit(Jpnz(pred_val, lab_yes_name))
+    yes_stub = context.new_label()
+    context.emit(Jpnz(pred_val, yes_stub.name, jumps=[yes_stub]))
     context.emit(Bl(R0, lab_no_name, jumps=[lab_no]))
+    context.emit(yes_stub)
+    context.emit(Bl(R0, lab_yes_name, jumps=[lab_yes]))
 
 
 # @isa.pattern("stm", "BJMPF64(reg,reg)", size=10)
@@ -1226,6 +1228,10 @@ def pattern_pjmp(context, tree):
 def pattern_bjmpf(context, tree, c0, c1):
     op, yes_label, no_label, yes_pred, no_pred, parent_pred = tree.value
     p = parent_pred
+
+    clear_pred(context, yes_pred)
+    if no_pred != yes_pred:
+        clear_pred(context, no_pred)
 
     if op == ">" or op == "<=":
         c0, c1 = c1, c0
@@ -1259,8 +1265,10 @@ def pattern_bjmpf(context, tree, c0, c1):
         context.emit(Bne(yes_pred, t3, R0, p))
         context.emit(Beq(no_pred, t3, R0, p))
 
-    tgt = yes_label
-    context.emit(Bl(R0, tgt.name, jumps=[tgt]))
+    yes_tgt = yes_label
+    no_tgt = no_label
+    context.emit(Jpnz(yes_pred, yes_tgt.name))
+    context.emit(Bl(R0, no_tgt.name, jumps=[no_tgt]))
 
 
 # @isa.pattern("stm", "BJMPI8(reg, reg)", size=10)
@@ -1269,6 +1277,10 @@ def pattern_bjmpf(context, tree, c0, c1):
 def pattern_bjmp(context, tree, c0, c1):
     op, yes_label, no_label, yes_pred, no_pred, parent_pred = tree.value
     p = parent_pred
+
+    clear_pred(context, yes_pred)
+    if no_pred != yes_pred:
+        clear_pred(context, no_pred)
 
     if op == ">" or op == "<=":
         c0, c1 = c1, c0
@@ -1290,8 +1302,10 @@ def pattern_bjmp(context, tree, c0, c1):
         context.emit(Bne(yes_pred, t, R0, p))
         context.emit(Beq(no_pred, t, R0, p))
 
-    tgt = yes_label
-    context.emit(Bl(R0, tgt.name, jumps=[tgt]))
+    yes_tgt = yes_label
+    no_tgt = no_label
+    context.emit(Jpnz(yes_pred, yes_tgt.name))
+    context.emit(Bl(R0, no_tgt.name, jumps=[no_tgt]))
 
 
 @isa.pattern("stm", "BJMPU8(reg, reg)", size=10)
@@ -1300,6 +1314,10 @@ def pattern_bjmp(context, tree, c0, c1):
 def pattern_bjmp_unsigned(context, tree, c0, c1):
     op, yes_label, no_label, yes_pred, no_pred, parent_pred = tree.value
     p = parent_pred
+
+    clear_pred(context, yes_pred)
+    if no_pred != yes_pred:
+        clear_pred(context, no_pred)
 
     if op == ">" or op == "<=":
         c0, c1 = c1, c0
@@ -1321,8 +1339,10 @@ def pattern_bjmp_unsigned(context, tree, c0, c1):
         context.emit(Bne(yes_pred, t, R0, p))
         context.emit(Beq(no_pred, t, R0, p))
 
-    tgt = yes_label
-    context.emit(Bl(R0, tgt.name, jumps=[tgt]))
+    yes_tgt = yes_label
+    no_tgt = no_label
+    context.emit(Jpnz(yes_pred, yes_tgt.name))
+    context.emit(Bl(R0, no_tgt.name, jumps=[no_tgt]))
 
 
 @isa.pattern("stm", "SJMPU8(reg, reg)", size=10)
@@ -1331,6 +1351,8 @@ def pattern_bjmp_unsigned(context, tree, c0, c1):
 def pattern_sjmp(context, tree, c0, c1):
     op, yes_label, yes_pred, parent_pred = tree.value
     p = parent_pred
+
+    clear_pred(context, yes_pred)
 
     if op == ">" or op == "<=":
         c0, c1 = c1, c0
@@ -1359,6 +1381,8 @@ def pattern_sjmp_signed(context, tree, c0, c1):
     op, yes_label, yes_pred, parent_pred = tree.value
     p = parent_pred
 
+    clear_pred(context, yes_pred)
+
     if op == ">" or op == "<=":
         c0, c1 = c1, c0
 
@@ -1383,6 +1407,8 @@ def pattern_sjmp_signed(context, tree, c0, c1):
 def pattern_sjmp_float(context, tree, c0, c1):
     op, yes_label, yes_pred, parent_pred = tree.value
     p = parent_pred
+
+    clear_pred(context, yes_pred)
 
     if op == ">" or op == "<=":
         c0, c1 = c1, c0
@@ -1725,6 +1751,10 @@ def pattern_xor_i32_const_reg(context, tree, c0):
     context.emit(Xori(d, c0, c1, p))
     return d
 
+def clear_pred(context, pred_id):
+    # Clear destination predicate for all lanes using parent predicate p0.
+    # BNE with R0,R0 always writes 0.
+    context.emit(Bne(pred_id, R0, R0, 0))
 
 # legacy code grandfathered in since May 22, 2019 at 10:33 AM
 def round_up(s):
