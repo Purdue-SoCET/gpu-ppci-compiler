@@ -12,7 +12,7 @@ GPU_CFLAGS =
 # CPU files
 KERNEL ?= saxpy
 CPU_SRCS = cpu_sim/main.c cpu_sim/kernel_run.c cpu_sim/graphics_lib.c cpu_sim/shader_memdump.c \
-       kernels/$(KERNEL).c kernels/triangle.c kernels/pixel.c
+       kernels/vertexShader.c kernels/triangle.c kernels/pixel.c
 CPU_TARGET = cpu_sim.out
 CPU_PPM = frame_000.ppm
 
@@ -38,10 +38,7 @@ run: $(CPU_PPM)
 run32: #need gcc-multilib
 	mkdir -p $(CPU_BUILD_DIR)
 	mkdir -p $(CPU_OUTPUT_DIR)
-	$(CPU_CC) $(CPU_CFLAGS) $(CPU_32BIT_FLAGS) \
-	-DKERNEL_BASENAME=\"$(KERNEL)\" \
-	-DKERNEL_ENTRY=kernel_$(KERNEL) \
-	-o $(CPU_BUILD_DIR)$(CPU_TARGET) $(CPU_SRCS) $(CPU_LDFLAGS)
+	$(CPU_CC) $(CPU_CFLAGS) $(CPU_32BIT_FLAGS) -o $(CPU_BUILD_DIR)$(CPU_TARGET) $(CPU_SRCS) $(CPU_LDFLAGS)
 	./$(CPU_BUILD_DIR)$(CPU_TARGET) && rm $(CPU_BUILD_DIR)$(CPU_TARGET)
 
 # Compiles all found kernels
