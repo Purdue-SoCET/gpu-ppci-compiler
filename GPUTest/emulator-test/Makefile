@@ -18,7 +18,6 @@ run:
 
 setup:
 	cd cardinal-ISS && bash setup.sh
-
 clean:
 	rm -f *.out *.log *.hex
 	rm -rf test_diffs/* build/*
@@ -54,7 +53,6 @@ diffs:
 
 data:
 	make data-$(KERNEL)
-
 KERNEL ?= vertexShader
 
 data-%:
@@ -74,6 +72,9 @@ datacopy:
 		cp -f "$$infile" $$outdir/$${kernel}_data.hex; \
 		if [ -f "$$bench_dir/$${kernel}Output.txt" ]; then \
 			cp -f "$$bench_dir/$${kernel}Output.txt" $$outdir/$${kernel}_exp_t$(REF_THREADS)_b$(REF_BLOCKS).hex; \
+			cp -f "$$bench_dir/$${kernel}Output.txt" $$outdir/$${kernel}_exp_t$(REF_THREADS)_b$(REF_BLOCKS).hex; \
+		elif [ -f "$$bench_dir/$${kernel}Output0.txt" ]; then \
+			cp -f "$$bench_dir/$${kernel}Output0.txt" $$outdir/$${kernel}_exp_t$(REF_THREADS)_b$(REF_BLOCKS).hex; \
 		elif [ -f "$$bench_dir/$${kernel}Output0.txt" ]; then \
 			cp -f "$$bench_dir/$${kernel}Output0.txt" $$outdir/$${kernel}_exp_t$(REF_THREADS)_b$(REF_BLOCKS).hex; \
 		fi; \

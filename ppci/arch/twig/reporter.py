@@ -59,7 +59,11 @@ def write_packet_histogram_svg(
     bar_width = max(10, min(bar_width, slot_width - 4))
 
     def sx(packet_size):
-        return margin_left + (packet_size - 1) * slot_width + (slot_width - bar_width) / 2
+        return (
+            margin_left
+            + (packet_size - 1) * slot_width
+            + (slot_width - bar_width) / 2
+        )
 
     def sy(count):
         if y_axis_max <= 0:
@@ -85,7 +89,8 @@ def write_packet_histogram_svg(
         ),
         (
             f'<line x1="{margin_left}" y1="{margin_top + chart_height}" '
-            f'x2="{margin_left + chart_width}" y2="{margin_top + chart_height}" '
+            f'x2="{margin_left + chart_width}" '
+            f'y2="{margin_top + chart_height}" '
             'stroke="black" stroke-width="2"/>'
         ),
         (
@@ -104,7 +109,8 @@ def write_packet_histogram_svg(
         )
         if tick > 0:
             lines.append(
-                f'<line x1="{margin_left}" y1="{y}" x2="{margin_left + chart_width}" y2="{y}" '
+                f'<line x1="{margin_left}" y1="{y}" '
+                f'x2="{margin_left + chart_width}" y2="{y}" '
                 'stroke="#dddddd" stroke-width="1"/>'
             )
         lines.append(
@@ -147,5 +153,5 @@ def write_packet_histogram_svg(
         '</svg>',
     ])
 
-    with open(filename, 'w', encoding='utf-8') as out_file:
-        out_file.write('\n'.join(lines))
+    with open(filename, "w", encoding="utf-8") as out_file:
+        out_file.write("\n".join(lines))

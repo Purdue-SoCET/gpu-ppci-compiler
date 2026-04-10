@@ -34,6 +34,7 @@ from .registerallocator import GraphColoringRegisterAllocator
 from .packetize import PacketizeStream
 from .predicate_alloc import allocate_predicates_for_function
 
+
 class CodeGenerator:
     """Machine code generator"""
 

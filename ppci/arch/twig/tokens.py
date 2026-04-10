@@ -1,4 +1,4 @@
-from ..token import Token, bit_concat, bit_range
+from ..token import Token, bit_range
 
 
 class TwigRToken(Token):
@@ -118,7 +118,7 @@ class TwigJpnzToken(Token):
 
     opcode = bit_range(0, 7)
     prs = bit_range(7, 13)
-    imm = bit_range(13, 25)     # imm[12:0] = {rs2[24:19], imm[18:13], 1'b0}
+    imm = bit_range(13, 25)  # imm[12:0] = {rs2[24:19], imm[18:13], 1'b0}
     pstart = bit_range(30, 31)
     pend = bit_range(31, 32)
 
@@ -136,6 +136,7 @@ class TwigPredSWToken(Token):
     prs = bit_range(25, 30)  # 5 bits: pred register index (P0-P31)
     pstart = bit_range(30, 31)
     pend = bit_range(31, 32)
+
 
 class TwigPredLWToken(Token):
     """Token for predicate memory instructions (prsw/prlw).
