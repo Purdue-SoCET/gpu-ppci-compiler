@@ -1,4 +1,3 @@
-PYTHON := python3
 PYTHON ?= python3
 TWIG ?= twig
 TOOL ?= tool
@@ -16,6 +15,9 @@ FORMAT ?= hex
 # The Interface
 run:
 	$(PYTHON) $(EMULATOR) -t $(THREADS) -b $(BLOCKS) --start-pc $(START_PC) --mem-format $(FORMAT) $(INPUT)
+
+setup:
+	cd cardinal-ISS && bash setup.sh
 
 clean:
 	rm -f *.out *.log *.hex
@@ -78,7 +80,7 @@ datacopy:
 	done
 
 fix:
-	sed -i 's/\r$$//' setup.sh
+	sed -i 's/\r$$//' cardinal-ISS/setup.sh
 	sed -i 's/\r$$//' test_hex.sh
 
 BLUE = \033[1;34m
