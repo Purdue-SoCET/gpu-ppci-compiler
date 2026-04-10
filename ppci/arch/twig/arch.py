@@ -130,7 +130,7 @@ PRED_SAVE_SPACE = 128
 
 # Base address for stack in entry function setup:
 # SP = BASE_STACK + global_tid * totalstack
-BASE_STACK = 0xFFFFFFF0
+BASE_STACK = 0xF1000000
 
 
 class TwigAssembler(BaseAssembler):
@@ -336,24 +336,40 @@ class TwigArch(Architecture):
                 yield Lw(r1, offset, r2, pred)
             if instruction == "sw":
                 yield Sw(r1, offset, r2, pred)
-        else:
-            upper_8 = (offset >> 24) & 0xFF
-            middle_12 = (offset >> 12) & 0xFFF
-            lower_12 = (offset) & 0xFFF
-            yield Lui(R63, upper_8, pred)
-            yield Lmi(R63, middle_12, pred)
-            yield Lli(R63, lower_12, pred)
+            return
 
-            if instruction == "addi":
-                yield Add(r1, r2, R63, pred)
-            if instruction == "lw":
-                # r2 is the address; add offset for new address
-                yield Add(R63, r2, R63, pred)
-                yield Lw(r1, 0, R63, pred)
-            if instruction == "sw":
-                yield Add(R63, r2, R63, pred)
-                yield Sw(r1, 0, R63, pred)
-        return
+        offset_u32 = offset & 0xFFFFFFFF
+        upper_8 = (offset_u32 >> 24) & 0xFF
+        middle_12 = (offset_u32 >> 12) & 0xFFF
+        lower_12 = offset_u32 & 0xFFF
+        self.logger.debug(
+            (
+                "immUsed large offset: offset=%d (0x%08X), upper=0x%02X, "
+                "middle=0x%03X, lower=0x%03X, instr=%s"
+            ),
+            offset,
+            offset_u32,
+            upper_8,
+            middle_12,
+            lower_12,
+            instruction,
+        )
+
+        yield Lui(R63, upper_8, pred)
+        yield Lmi(R63, middle_12, pred)
+        yield Lli(R63, lower_12, pred)
+
+        if instruction == "addi":
+            yield Add(r1, r2, R63, pred)
+        elif instruction == "lw":
+            # r2 is the address; add offset for new address
+            yield Add(R63, r2, R63, pred)
+            yield Lw(r1, 0, R63, pred)
+        elif instruction == "sw":
+            yield Add(R63, r2, R63, pred)
+            yield Sw(r1, 0, R63, pred)
+        else:
+            raise ValueError(f"Unsupported immUsed instruction: {instruction}")
 
     def gen_twig_memcpy(self, dst, src, tmp, size, pred=0):
         # Called before register allocation
@@ -379,6 +395,27 @@ class TwigArch(Architecture):
                     callee_save_space + scalar_stack_size + ins.offset
                 )
                 curr_pred = getattr(ins, "pred", 0)
+
+                self.logger.debug(
+                    (
+                        "peephole fprel: ins=%s raw_offset=%s "
+                        "final_offset=%s stacksize=%s "
+                        "callee_save_space=%s pred=%s"
+                    ),
+                    ins,
+                    getattr(ins, "offset", None),
+                    final_offset,
+                    scalar_stack_size,
+                    callee_save_space,
+                    curr_pred,
+                )
+
+                if final_offset < -(1 << 31) or final_offset > 0x7FFFFFFF:
+                    raise ValueError(
+                        "fprel final_offset out of 32-bit signed range: "
+                        f"{final_offset}"
+                    )
+
                 if isinstance(ins, Lw):
                     new_instructions.extend(
                         self.immUsed(
