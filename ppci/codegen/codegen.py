@@ -32,6 +32,7 @@ from .irdag import SelectionGraphBuilder
 from .peephole import PeepHoleStream
 from .registerallocator import GraphColoringRegisterAllocator
 from .packetize import PacketizeStream
+from .predicate_alloc import allocate_predicates_for_function
 
 class CodeGenerator:
     """Machine code generator"""
@@ -175,6 +176,11 @@ class CodeGenerator:
         frame = self.arch.new_frame(frame_name, ir_function)
         frame.debug_db = self.debug_db  # Attach debug info
         self.debug_db.map(ir_function, frame)
+
+        # Predicate allocator entry
+        # Allocate physical predicates after IR is fully built, before instruction selection
+        mapping = allocate_predicates_for_function(ir_function)
+        self.logger.debug("Predicate mapping for %s: %s", ir_function.name, mapping)
 
         # Select instructions and schedule them:
         self.select_and_schedule(ir_function, frame)
