@@ -7,7 +7,7 @@ CPU_LDFLAGS = -lm
 CPU_32BIT_FLAGS = -m32 -fsingle-precision-constant -Wdouble-promotion
 
 GPU_CC = python3 ../../gpu-ppci-compiler/compile_twig.py
-GPU_CFLAGS = 
+GPU_CFLAGS =
 
 # CPU files
 KERNEL ?= saxpy
@@ -23,7 +23,7 @@ CPU_OUTPUT_DIR = $(CPU_BUILD_DIR)output/
 CPU_MEM_DUMP_DIR = $(CPU_BUILD_DIR)mem_dump/
 
 # GPU files
-GPU_LIB_SRCS = 
+GPU_LIB_SRCS =
 GPU_LIB_EXCLUDE = kernels/graphics_lib.c
 GPU_KERNEL_SRCS = $(filter-out $(GPU_LIB_EXCLUDE), $(wildcard kernels/*.c))
 GPU_OUTPUT_DIR = compiled/
@@ -63,11 +63,11 @@ clean:
 new_custom:
 	python jinja2/generate.py $(KERNEL)
 
-custom: 
+custom:
 	$(CPU_CC) $(CPU_CFLAGS) -o $(CPU_BUILD_DIR)$(KERNEL) $(CUSTOM_SRCS) $(CPU_LDFLAGS)
 	./$(CPU_BUILD_DIR)/$(KERNEL)
 
-custom32: 
+custom32:
 	$(CPU_CC) $(CPU_CFLAGS) $(CPU_32BIT_FLAGS) -o $(CPU_BUILD_DIR)$(KERNEL) $(CUSTOM_SRCS) $(CPU_LDFLAGS)
 	./$(CPU_BUILD_DIR)/$(KERNEL)
 

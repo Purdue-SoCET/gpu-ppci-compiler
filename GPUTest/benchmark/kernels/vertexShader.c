@@ -19,11 +19,11 @@ void kernel_vertexShader(void* arg)
 
     if(i < args->num_verts){
 
-        /****** ThreeD Rotation ******/ 
+        /****** ThreeD Rotation ******/
         // assuming radian
         // V3::RotateThisPointAboutArbitraryAxis and TM::RotateAboutArbitraryAxis
 
-        float lcs[9]; 
+        float lcs[9];
         float selAxis[3] = {0.0, 0.0, 0.0};
 
         // Find the dimension with the smallest absolute value in the rotation axis
@@ -139,7 +139,7 @@ void kernel_vertexShader(void* arg)
         {
             for(int k = 0; k < 3; k++)
             {
-                p2[j] += rotMat[k*3 + j] * p1[k]; 
+                p2[j] += rotMat[k*3 + j] * p1[k];
             }
         }
 
@@ -149,7 +149,7 @@ void kernel_vertexShader(void* arg)
         {
             for(int k = 0; k < 3; k++)
             {
-                p_world[j] += lcs[k*3 + j] * p2[k]; 
+                p_world[j] += lcs[k*3 + j] * p2[k];
             }
 
             if(j == 0)
@@ -163,12 +163,12 @@ void kernel_vertexShader(void* arg)
         args->threeDVertTrans[i].s = args->threeDVert[i].s;
         args->threeDVertTrans[i].t = args->threeDVert[i].t;
 
-        
+
         /****** Projection ******/
         //PPC::Project
 
         /*Normalize 3D matrix w.r.t the camera*/
-        float threeD_norm[3] = { 
+        float threeD_norm[3] = {
             args->threeDVertTrans[i].coords.x - args->camera->x,
             args->threeDVertTrans[i].coords.y - args->camera->y,
             args->threeDVertTrans[i].coords.z - args->camera->z
@@ -185,7 +185,7 @@ void kernel_vertexShader(void* arg)
             }
         }
 
-        
+
         if (q[2] > 0.0){
             args->twoDVert[i].coords.x = q[0] / q[2];
             args->twoDVert[i].coords.y = q[1] / q[2];
