@@ -32,8 +32,8 @@ uint8_t* memory_ptr;
 #define INPUT_ARGS_DEBUG 1
 #define OUTPUT_ARGS_DEBUG 1
 
-#define VERTEX_PRINT 1
-#define TRIANGLE_PRINT 1
+#define VERTEX_PRINT 0
+#define TRIANGLE_PRINT 0
 #define PIXEL_PRINT 1
 
 #define ARGS_BASE_ADDR 0x00100000
@@ -82,8 +82,8 @@ uint8_t* memory_ptr;
     } \
 }
 
-int main(int argc, char** argv) {
-    int frame = 0;
+int main() {
+    // int frame = 0;
     // for (int frame = 0; frame < 300; frame++)
     {
     memory_base = (uint8_t*) malloc(MEMORY_SIZE - STACK_SIZE - TEXT_SIZE);
@@ -432,7 +432,7 @@ int main(int argc, char** argv) {
             if(tbuff[i]+1 > 0)
             printf("%d", tbuff[i]+1);
             if(((i+1) % frame_w)) {
-                printf("");
+                // printf("");
             } else if (i+1 != frame_w*frame_h) {
                 printf("]\n\t[");
             } else {
@@ -513,10 +513,10 @@ int main(int argc, char** argv) {
         // }
     }
 
-    char fname[30];
-    snprintf(fname, sizeof(fname), "build/output/frame_%03d.ppm", frame);
+    // char fname[30];
+    // snprintf(fname, sizeof(fname), "build/output/frame_%03d.ppm", frame);
 
-    createPPMFile(fname, int_color_output, OUTPUT_W, OUTPUT_H);
+    // createPPMFile(fname, int_color_output, OUTPUT_W, OUTPUT_H);
     free(int_color_output);
 
     // --- Clean Up ---
