@@ -20,6 +20,8 @@
 uint8_t* memory_ptr;
 
 // Defines
+#define CPU_SIM 1
+
 #define OUTPUT_W 32
 #define OUTPUT_H 32
 
@@ -29,6 +31,10 @@ uint8_t* memory_ptr;
 
 #define INPUT_ARGS_DEBUG 1
 #define OUTPUT_ARGS_DEBUG 1
+
+#define VERTEX_PRINT 1
+#define TRIANGLE_PRINT 1
+#define PIXEL_PRINT 1
 
 #define ARGS_BASE_ADDR 0x00100000
 #define HEAP_BASE_ADDR 0x10000000
@@ -283,7 +289,7 @@ int main(int argc, char** argv) {
         ALLOCATE_HEAP(pVerts, vertex_t, num_verts);
         vertex_args->twoDVert = pVerts;
 
-        if(INPUT_ARGS_DEBUG){
+        if(INPUT_ARGS_DEBUG && VERTEX_PRINT){
             //print_vertex_args("build/vertexInput.txt", vertex_args, num_verts);
             size_t current_args_bytes = (uintptr_t)args_ptr - (uintptr_t)args_start_ptr;
             size_t current_heap_bytes = (uintptr_t)heap_ptr - (uintptr_t)heap_start_ptr;
@@ -299,7 +305,7 @@ int main(int argc, char** argv) {
         run_kernel(kernel_vertex, grid_dim, block_dim, (void*)vertex_args);
     }
 
-    if(OUTPUT_ARGS_DEBUG){
+    if(OUTPUT_ARGS_DEBUG && VERTEX_PRINT){
         //print_vertex_args("build/vertexOutput.txt", vertex_args, num_verts);
         size_t current_args_bytes = (uintptr_t)args_ptr - (uintptr_t)args_start_ptr;
         size_t current_heap_bytes = (uintptr_t)heap_ptr - (uintptr_t)heap_start_ptr;
@@ -373,7 +379,7 @@ int main(int argc, char** argv) {
         };
         matrix_inversion((float*)m, (float*) triangle_args->bc_im);
 
-        if(INPUT_ARGS_DEBUG){
+        if(INPUT_ARGS_DEBUG && TRIANGLE_PRINT){
             size_t current_args_bytes = (uintptr_t)args_ptr - (uintptr_t)args_start_ptr;
             size_t current_heap_bytes = (uintptr_t)heap_ptr - (uintptr_t)heap_start_ptr;
             char filename_args[50];
@@ -391,7 +397,7 @@ int main(int argc, char** argv) {
         int block_dim = total_threads > 1024.0 ? 1024 : (int)total_threads;
         run_kernel(kernel_triangle, grid_dim, block_dim, (void*)triangle_args);
 
-        if(OUTPUT_ARGS_DEBUG){
+        if(OUTPUT_ARGS_DEBUG && TRIANGLE_PRINT){
             printf("Tri %d, Threads: %d\n", tri, block_dim);
             size_t current_args_bytes = (uintptr_t)args_ptr - (uintptr_t)args_start_ptr;
             size_t current_heap_bytes = (uintptr_t)heap_ptr - (uintptr_t)heap_start_ptr;
@@ -459,7 +465,7 @@ int main(int argc, char** argv) {
 
         pixel_args->texture = *texture;
 
-    if(INPUT_ARGS_DEBUG){
+    if(INPUT_ARGS_DEBUG && PIXEL_PRINT){
         //print_pixel_args("build/pixelInput.txt", pixel_args);
         size_t current_args_bytes = (uintptr_t)args_ptr - (uintptr_t)args_start_ptr;
         size_t current_heap_bytes = (uintptr_t)heap_ptr - (uintptr_t)heap_start_ptr;
@@ -474,7 +480,7 @@ int main(int argc, char** argv) {
         run_kernel(kernel_pixel, grid_dim, block_dim, (void*)pixel_args);
     }
 
-    if(OUTPUT_ARGS_DEBUG){
+    if(OUTPUT_ARGS_DEBUG && PIXEL_PRINT){
         //print_pixel_args("build/pixelOutput.txt", pixel_args);
         size_t current_args_bytes = (uintptr_t)args_ptr - (uintptr_t)args_start_ptr;
         size_t current_heap_bytes = (uintptr_t)heap_ptr - (uintptr_t)heap_start_ptr;
