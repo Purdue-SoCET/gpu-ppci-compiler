@@ -30,7 +30,7 @@ extern int blockIdx();
 extern int blockDim();
 extern int threadIdx();
 
-extern int argPtr();
+extern void* argPtr();
 
 #define mod(a, b) ((a) - (b)*((a)/(b)))
 

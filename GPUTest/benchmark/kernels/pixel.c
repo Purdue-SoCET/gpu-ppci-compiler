@@ -2,25 +2,25 @@
 #include "include/pixel.h"
 #include "include/graphics_lib.h"
 
-#ifdef GPU_SIM
-void kernel_pixel()
-#else
+#ifdef CPU_SIM
 void kernel_pixel(void* arg)
+#else
+void kernel_pixel()
 #endif
 {
     int u, v;
 
-    #ifdef GPU_SIM
-    pixel_arg_t* args = (pixel_arg_t*) argPtr();
-    #else
+    #ifdef CPU_SIM
     pixel_arg_t* args = (pixel_arg_t*) arg;
+    #else
+    pixel_arg_t* args = (pixel_arg_t*) argPtr();
     #endif
 
     int global_id = (blockIdx * blockDim) + threadIdx;
 
     // 1. Check if global_id is within valid buffer limits
     if(global_id < ((args->buff_w * args->buff_h)-1)) {
-        
+
         u = (((global_id)) - (args->buff_w)*(((global_id))/(args->buff_w)));
         // u = mod(threadIdx, args->buff_w);
         v = (((global_id) / args->buff_w) - (args->buff_h)*(((global_id) / args->buff_w)/(args->buff_h)));
@@ -28,7 +28,7 @@ void kernel_pixel(void* arg)
 
         int pixel_idx = global_id;
         int tag = args->tag_buff[global_id];
-        
+
         // 2. Check if the tag is valid (>= 0)
         if(tag >= 0) {
 
@@ -64,7 +64,7 @@ void kernel_pixel(void* arg)
 
             // 3. Check if determinant is valid (outside of near-zero bounds)
             if (det <= -0.00001 || det >= 0.00001) {
-                
+
                 float invDet = 1.0 / det;
 
                 // Calculate Inverse Row 0 (only needed for Barycentric x/y/z)
@@ -116,10 +116,10 @@ void kernel_pixel(void* arg)
                     // 2. Calculate Texel Coordinates
                     float w_minus_1 = itof(args->texture.w - 1);
                     float h_minus_1 = itof(args->texture.h - 1);
-                    
+
                     float s_fract = s_abs - itof(ftoi(s_abs));
                     float t_fract = t_abs - itof(ftoi(t_abs));
-                    
+
                     int texel_x = ftoi(s_fract * w_minus_1 + 0.5);
                     int texel_y = ftoi(t_fract * h_minus_1 + 0.5);
 
@@ -132,7 +132,7 @@ void kernel_pixel(void* arg)
                     args->color[pixel_idx] = albedo;
                 } else {
                     // phong lighting
-                    
+
                     // interpolate between triangel for specific pixel location
                     vector_t w0 = args->threeDVertTrans[tri.v1].coords;
                     vector_t w1 = args->threeDVertTrans[tri.v2].coords;

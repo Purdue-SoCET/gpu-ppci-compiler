@@ -15,14 +15,14 @@ typedef struct {
     vertex_t* twoDVert;
     float viewport_w;
     float viewport_h;
-    
+
 } vertex_arg_t;
 
 
-#ifdef GPU_SIM
-void main(void*);
+#ifdef CPU_SIM
+void kernel_vertex(void* arg);
 #else
-void kernel_vertex(void*);
+void kernel_vertex();
 #endif
 
 #endif

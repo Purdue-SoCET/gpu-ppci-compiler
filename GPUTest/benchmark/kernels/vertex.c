@@ -2,22 +2,22 @@
 #include "include/vertex.h"
 #include "include/graphics_lib.h"
 
-#ifdef GPU_SIM
-void kernel_vertex()
-#else
+#ifdef CPU_SIM
 void kernel_vertex(void* arg)
+#else
+void kernel_vertex()
 #endif
 {
 
-    #ifdef GPU_SIM
-    vertex_arg_t* args = (vertex_arg_t*) argPtr();
-    #else
+    #ifdef CPU_SIM
     vertex_arg_t* args = (vertex_arg_t*) arg;
+    #else
+    vertex_arg_t* args = (vertex_arg_t*) argPtr();
     #endif
     int i = (blockIdx * blockDim) + threadIdx;
 
 
-    if(i < args->num_verts) 
+    if(i < args->num_verts)
     {
 
         // camera space to world space
@@ -57,7 +57,7 @@ void kernel_vertex(void* arg)
 
             args->twoDVert[i].s = args->threeDVert[i].s;
             args->twoDVert[i].t = args->threeDVert[i].t;
-            
+
             args->twoDVert[i].coords.x = (args->twoDVert[i].coords.x + 1.0) * args->viewport_w / 2.0;
             args->twoDVert[i].coords.y = (1.0 - args->twoDVert[i].coords.y) * args->viewport_h / 2.0;
         }
