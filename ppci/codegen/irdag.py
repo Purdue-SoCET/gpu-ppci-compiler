@@ -281,9 +281,9 @@ class SelectionGraphBuilder:
         #         node.lab_no
         #     ] = node.lab_no
 
-        sgnode = self.new_node("PJMP", None)
+        sgnode = self.new_node("PJMP", None)  # (main_blockX == 0 ?)
         sgnode.value = (
-            node.pred_test_id,
+            node.pred_yes_id,
             self.function_info.label_map[node.lab_yes],
             self.function_info.label_map[node.lab_no],
         )
@@ -301,7 +301,7 @@ class SelectionGraphBuilder:
             node.cond,
             self.function_info.label_map[node.lab_yes],
             node.pred_yes_id,
-            node.pred_parent_id,
+            getattr(node, "pred", 0),
         )
 
         self.chain(sgnode)
@@ -320,7 +320,7 @@ class SelectionGraphBuilder:
             self.function_info.label_map[node.lab_no],
             node.pred_yes_id,
             node.pred_no_id,
-            node.pred_parent_id,
+            getattr(node, "pred", 0),
         )
 
         self.chain(sgnode)

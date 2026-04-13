@@ -126,13 +126,14 @@ void kernel_vertexShader()
         {
             p_world[j] += lcs[k*3 + j] * p2[k];
         }
-        // uncomment and test after predicate register allocator is implemented.
+        /* uncomment and test after predicate register allocator is implemented.
         if(j == 0)
             args->threeDVertTrans[i].coords.x = p_world[j] + args->Oa->x;
         else if(j == 1)
             args->threeDVertTrans[i].coords.y = p_world[j] + args->Oa->y;
         if(j == 2)
             args->threeDVertTrans[i].coords.z = p_world[j] + args->Oa->z;
+        */
     }
     //replacement for above
     args->threeDVertTrans[i].coords.x = p_world[0] + args->Oa->x;

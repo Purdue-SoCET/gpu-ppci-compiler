@@ -36,8 +36,6 @@ all: output.png
 run: $(CPU_PPM)
 
 run32: #need gcc-multilib
-	mkdir -p $(CPU_BUILD_DIR)
-	mkdir -p $(CPU_OUTPUT_DIR)
 	$(CPU_CC) $(CPU_CFLAGS) $(CPU_32BIT_FLAGS) -o $(CPU_BUILD_DIR)$(CPU_TARGET) $(CPU_SRCS) $(CPU_LDFLAGS)
 	./$(CPU_BUILD_DIR)$(CPU_TARGET) && rm $(CPU_BUILD_DIR)$(CPU_TARGET)
 

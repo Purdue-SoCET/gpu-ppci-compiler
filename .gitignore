@@ -15,10 +15,8 @@ venv
 lib
 lib64
 *pyvenv*
-.venv-ci/
 
 /.idea/
 /build/
 /GPUTest/**/build/
 /GPUTest/emulator/test_diffs/
-/GPUTest/emulator-test/cardinal-ISS
