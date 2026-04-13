@@ -20,8 +20,8 @@
 uint8_t* memory_ptr;
 
 // Defines
-#define OUTPUT_W 800
-#define OUTPUT_H 800
+#define OUTPUT_W 32
+#define OUTPUT_H 32
 
 #define VERTEX_DEBUG 0
 #define TRIANGLE_DEBUG 0
@@ -93,16 +93,16 @@ int main(int argc, char** argv) {
 
     // 1. Map the Arguments Space (Starts at 0x00100000, size ~15MB)
     size_t args_size = 15 * 1024 * 1024;
-    args_ptr = mmap((void*)0x00100000, args_size, 
-                             PROT_READ | PROT_WRITE, 
-                             MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, 
+    args_ptr = mmap((void*)0x00100000, args_size,
+                             PROT_READ | PROT_WRITE,
+                             MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
                              -1, 0);
 
     // 2. Map the Heap Space (Starts at 0x10000000, size ~256MB)
     size_t heap_size = 256 * 1024 * 1024;
-    heap_ptr = mmap((void*)0x10000000, heap_size, 
-                             PROT_READ | PROT_WRITE, 
-                             MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, 
+    heap_ptr = mmap((void*)0x10000000, heap_size,
+                             PROT_READ | PROT_WRITE,
+                             MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
                              -1, 0);
 
     if (args_ptr == MAP_FAILED || heap_ptr == MAP_FAILED) {
@@ -147,7 +147,7 @@ int main(int argc, char** argv) {
         // Front of Cube
         MAKE_TRI(tris[0], 0, 1, 2);
         MAKE_TRI(tris[1], 3, 1, 2);
-        
+
         // Back of Cube
         MAKE_TRI(tris[6], 4, 5, 6);
         MAKE_TRI(tris[7], 7, 5, 6);
@@ -180,7 +180,7 @@ int main(int argc, char** argv) {
     }
     float radius = sqrtf(maxDistSq);
 
-    float fov_radians = 90.0f * (3.14159 / 180.0f); 
+    float fov_radians = 90.0f * (3.14159 / 180.0f);
     float distance = radius / sinf(fov_radians / 2.0f);
 
 
@@ -205,7 +205,7 @@ int main(int argc, char** argv) {
 
     // Camera
         const vector_t abc[3] = {
-            {1.0f, 0.0f, 0.0f}, 
+            {1.0f, 0.0f, 0.0f},
             {0.0f, 1.0f, 0.0f},
             {0.0f, 0.0f, 1.0f},
         };
@@ -223,9 +223,9 @@ int main(int argc, char** argv) {
         // Definition
         float cam_dist = (100*1.5f + 1)/300.0f + .5f;
 
-        camera_C->x = center.x; 
-        camera_C->y = center.y; 
-        camera_C->z = (center.z - distance)*cam_dist; 
+        camera_C->x = center.x;
+        camera_C->y = center.y;
+        camera_C->z = (center.z - distance)*cam_dist;
 
         float aspect_ratio = (float)OUTPUT_W / (float)OUTPUT_H;
         float f = 1.0f / tanf(fov_radians / 2.0f);
@@ -233,7 +233,7 @@ int main(int argc, char** argv) {
         float x_scaled = f / aspect_ratio;
         float y_scaled = f;
 
-        cameraProjMatrix[0] = x_scaled * abcTranspose[0].x; 
+        cameraProjMatrix[0] = x_scaled * abcTranspose[0].x;
         cameraProjMatrix[1] = x_scaled * abcTranspose[0].y;
         cameraProjMatrix[2] = x_scaled * abcTranspose[0].z;
 
@@ -248,7 +248,7 @@ int main(int argc, char** argv) {
     ALLOCATE_ARGS(vertex_args, vertex_arg_t, 1);
 
     vertex_args->num_verts = num_verts;
-    
+
     // Setup Transformation
         ALLOCATE_HEAP(Oa, vector_t, 1);
         vertex_args->Oa = Oa;
@@ -258,7 +258,7 @@ int main(int argc, char** argv) {
         ALLOCATE_HEAP(combined_matrix, float, 9);
         vertex_args->combined_matrix = combined_matrix;
 
-        float ax = 3.14f * 2 * 0 / 300.0f; 
+        float ax = 3.14f * 2 * 0 / 300.0f;
         float ay = 3.14f * 2 * 0 / 300.0f;
         float az = 3.14f * 2 * 0 / 300.0f;
 
@@ -268,8 +268,8 @@ int main(int argc, char** argv) {
         vertex_args->threeDVert = verts;
         vertex_args->camera = camera_C;
         vertex_args->invTrans = cameraProjMatrix;
-   
-    //viewport 
+
+    //viewport
     ALLOCATE_HEAP(viewport_w, float, 1);
     ALLOCATE_HEAP(viewport_h, float, 1);
     *viewport_w = OUTPUT_W;
@@ -282,7 +282,7 @@ int main(int argc, char** argv) {
         vertex_args->threeDVertTrans = tVerts;
         ALLOCATE_HEAP(pVerts, vertex_t, num_verts);
         vertex_args->twoDVert = pVerts;
-    
+
         if(INPUT_ARGS_DEBUG){
             //print_vertex_args("build/vertexInput.txt", vertex_args, num_verts);
             size_t current_args_bytes = (uintptr_t)args_ptr - (uintptr_t)args_start_ptr;
@@ -292,7 +292,7 @@ int main(int argc, char** argv) {
         }
 
         //printf("args size: %lu\n", sizeof(vertex_arg_t));
-    
+
     // Running the Kernel
     {
         int grid_dim = 1; int block_dim = num_verts;
@@ -308,7 +308,7 @@ int main(int argc, char** argv) {
     }
 
     // Checking Vertex Output
-    if(VERTEX_DEBUG) 
+    if(VERTEX_DEBUG)
     {
         for(int i = 0; i < num_verts; i++) {
             printf(" --- Vertex %d --- \n", i);
@@ -347,7 +347,7 @@ int main(int argc, char** argv) {
         triangle_args->pVs[0] = pVerts[tris[tri].v1].coords;
         triangle_args->pVs[1] = pVerts[tris[tri].v2].coords;
         triangle_args->pVs[2] = pVerts[tris[tri].v3].coords;
-        
+
         // Find Bounding Box
         int u_min, u_max;
         u_min = MIN3(triangle_args->pVs[0].x, triangle_args->pVs[1].x, triangle_args->pVs[2].x) - .5;
@@ -378,8 +378,8 @@ int main(int argc, char** argv) {
             size_t current_heap_bytes = (uintptr_t)heap_ptr - (uintptr_t)heap_start_ptr;
             char filename_args[50];
             char filename_heap[50];
-            sprintf(filename_args, "build/mem_dump/triangleInput%d_args_dump.txt", tri); 
-            sprintf(filename_heap, "build/mem_dump/triangleInput%d_heap_dump.txt", tri); 
+            sprintf(filename_args, "build/mem_dump/triangleInput%d_args_dump.txt", tri);
+            sprintf(filename_heap, "build/mem_dump/triangleInput%d_heap_dump.txt", tri);
             //print_triangle_args(filename, triangle_args);
             dump_memory(filename_args, memory_base + ARGS_BASE_ADDR, ARGS_BASE_ADDR, current_args_bytes);
             dump_memory(filename_heap, memory_base + HEAP_BASE_ADDR, HEAP_BASE_ADDR, current_heap_bytes);
@@ -387,7 +387,7 @@ int main(int argc, char** argv) {
 
         // Running the Kernel
         float total_threads = (u_max-u_min)*(v_max-v_min);
-        int grid_dim = (int)ceil(total_threads / 1024.0); 
+        int grid_dim = (int)ceil(total_threads / 1024.0);
         int block_dim = total_threads > 1024.0 ? 1024 : (int)total_threads;
         run_kernel(kernel_triangle, grid_dim, block_dim, (void*)triangle_args);
 
@@ -397,8 +397,8 @@ int main(int argc, char** argv) {
             size_t current_heap_bytes = (uintptr_t)heap_ptr - (uintptr_t)heap_start_ptr;
             char filename_args[50];
             char filename_heap[50];
-            sprintf(filename_args, "build/mem_dump/triangleOutput%d_args_dump.txt", tri); 
-            sprintf(filename_heap, "build/mem_dump/triangleOutput%d_heap_dump.txt", tri); 
+            sprintf(filename_args, "build/mem_dump/triangleOutput%d_args_dump.txt", tri);
+            sprintf(filename_heap, "build/mem_dump/triangleOutput%d_heap_dump.txt", tri);
             //print_triangle_args(filename, triangle_args);
             dump_memory(filename_args, memory_base + ARGS_BASE_ADDR, ARGS_BASE_ADDR, current_args_bytes);
             dump_memory(filename_heap, memory_base + HEAP_BASE_ADDR, HEAP_BASE_ADDR, current_heap_bytes);
@@ -406,7 +406,7 @@ int main(int argc, char** argv) {
     }
 
     // Checking TRIANGLE Output
-    if(TRIANGLE_DEBUG) 
+    if(TRIANGLE_DEBUG)
     {
         printf(" --- Post Triangle Depths --- \n");
         printf("\t[");
@@ -448,7 +448,7 @@ int main(int argc, char** argv) {
     // Setup Arguments
         pixel_args->verts = pVerts;
         pixel_args->num_verts = num_verts;
-        
+
         pixel_args->tris = tris;
         pixel_args->num_tris = num_tris;
 
@@ -460,7 +460,7 @@ int main(int argc, char** argv) {
         pixel_args->texture = *texture;
 
     if(INPUT_ARGS_DEBUG){
-        //print_pixel_args("build/pixelInput.txt", pixel_args); 
+        //print_pixel_args("build/pixelInput.txt", pixel_args);
         size_t current_args_bytes = (uintptr_t)args_ptr - (uintptr_t)args_start_ptr;
         size_t current_heap_bytes = (uintptr_t)heap_ptr - (uintptr_t)heap_start_ptr;
         dump_memory("build/mem_dump/pixelInput_args_dump.txt", memory_base + ARGS_BASE_ADDR, ARGS_BASE_ADDR, current_args_bytes);
@@ -469,13 +469,13 @@ int main(int argc, char** argv) {
     // Running the kernel
     {
         float total_threads = frame_w * frame_h;
-        int grid_dim = (int)ceil(total_threads / 1024.0); 
+        int grid_dim = (int)ceil(total_threads / 1024.0);
         int block_dim = total_threads > 1024 ? 1024 : (int)total_threads;
         run_kernel(kernel_pixel, grid_dim, block_dim, (void*)pixel_args);
     }
 
     if(OUTPUT_ARGS_DEBUG){
-        //print_pixel_args("build/pixelOutput.txt", pixel_args); 
+        //print_pixel_args("build/pixelOutput.txt", pixel_args);
         size_t current_args_bytes = (uintptr_t)args_ptr - (uintptr_t)args_start_ptr;
         size_t current_heap_bytes = (uintptr_t)heap_ptr - (uintptr_t)heap_start_ptr;
         dump_memory("build/mem_dump/pixelOutput_args_dump.txt", memory_base + ARGS_BASE_ADDR, ARGS_BASE_ADDR, current_args_bytes);
@@ -483,7 +483,7 @@ int main(int argc, char** argv) {
     }
 
     // --- Create Image from Data ---
-    
+
     // Convert vector colors into rgb values
     int* int_color_output = malloc(sizeof(int) * frame_w * frame_h * 3);
     for(int i = 0; i < frame_w*frame_h; i++) {
@@ -516,5 +516,5 @@ int main(int argc, char** argv) {
     // --- Clean Up ---
     free(memory_base);
     }
-    
+
 }
