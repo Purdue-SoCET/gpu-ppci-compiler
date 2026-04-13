@@ -102,16 +102,16 @@ void dump_memory(const char* filename, uint8_t* host_memory_ptr, uint32_t simula
 
     for (size_t i = 0; i < num_words; i++) {
         uint32_t value = memory_words[i];
-        
+
         if (value != 0) {
-            uint32_t flipped_value = ((value << 24) & 0xFF000000) | // Move byte 0 to 3
-                                     ((value <<  8) & 0x00FF0000) | // Move byte 1 to 2
-                                     ((value >>  8) & 0x0000FF00) | // Move byte 2 to 1
-                                     ((value >> 24) & 0x000000FF);  // Move byte 3 to 0
+            // uint32_t flipped_value = ((value << 24) & 0xFF000000) | // Move byte 0 to 3
+            //                          ((value <<  8) & 0x00FF0000) | // Move byte 1 to 2
+            //                          ((value >>  8) & 0x0000FF00) | // Move byte 2 to 1
+            //                          ((value >> 24) & 0x000000FF);  // Move byte 3 to 0
 
             uint32_t current_address = simulated_base_address + (i * sizeof(uint32_t));
-            
-            fprintf(file, "0x%08X %032b\n", current_address, flipped_value);
+
+            fprintf(file, "0x%08X %08X\n", current_address, value);
         }
     }
 
