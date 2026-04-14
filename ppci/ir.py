@@ -1436,51 +1436,35 @@ class CJump(JumpBase):
 class SJump(CJump):
     """Conditional jump to true or false labels."""
 
-    def __init__(self, a, cond, b, lab_yes, pred_yes, pred_parent):
+    def __init__(self, a, cond, b, lab_yes, pred_yes):
         """
         pred_yes and pred_no are the *integer IDs* of the
         predicate registers to be written.
         """
         super().__init__(a, cond, b, lab_yes, lab_yes)
         self.pred_yes_id = pred_yes
-        self.pred_parent_id = pred_parent
 
     def __str__(self):
         return (
-            f"sjmp {self.a.name} {self.cond} {self.b.name} ? "
-            f"{self.lab_yes.name} (p{self.pred_yes_id}), "
-            f"parent=p{self.pred_parent_id}"
+            f"sjmp {self.a.name} {self.cond} {self.b.name} : "
+            f"{self.lab_yes.name} (p{self.pred_yes_id})"
         )
 
 
-class PJump(JumpBase):
-    """Predicate jump.
+class PJump(CJump):
+    """Conditional jump to true or false labels."""
 
-    if predicate[pred_test_id] != 0:
-        jump lab_yes
-    else:
-        jump lab_no
-    """
-
-    lab_yes = block_use("lab_yes")
-    lab_no = block_use("lab_no")
-
-    def __init__(self, lab_yes, lab_no, pred_test_id, pred_parent_id=0):
-        super().__init__()
-        self.lab_yes = lab_yes
-        self.lab_no = lab_no
-        self.pred_test_id = pred_test_id
-        self.pred_parent_id = pred_parent_id
-
-    @property
-    def targets(self):
-        return [self.lab_yes, self.lab_no]
+    def __init__(
+        self, a, cond, b, lab_yes, lab_no, pred_yes, pred_no, pred_parent
+    ):
+        super().__init__(a, cond, b, lab_yes, lab_no)
+        self.pred_yes_id = pred_yes
+        self.pred_no_id = pred_no
 
     def __str__(self):
         return (
-            f"pjmp test=p{self.pred_test_id} ? "
-            f"{self.lab_yes.name} : {self.lab_no.name}, "
-            f"parent=p{self.pred_parent_id}"
+            f"pjmp p{self.pred_yes_id} == 0 ? "
+            + f"{self.lab_yes.name} : {self.lab_no.name}"
         )
 
 
@@ -1497,14 +1481,12 @@ class BJump(CJump):
         super().__init__(a, cond, b, lab_yes, lab_no)
         self.pred_yes_id = pred_yes
         self.pred_no_id = pred_no
-        self.pred_parent_id = pred_parent
 
     def __str__(self):
         return (
             f"bjmp {self.a.name} {self.cond} {self.b.name} ? "
             f"{self.lab_yes.name} (p{self.pred_yes_id}) : "
-            f"{self.lab_no.name} (p{self.pred_no_id}), "
-            f"parent=p{self.pred_parent_id}"
+            f"{self.lab_no.name} (p{self.pred_no_id})"
         )
 
 
