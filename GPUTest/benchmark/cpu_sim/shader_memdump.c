@@ -68,10 +68,17 @@ void print_pixel_args(char* fname, pixel_arg_t* pix_args) {
     // 2. Vertex Arrays (Input and Outputs)
     for(int i = 0; i < pix_args->num_verts; i++) {
         uint32_t* v1 = (uint32_t*)&pix_args->verts[i];
-        uint32_t* v2 = (uint32_t*)&pix_args->threeDVertTrans[i];
         // Each vertex_t is 5 words (x, y, z, s, t)
         for(int j=0; j<5; j++) print_line(f, (uintptr_t)&v1[j], v1[j]);
-        for(int j=0; j<5; j++) print_line(f, (uintptr_t)&v2[j], v2[j]);
+    }
+
+    if (pix_args->threeDVertTrans) {
+        int vert_count = pix_args->num_verts;
+        uint32_t* vert_ptr = (uint32_t*)pix_args->threeDVertTrans;
+        for (int i = 0; i < vert_count; i++) {
+            // Each vertex_t is 5 words (x, y, z, s, t)
+            for(int j=0; j<5; j++) print_line(f, (uintptr_t)&vert_ptr[i*5+j], vert_ptr[i*5+j]);
+        }
     }
 
     // 3. Triangle Arrays (Input and Outputs)

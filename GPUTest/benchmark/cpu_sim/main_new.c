@@ -466,7 +466,7 @@ int main() {
         pixel_args->buff_h = frame_h;
         pixel_args->depth_buff = zbuff;
         pixel_args->tag_buff = tbuff;
-        pixel_args->threeDVertTrans = tVerts;
+        pixel_args->threeDVertTrans = 0; //do not want lighting for now
         pixel_args->texture = *texture;
 
     if(INPUT_ARGS_DEBUG && PIXEL_PRINT){
