@@ -4,7 +4,7 @@
 CPU_CC = gcc
 CPU_CFLAGS = -DCPU_SIM -Wall -Wextra -g -lm -I ./cpu_sim/include
 CPU_LDFLAGS = -lm
-CPU_32BIT_FLAGS = -m32 -fsingle-precision-constant -Wdouble-promotion
+CPU_32BIT_FLAGS = -m32 -fsingle-precision-constant -Wdouble-promotion -ffloat-store
 
 GPU_CC = python3 ../../gpu-ppci-compiler/compile_twig.py
 GPU_CFLAGS =

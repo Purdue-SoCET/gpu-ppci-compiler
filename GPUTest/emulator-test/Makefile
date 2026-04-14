@@ -7,7 +7,7 @@ BLOCKS ?= 1
 START_PC ?= 0
 INPUT ?= meminit.hex
 FORMAT ?= hex
-
+t ?= 32
 # ULP=1: pass --allow-approx to test_hex.sh (float tolerance in data region). ULP=0: strict.
 ULP ?= 0
 
@@ -70,29 +70,29 @@ datacopy:
 		fi; \
 	done
 
-fix:
-	sed -i 's/\r$$//' setup.sh
-	sed -i 's/\r$$//' test_hex.sh
+# fix:
+# 	sed -i 's/\r$$//' setup.sh
+# 	sed -i 's/\r$$//' test_hex.sh
 
-BLUE = \033[1;34m
-NC = \033[0m   # No Color
-SHELL := /bin/bash
+# BLUE = \033[1;34m
+# NC = \033[0m   # No Color
+# SHELL := /bin/bash
 
-auto-data-%:
-	@echo -e "\n$(BLUE)>>> [1/5] Generating CPU standard test data (make data)...$(NC)"
-	make data
+# auto-data-%:
+# 	@echo -e "\n$(BLUE)>>> [1/5] Generating CPU standard test data (make data)...$(NC)"
+# 	make data
 
-	@echo -e "\n$(BLUE)>>> [2/5] Copying and converting test data (make datacopy)...$(NC)"
-	make datacopy
+# 	@echo -e "\n$(BLUE)>>> [2/5] Copying and converting test data (make datacopy)...$(NC)"
+# 	make datacopy
 
-auto-test-%:
-	@echo -e "\n$(BLUE)>>> [3/5] Compiling C code with twig and extracting Hex (make build-$*)...$(NC)"
-	#make build-$* TWIG_ARGS="--no-packetize"
-	make build-$*
+# auto-test-%:
+# 	@echo -e "\n$(BLUE)>>> [3/5] Compiling C code with twig and extracting Hex (make build-$*)...$(NC)"
+# 	#make build-$* TWIG_ARGS="--no-packetize"
+# 	make build-$*
 
-	@echo -e "\n$(BLUE)>>> [4/5] Starting emulator for comparison testing (make test-$*)...$(NC)"
-	-make test-$*
+# 	@echo -e "\n$(BLUE)>>> [4/5] Starting emulator for comparison testing (make test-$*)...$(NC)"
+# 	-make test-$*
 
-	@echo -e "\n$(BLUE)>>> [5/5] Generating memory difference report (make diffs)...$(NC)"
-	make diffs
-	@echo -e "\n$(BLUE)>>> Test process completed! Please check the reports in the test_diffs/ directory.$(NC)"
+# 	@echo -e "\n$(BLUE)>>> [5/5] Generating memory difference report (make diffs)...$(NC)"
+# 	make diffs
+# 	@echo -e "\n$(BLUE)>>> Test process completed! Please check the reports in the test_diffs/ directory.$(NC)"

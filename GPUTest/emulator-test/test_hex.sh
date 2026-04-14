@@ -11,7 +11,7 @@
 TEST_ROOT="tests"
 DIFF_DIR="test_diffs"
 EMULATOR="cardinal-ISS/src/emulator.py"
-DATA_START=0x20000000  # Address threshold: below = instructions, above = data
+DATA_START=0x00100000  # Address threshold: below = instructions, above = data
 
 # Intermediate files (we never delete the user's input .hex)
 MEMINIT="meminit.hex"                 # Working copy for emulator (may be temp)
@@ -57,7 +57,7 @@ get_first_data_addr() {
     local file="$1"
     "$PYTHON" -c "
 import sys
-data_start = 0x20000000
+data_start = 0x00100000
 with open(sys.argv[1]) as f:
     for line in f:
         line = line.split('//')[0].split('#')[0].strip()
@@ -69,7 +69,7 @@ with open(sys.argv[1]) as f:
             if addr >= data_start:
                 print(f'0x{addr:08X}')
                 sys.exit(0)
-print('0x20000000')
+print('0x00100000')
 " "$file"
 }
 
@@ -175,7 +175,7 @@ while [[ $# -gt 0 ]]; do
             echo "  -t, --threads N    Number of threads (1-1024)"
             echo "  -a, --argptr ADDR  Argument pointer address (default: first data addr in input)"
             echo "  -l, --log-thread TID  Only log trace for this global thread id (blockIdx*blockDim+threadIdx). Omit to log all threads."
-            echo "  --allow-approx     Allow float32 ULP tolerance (<=12) for data addresses >= 0x20000000"
+            echo "  --allow-approx     Allow float32 ULP tolerance (<=12) for data addresses >= 0x00100000"
             exit 0
             ;;
         *)
@@ -265,7 +265,7 @@ fi
 echo "========================================"
 
 # ==========================================
-# 2. Extract instruction part for comparison (addr < 0x20000000)
+# 2. Extract instruction part for comparison (addr < 0x00100000)
 # ==========================================
 # Portable: lines with addr 0x0xxxxxxx or 0x1xxxxxxx (code region)
 grep -E '^0x[01][0-9a-fA-F]{7}[[:space:]]' "$INPUT_TO_USE" > "$INSTR_PART" 2>/dev/null || true

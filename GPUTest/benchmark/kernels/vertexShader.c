@@ -143,25 +143,6 @@ void kernel_vertexShader(void* arg)
             }
         }
 
-        /* local -> world */
-        float p_world[3] = {0, 0, 0};
-        for(int j = 0; j < 3; j++)
-        {
-            for(int k = 0; k < 3; k++)
-            {
-                p_world[j] += lcs[k*3 + j] * p2[k];
-            }
-
-            if(j == 0)
-                args->threeDVertTrans[i].coords.x = p_world[j] + args->Oa->x;
-            else if(j == 1)
-                args->threeDVertTrans[i].coords.y = p_world[j] + args->Oa->y;
-            if(j == 2)
-                args->threeDVertTrans[i].coords.z = p_world[j] + args->Oa->z;
-        }
-
-        args->threeDVertTrans[i].s = args->threeDVert[i].s;
-        args->threeDVertTrans[i].t = args->threeDVert[i].t;
     // local -> world
     float p_world[3] = {0, 0, 0};
     for(int j = 0; j < 3; j++)

@@ -290,11 +290,11 @@ int main() {
         vertex_args->twoDVert = pVerts;
 
         if(INPUT_ARGS_DEBUG && VERTEX_PRINT){
-            //print_vertex_args("build/vertexInput.txt", vertex_args, num_verts);
-            size_t current_args_bytes = (uintptr_t)args_ptr - (uintptr_t)args_start_ptr;
-            size_t current_heap_bytes = (uintptr_t)heap_ptr - (uintptr_t)heap_start_ptr;
-            dump_memory("build/mem_dump/vertexInput_args_dump.txt", memory_base + ARGS_BASE_ADDR, ARGS_BASE_ADDR, current_args_bytes);
-            dump_memory("build/mem_dump/vertexInput_heap_dump.txt", memory_base + HEAP_BASE_ADDR, HEAP_BASE_ADDR, current_heap_bytes);
+            print_vertex_args("build/vertexInput.txt", vertex_args, num_verts);
+            // size_t current_args_bytes = (uintptr_t)args_ptr - (uintptr_t)args_start_ptr;
+            // size_t current_heap_bytes = (uintptr_t)heap_ptr - (uintptr_t)heap_start_ptr;
+            // dump_memory("build/mem_dump/vertexInput_args_dump.txt", memory_base + ARGS_BASE_ADDR, ARGS_BASE_ADDR, current_args_bytes);
+            // dump_memory("build/mem_dump/vertexInput_heap_dump.txt", memory_base + HEAP_BASE_ADDR, HEAP_BASE_ADDR, current_heap_bytes);
         }
 
         //printf("args size: %lu\n", sizeof(vertex_arg_t));
@@ -302,15 +302,16 @@ int main() {
     // Running the Kernel
     {
         int grid_dim = 1; int block_dim = num_verts;
+        printf("Vertex Grid dim: %d Block dim: %d\n", grid_dim, block_dim);
         run_kernel(kernel_vertex, grid_dim, block_dim, (void*)vertex_args);
     }
 
     if(OUTPUT_ARGS_DEBUG && VERTEX_PRINT){
-        //print_vertex_args("build/vertexOutput.txt", vertex_args, num_verts);
-        size_t current_args_bytes = (uintptr_t)args_ptr - (uintptr_t)args_start_ptr;
-        size_t current_heap_bytes = (uintptr_t)heap_ptr - (uintptr_t)heap_start_ptr;
-        dump_memory("build/mem_dump/vertexOutput_args_dump.txt", memory_base + ARGS_BASE_ADDR, ARGS_BASE_ADDR, current_args_bytes);
-        dump_memory("build/mem_dump/vertexOutput_heap_dump.txt", memory_base + HEAP_BASE_ADDR, HEAP_BASE_ADDR, current_heap_bytes);
+        print_vertex_args("build/vertexOutput.txt", vertex_args, num_verts);
+        // size_t current_args_bytes = (uintptr_t)args_ptr - (uintptr_t)args_start_ptr;
+        // size_t current_heap_bytes = (uintptr_t)heap_ptr - (uintptr_t)heap_start_ptr;
+        // dump_memory("build/mem_dump/vertexOutput_args_dump.txt", memory_base + ARGS_BASE_ADDR, ARGS_BASE_ADDR, current_args_bytes);
+        // dump_memory("build/mem_dump/vertexOutput_heap_dump.txt", memory_base + HEAP_BASE_ADDR, HEAP_BASE_ADDR, current_heap_bytes);
     }
 
     // Checking Vertex Output
@@ -380,15 +381,17 @@ int main() {
         matrix_inversion((float*)m, (float*) triangle_args->bc_im);
 
         if(INPUT_ARGS_DEBUG && TRIANGLE_PRINT){
-            size_t current_args_bytes = (uintptr_t)args_ptr - (uintptr_t)args_start_ptr;
-            size_t current_heap_bytes = (uintptr_t)heap_ptr - (uintptr_t)heap_start_ptr;
-            char filename_args[50];
-            char filename_heap[50];
-            sprintf(filename_args, "build/mem_dump/triangleInput%d_args_dump.txt", tri);
-            sprintf(filename_heap, "build/mem_dump/triangleInput%d_heap_dump.txt", tri);
-            //print_triangle_args(filename, triangle_args);
-            dump_memory(filename_args, memory_base + ARGS_BASE_ADDR, ARGS_BASE_ADDR, current_args_bytes);
-            dump_memory(filename_heap, memory_base + HEAP_BASE_ADDR, HEAP_BASE_ADDR, current_heap_bytes);
+            // size_t current_args_bytes = (uintptr_t)args_ptr - (uintptr_t)args_start_ptr;
+            // size_t current_heap_bytes = (uintptr_t)heap_ptr - (uintptr_t)heap_start_ptr;
+            // char filename_args[50];
+            // char filename_heap[50];
+            // sprintf(filename_args, "build/mem_dump/triangleInput%d_args_dump.txt", tri);
+            // sprintf(filename_heap, "build/mem_dump/triangleInput%d_heap_dump.txt", tri);
+            char filename[30];
+            sprintf(filename, "build/triangleInput%d.txt", tri);
+            print_triangle_args(filename, triangle_args);
+            // dump_memory(filename_args, memory_base + ARGS_BASE_ADDR, ARGS_BASE_ADDR, current_args_bytes);
+            // dump_memory(filename_heap, memory_base + HEAP_BASE_ADDR, HEAP_BASE_ADDR, current_heap_bytes);
         }
 
         // Running the Kernel
@@ -398,16 +401,17 @@ int main() {
         run_kernel(kernel_triangle, grid_dim, block_dim, (void*)triangle_args);
 
         if(OUTPUT_ARGS_DEBUG && TRIANGLE_PRINT){
-            printf("Tri %d, Threads: %d\n", tri, block_dim);
-            size_t current_args_bytes = (uintptr_t)args_ptr - (uintptr_t)args_start_ptr;
-            size_t current_heap_bytes = (uintptr_t)heap_ptr - (uintptr_t)heap_start_ptr;
-            char filename_args[50];
-            char filename_heap[50];
-            sprintf(filename_args, "build/mem_dump/triangleOutput%d_args_dump.txt", tri);
-            sprintf(filename_heap, "build/mem_dump/triangleOutput%d_heap_dump.txt", tri);
-            //print_triangle_args(filename, triangle_args);
-            dump_memory(filename_args, memory_base + ARGS_BASE_ADDR, ARGS_BASE_ADDR, current_args_bytes);
-            dump_memory(filename_heap, memory_base + HEAP_BASE_ADDR, HEAP_BASE_ADDR, current_heap_bytes);
+            printf("Tri %d, block_dim: %d Threads: %d\n", tri, block_dim, (int)total_threads);
+            // size_t current_args_bytes = (uintptr_t)args_ptr - (uintptr_t)args_start_ptr;
+            // size_t current_heap_bytes = (uintptr_t)heap_ptr - (uintptr_t)heap_start_ptr;
+            // char filename_args[50];
+            // char filename_heap[50];
+            // sprintf(filename_args, "build/mem_dump/triangleOutput%d_args_dump.txt", tri);
+            // sprintf(filename_heap, "build/mem_dump/triangleOutput%d_heap_dump.txt", tri);
+            char filename[30];
+            sprintf(filename, "build/triangleOutput%d.txt", tri);
+            print_triangle_args(filename, triangle_args);            // dump_memory(filename_args, memory_base + ARGS_BASE_ADDR, ARGS_BASE_ADDR, current_args_bytes);
+            // dump_memory(filename_heap, memory_base + HEAP_BASE_ADDR, HEAP_BASE_ADDR, current_heap_bytes);
         }
     }
 
@@ -462,15 +466,15 @@ int main() {
         pixel_args->buff_h = frame_h;
         pixel_args->depth_buff = zbuff;
         pixel_args->tag_buff = tbuff;
-
+        pixel_args->threeDVertTrans = tVerts;
         pixel_args->texture = *texture;
 
     if(INPUT_ARGS_DEBUG && PIXEL_PRINT){
-        //print_pixel_args("build/pixelInput.txt", pixel_args);
-        size_t current_args_bytes = (uintptr_t)args_ptr - (uintptr_t)args_start_ptr;
-        size_t current_heap_bytes = (uintptr_t)heap_ptr - (uintptr_t)heap_start_ptr;
-        dump_memory("build/mem_dump/pixelInput_args_dump.txt", memory_base + ARGS_BASE_ADDR, ARGS_BASE_ADDR, current_args_bytes);
-        dump_memory("build/mem_dump/pixelInput_heap_dump.txt", memory_base + HEAP_BASE_ADDR, HEAP_BASE_ADDR, current_heap_bytes);
+        print_pixel_args("build/pixelInput.txt", pixel_args);
+        // size_t current_args_bytes = (uintptr_t)args_ptr - (uintptr_t)args_start_ptr;
+        // size_t current_heap_bytes = (uintptr_t)heap_ptr - (uintptr_t)heap_start_ptr;
+        // dump_memory("build/mem_dump/pixelInput_args_dump.txt", memory_base + ARGS_BASE_ADDR, ARGS_BASE_ADDR, current_args_bytes);
+        // dump_memory("build/mem_dump/pixelInput_heap_dump.txt", memory_base + HEAP_BASE_ADDR, HEAP_BASE_ADDR, current_heap_bytes);
     }
     // Running the kernel
     {
@@ -478,16 +482,17 @@ int main() {
         int grid_dim = (int)ceil(total_threads / 1024.0);
         int block_dim = total_threads > 1024 ? 1024 : (int)total_threads;
         run_kernel(kernel_pixel, grid_dim, block_dim, (void*)pixel_args);
-    }
 
-    if(OUTPUT_ARGS_DEBUG && PIXEL_PRINT){
-        //print_pixel_args("build/pixelOutput.txt", pixel_args);
-        size_t current_args_bytes = (uintptr_t)args_ptr - (uintptr_t)args_start_ptr;
-        size_t current_heap_bytes = (uintptr_t)heap_ptr - (uintptr_t)heap_start_ptr;
-        dump_memory("build/mem_dump/pixelOutput_args_dump.txt", memory_base + ARGS_BASE_ADDR, ARGS_BASE_ADDR, current_args_bytes);
-        dump_memory("build/mem_dump/pixelOutput_heap_dump.txt", memory_base + HEAP_BASE_ADDR, HEAP_BASE_ADDR, current_heap_bytes);
-    }
 
+        if(OUTPUT_ARGS_DEBUG && PIXEL_PRINT){
+            printf("Thread count: %d\n", (int) total_threads);
+            print_pixel_args("build/pixelOutput.txt", pixel_args);
+            // size_t current_args_bytes = (uintptr_t)args_ptr - (uintptr_t)args_start_ptr;
+            // size_t current_heap_bytes = (uintptr_t)heap_ptr - (uintptr_t)heap_start_ptr;
+            // dump_memory("build/mem_dump/pixelOutput_args_dump.txt", memory_base + ARGS_BASE_ADDR, ARGS_BASE_ADDR, current_args_bytes);
+            // dump_memory("build/mem_dump/pixelOutput_heap_dump.txt", memory_base + HEAP_BASE_ADDR, HEAP_BASE_ADDR, current_heap_bytes);
+        }
+    }
     // --- Create Image from Data ---
 
     // Convert vector colors into rgb values

@@ -98,19 +98,14 @@ void kernel_pixel()
                     t = t / (correction_factor);
 
                     // 1. Abs function for s and t
-                    float s_abs;
-                    float t_abs;
+                    float s_abs = 0.0 - s;
+                    float t_abs = 0.0 - t;
 
                     if(s>0.0){
                         s_abs = s;
-                    } else{
-                        s_abs = 0.0-s;
                     }
                     if(t>0.0){
                         t_abs = t;
-                    }
-                    else{
-                        t_abs = 0.0-t;
                     }
 
                     // 2. Calculate Texel Coordinates
