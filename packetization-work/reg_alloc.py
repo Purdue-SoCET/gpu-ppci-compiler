@@ -36,6 +36,52 @@ def compute_liveness(blocks):
             if old_in != b.live_in or old_out != b.live_out:
                 changed = True
 
+def estimate_loop_depths(blocks):
+    """
+    Estimates loop nesting depth for each block by counting
+    back-edges (predecessor that appears at or after this block in
+    textual order). Each back-edge targeting a block adds one
+    nesting level.
+    """
+    b_idx_map = {b.name: i for i, b in enumerate(blocks)}
+    depths = {}
+    for b in blocks:
+        depth = 0
+        for pred in b.predecessors:
+            pred_idx = b_idx_map.get(pred.name)
+            b_idx = b_idx_map.get(b.name)
+            if pred_idx is not None and b_idx is not None and pred_idx >= b_idx:
+                depth += 1
+        depths[b.name] = depth
+    return depths
+
+def calculate_spill_costs(blocks):
+    """
+    Computes a static frequency cost for each virtual variable.
+
+    Two improvements over a naive counter:
+      1. Loop depth is exponential: weight = 10^depth. A variable
+         in a doubly-nested loop is 100x more expensive to spill
+         than one outside any loop.
+      2. Uses are weighted 2x vs defs, because spilling a use
+         inserts a load (latency penalty) while spilling a def
+         inserts a store (cheaper on most architectures).
+    """
+    costs = {}
+    depths = estimate_loop_depths(blocks)
+
+    for b in blocks:
+        weight = 10 ** depths.get(b.name, 0)
+
+        for inst in b.instructions:
+            for s in inst.srcs:
+                if s != "x0":
+                    costs[s] = costs.get(s, 0) + 2 * weight  # use = load on spill
+            if inst.dest and inst.dest != "x0":
+                costs[inst.dest] = costs.get(inst.dest, 0) + weight  # def = store on spill
+
+    return costs
+
 def build_interference_graph(blocks):
     """
     constructs the register interference graph using backward traversal
@@ -69,7 +115,7 @@ def build_interference_graph(blocks):
 
     return adj_list
 
-def color_graph(adj_list, num_registers):
+def color_graph(adj_list, num_registers, spill_costs=None):
     """
     Chaitin's
     Colors from x1 to x{num_registers-1}. x0 is hardwired.
@@ -79,6 +125,8 @@ def color_graph(adj_list, num_registers):
 
     stack = []
     spilled_nodes = []
+    if spill_costs is None:
+        spill_costs = {}
     # make a destructible copy of the graph
     current_graph = {u: set(v) for u, v in adj_list.items()}
     degrees = {u: len(v) for u, v in current_graph.items()}
@@ -92,9 +140,9 @@ def color_graph(adj_list, num_registers):
                 break
 
         if node_to_remove is None:
-            # spill: if we can't simplify, we heuristically pick a node to spill (max degree for now)
-            spill_node = max(degrees, key=degrees.get)
-            print(f"Warning: Potential spill for {spill_node} as degree {degrees[spill_node]} >= {num_colors}.")
+            # spill: pick node that minimizes Cost / Degree
+            spill_node = min(degrees, key=lambda n: (spill_costs.get(n, 1) / float(degrees[n])))
+            print(f"Warning: Potential spill for {spill_node} (Cost: {spill_costs.get(spill_node, 1)}, Degree: {degrees[spill_node]})")
             # TODO: iterative spilling phase should be implemented here modifying the block AST
             # optimistic coloring: we push it to the stack anyway; it might get a color if its neighbors share colors.
             node_to_remove = spill_node
@@ -300,38 +348,35 @@ def split_live_ranges(blocks):
             inst.srcs = new_srcs
 
 
-spill_offset = 1024
-
-def insert_spill_code(blocks, spilled_nodes):
-    global spill_offset
+def insert_spill_code(blocks, spilled_nodes, spill_state):
     from ddg import Instruction
-    
+
     spill_counter = 0
-    spill_offsets = {}
+    spill_offsets, next_offset = spill_state
     for node in spilled_nodes:
         if node not in spill_offsets:
-            spill_offsets[node] = spill_offset
-            spill_offset += 4
+            spill_offsets[node] = next_offset
+            next_offset += 4
 
     spilled_set = set(spilled_nodes)
-    
+
     for b in blocks:
         new_instructions = []
         for inst in b.instructions:
-            
+
             # 1) If an instruction USES a spilled node
             used_spills = [s for s in inst.srcs if s in spilled_set]
             for s in used_spills:
                 spill_counter += 1
                 temp_reg = f"{s}_use{spill_counter}"
                 offset = spill_offsets[s]
-                
+
                 # Create a load instruction BEFORE the use
                 load_text = f"lw {temp_reg}, {offset}(x0)"
                 load_idx = len(new_instructions)
                 load_inst = Instruction(load_idx, load_text)
                 new_instructions.append(load_inst)
-                
+
                 # Replace the use in the original instruction
                 inst.original_text = re.sub(rf"\b{s}\b", temp_reg, inst.original_text)
                 inst.srcs.remove(s)
@@ -346,7 +391,7 @@ def insert_spill_code(blocks, spilled_nodes):
                 spill_counter += 1
                 temp_reg = f"{inst.dest}_def{spill_counter}"
                 offset = spill_offsets[inst.dest]
-                
+
                 # Replace the define in the original instruction
                 inst.original_text = re.sub(rf"\b{inst.dest}\b", temp_reg, inst.original_text)
                 inst.dest = temp_reg
@@ -356,8 +401,10 @@ def insert_spill_code(blocks, spilled_nodes):
                 store_idx = len(new_instructions)
                 store_inst = Instruction(store_idx, store_text)
                 new_instructions.append(store_inst)
-                
+
         b.instructions = new_instructions
+
+    return (spill_offsets, next_offset)
 
 def allocate_registers_chaitin(blocks, num_registers=32):
     print("\n--- Live Range Splitting Phase ---")
@@ -365,18 +412,20 @@ def allocate_registers_chaitin(blocks, num_registers=32):
 
     max_iter = 10
     iteration = 0
+    spill_state = ({}, 1024)  # (offset_map, next_offset)
     while True:
+        spill_costs = calculate_spill_costs(blocks)
         compute_liveness(blocks)
         adj_list = build_interference_graph(blocks)
 
         print(f"--- Register Allocation Phase (Iter {iteration}) ---")
         print(f"Extracted {len(adj_list)} Virtual Variables")
 
-        allocation, spilled_nodes = color_graph(adj_list, num_registers)
-        
+        allocation, spilled_nodes = color_graph(adj_list, num_registers, spill_costs)
+
         if not spilled_nodes:
             rewrite_instructions(blocks, allocation)
-            
+
             # verification
             valid = True
             for u in adj_list:
@@ -393,7 +442,7 @@ def allocate_registers_chaitin(blocks, num_registers=32):
             break
         else:
             print(f"Spilling nodes: {spilled_nodes}")
-            insert_spill_code(blocks, spilled_nodes)
+            spill_state = insert_spill_code(blocks, spilled_nodes, spill_state)
             iteration += 1
             if iteration > max_iter:
                 raise Exception("Exceeded max iterations for spilling. Graph won't color.")

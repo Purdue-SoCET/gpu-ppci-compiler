@@ -38,7 +38,7 @@ def greedy_packetize(block, max_packet_size=None):
 def packetize_file(asm_file, max_packet_size=None):
     blocks = parse_asm(asm_file)
 
-    allocate_registers_chaitin(blocks, num_registers=32)
+    allocate_registers_chaitin(blocks, num_registers=5)
 
     for b in blocks:
         b.build_ddg()
