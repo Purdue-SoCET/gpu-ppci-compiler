@@ -1,0 +1,319 @@
+import argparse
+import json
+import sys
+from .. import api
+from ..lang.c import CAstPrinter, create_ast
+from ..lang.c.options import COptions, coptions_parser
+from .base import LogSetup, base_parser
+from .compile_base import compile_parser, do_compile
+from ..arch import get_arch
+from ..binutils.linker import link
+from ..binutils.layout import (
+    Layout,
+    Memory,
+    Section,
+    SymbolDefinition,
+    EntrySymbol,
+)
+
+parser = argparse.ArgumentParser(
+    description="Twig C compiler (alias of 'ppci-cc -m twig')",
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+    parents=[base_parser, compile_parser, coptions_parser],
+)
+parser.add_argument(
+    "-E", action="store_true", default=False, help="Stop after preprocessing"
+)
+parser.add_argument(
+    "-M",
+    action="store_true",
+    default=False,
+    help="Emit makefile dependency rule",
+)
+parser.add_argument(
+    "--ast", action="store_true", default=False, help="Dump C AST and stop"
+)
+parser.add_argument(
+    "-c", action="store_true", default=False, help="Compile only, do not link"
+)
+parser.add_argument(
+    "--layout",
+    "-ld",
+    help="Custom layout file (overrides default MMIO layout)",
+    metavar="LAYOUT",
+)
+parser.add_argument(
+    "--entry", default="main", help="Entry symbol for linking (default: main)"
+)
+parser.add_argument(
+    "--no-packetize",
+    action="store_true",
+    default=False,
+    help="Disable instruction packetization",
+)
+parser.add_argument(
+    "--bin-output",
+    default=None,
+    help="Output file for 32-bit binary strings (e.g. 0101...)",
+)
+parser.add_argument(
+    "--hex-output",
+    default=None,
+    help="Output file for 32-bit hex strings (e.g. 1A2B3C4D)",
+)
+parser.add_argument(
+    "--packet-histogram",
+    default=None,
+    metavar="FILE",
+    help="Write packet size histogram as an SVG image to FILE",
+)
+parser.add_argument(
+    "--stack-info-output",
+    default=None,
+    metavar="FILE",
+    help="Write stack info (base_stack,per_thread_stack_size) as JSON to FILE",
+)
+parser.add_argument(
+    "sources", metavar="source", nargs="+", type=argparse.FileType("r")
+)
+
+
+def twig(args=None):
+    args = parser.parse_args(args)
+    with LogSetup(args) as log_setup:
+        march = get_arch("twig")
+        march.no_packetize = args.no_packetize
+        march.reset_packet_histogram()
+        coptions = COptions()
+        coptions.process_args(args)
+
+        if args.E:
+            with open(args.output, "w") as out:
+                for src in args.sources:
+                    api.preprocess(src, out, coptions)
+        elif args.M:
+            # Dependency generation placeholder
+            pass
+        elif args.ast:
+            with open(args.output, "w") as out:
+                printer = CAstPrinter(file=out)
+                for src in args.sources:
+                    filename = getattr(src, "name", None)
+                    ast = create_ast(
+                        src, march.info, filename=filename, coptions=coptions
+                    )
+                    printer.print(ast)
+        else:
+            # 1. Compile sources to IR
+            ir_modules = []
+            for src in args.sources:
+                ir_module = api.c_to_ir(
+                    src, march, coptions=coptions, reporter=log_setup.reporter
+                )
+
+                # Optimize (Optional)
+                api.optimize(
+                    ir_module, level=args.O, reporter=log_setup.reporter
+                )
+
+                ir_modules.append(ir_module)
+
+            # --ir, -c, -S
+            if args.ir or args.c or args.S:
+                do_compile(
+                    ir_modules, march, log_setup.reporter, log_setup.args
+                )
+                if args.packet_histogram and not args.ir:
+                    march.write_packet_histogram(args.packet_histogram)
+            else:
+                # 2. Compile IR to Object (in-memory)
+                march.entry_symbol = args.entry
+                obj = api.ir_to_object(
+                    ir_modules,
+                    march,
+                    reporter=log_setup.reporter,
+                    debug=args.g,
+                )
+
+                # 3. Prepare Layout
+                if args.layout:
+                    with open(args.layout, "r") as f:
+                        layout_obj = Layout.load(f)
+                else:
+                    layout_obj = gen_twig_layout()
+
+                # Can use default layout string
+                # layout_obj = Layout.load(io.StringIO(DEFAULT_LAYOUT))
+
+                # 4. Link
+                try:
+                    linked_obj = link(
+                        objects=[obj],
+                        layout=layout_obj,
+                        entry=args.entry,
+                        debug=args.g,
+                        reporter=log_setup.reporter,
+                    )
+                except Exception as e:
+                    print(f"Linking error: {e}")
+                    sys.exit(1)
+
+                # 5. Output linked object
+                output_filename = (
+                    args.output if args.output else args.name + ".out"
+                )
+                with open(output_filename, "w") as f:
+                    linked_obj.save(f)
+
+                # 6. Generate custom outputs
+                if args.bin_output:
+                    write_meminit_bin(linked_obj, args.bin_output)
+                if args.hex_output:
+                    write_meminit_hex(linked_obj, args.hex_output)
+                if args.packet_histogram:
+                    march.write_packet_histogram(args.packet_histogram)
+
+                # 7. Write stack info sidecar for emulator
+                if args.stack_info_output:
+                    from ..arch.twig.arch import BASE_STACK
+
+                    per_thread_stack_size = getattr(
+                        march, "_entry_totalstack", 0
+                    )
+                    with open(args.stack_info_output, "w") as sf:
+                        json.dump(
+                            {
+                                "base_stack": BASE_STACK,
+                                "per_thread_stack_size": per_thread_stack_size,
+                            },
+                            sf,
+                        )
+
+
+# Default memory layout based on MMIO.md
+##############################################
+# MMIO  (36B): 0x0000_0000 - 0x0000_0020
+# Code  (1MB): 0x0000_0024 - 0x000F_FFFC
+# Args (15MB): 0x0010_0000 - 0x00FF_FFFC
+# Heap (3.75GB): 0x1000_0000 - 0xF0FF_FFFC
+# Stack (250MB): 0xF100_0000 - 0xFFFF_FFFC
+##############################################
+DEFAULT_LAYOUT = """
+MEMORY mmio LOCATION=0x00000000 SIZE=0x00000024 {
+    DEFINESYMBOL(mmio_base)
+}
+
+MEMORY code_mem LOCATION=0x00000024 SIZE=0xFFFDC {
+    SECTION(code)
+}
+
+MEMORY args_mem LOCATION=0x00100000 SIZE=0x00F00000 {
+    SECTION(data)
+    SECTION(rodata)
+    SECTION(bss)
+}
+
+MEMORY heap_mem LOCATION=0x10000000 SIZE=0xE1000000 {
+    DEFINESYMBOL(heap_base)
+}
+
+MEMORY stack_mem LOCATION=0xF1000000 SIZE=0x0F000000 {
+    DEFINESYMBOL(stack_base)
+}
+"""
+
+
+def gen_twig_layout():
+    layout = Layout()
+
+    # 1. MMIO region: mapping the hardware registers
+    mmio = Memory("mmio")
+    mmio.location = 0x00000000
+    mmio.size = 0x00000024
+    # mmio_base symbol will point to 0x00000000
+    mmio.add_input(SymbolDefinition("mmio_base"))
+    layout.add_memory(mmio)
+
+    # 2. Code region: starting at 0x24 to bypass the MMIO range
+    code_mem = Memory("code_mem")
+    code_mem.location = 0x00000024
+    code_mem.size = 0x000FFFDC
+    code_mem.add_input(Section("code"))
+    layout.add_memory(code_mem)
+
+    # 3. Data/Args region: for global variables, constants, and bss
+    args_mem = Memory("args_mem")
+    args_mem.location = 0x00100000
+    args_mem.size = 0x00F00000
+    args_mem.add_input(Section("data"))
+    args_mem.add_input(Section("rodata"))
+    args_mem.add_input(Section("bss"))
+    layout.add_memory(args_mem)
+
+    # 4. Heap region: dynamic memory allocation area
+    heap_mem = Memory("heap_mem")
+    heap_mem.location = 0x10000000
+    heap_mem.size = 0xE1000000
+    heap_mem.add_input(SymbolDefinition("heap_base"))
+    layout.add_memory(heap_mem)
+
+    # 5. Stack region: for function calls and local variables
+    stack_mem = Memory("stack_mem")
+    stack_mem.location = 0xF1000000
+    stack_mem.size = 0x0F000000
+    # Note: stack_base points to the start of the memory;
+    # actual SP usually starts at the top (0xFFFFFFFC)
+    stack_mem.add_input(SymbolDefinition("stack_base"))
+    layout.add_memory(stack_mem)
+
+    # 6. Define Entry Point: where execution begins
+    layout.entry = EntrySymbol("main")
+
+    return layout
+
+
+def _get_aligned_image_data(obj):
+    """Retrieve the code section and pad to 4-byte alignment."""
+    image = obj.get_image("code_mem")
+    if not image and obj.images:
+        image = obj.images[0]
+
+    if not image:
+        print("Warning: No image found to write output.")
+        return None
+
+    data = bytearray(image.data)
+    pad = len(data) % 4
+    if pad != 0:
+        data += b"\x00" * (4 - pad)
+    return data
+
+
+def write_meminit_bin(obj, filename):
+    """Output 32-character ASCII binary strings (e.g. 0101...)."""
+    data = _get_aligned_image_data(obj)
+    if data is None:
+        return
+
+    with open(filename, "w") as f:
+        for i in range(0, len(data), 4):
+            # Read 4 bytes as a Little-Endian integer
+            val = int.from_bytes(data[i : i + 4], byteorder="little")
+            f.write(f"{val:032b}\n")
+
+
+def write_meminit_hex(obj, filename):
+    """Output 8-char uppercase hex per line; no 0x prefix (e.g. 1A2B3C4D)."""
+    data = _get_aligned_image_data(obj)
+    if data is None:
+        return
+
+    with open(filename, "w") as f:
+        for i in range(0, len(data), 4):
+            # Read 4 bytes as a Little-Endian integer
+            val = int.from_bytes(data[i : i + 4], byteorder="little")
+            f.write(f"{val:08X}\n")
+
+
+if __name__ == "__main__":
+    sys.exit(twig())
