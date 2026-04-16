@@ -30,15 +30,10 @@ void print_saxby_args(char* fname, saxpy_arg_t* args) {
 
     for (int i = 0; i < args->n; i++) {
         uint32_t x_bits, y_bits;
-<<<<<<< HEAD
-        print_line(f, (uintptr_t)&args->x[i], args->x[i]);
-        print_line(f, (uintptr_t)&args->y[i], args->y[i]);
-=======
         memcpy(&x_bits, &args->x[i], sizeof x_bits);
         memcpy(&y_bits, &args->y[i], sizeof y_bits);
         print_line(f, (uintptr_t)&args->x[i], x_bits);
         print_line(f, (uintptr_t)&args->y[i], y_bits);
->>>>>>> new_dynamic_raghuv
     }
 
     fclose(f);

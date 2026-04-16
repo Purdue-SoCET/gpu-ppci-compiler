@@ -1,0 +1,19 @@
+saxpy
+    O=0 runtime = 0.055171 sec
+    O=1 runtime = 0.088401 sec
+    O=2 runtime = 0.058571 sec
+
+triangle
+    O=0 runtime = 3.532669 sec
+    O=1 runtime = 2.072742 sec
+    O=2 runtime = 1.745200 sec
+
+pixel
+    O=0 runtime = 8.691517 sec
+    O=1 runtime = 2.868989 sec
+    O=2 runtime = 3.007091 sec
+
+vertexShader
+    O=0 runtime = 1.136423 sec
+    O=1 runtime = 0.549210 sec
+    O=2 runtime = 0.488575 sec

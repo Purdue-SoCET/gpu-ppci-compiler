@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 #ifndef GRAPHICS_LIB_H
 #define GRAPHICS_LIB_H
 
@@ -33,40 +32,4 @@ typedef struct {
 
 // --- Functions ---
 
-=======
-#ifndef GRAPHICS_LIB_H
-#define GRAPHICS_LIB_H
-
-// --- New Types ---
-typedef struct {
-    float x, y, z;
-} vector_t;
-
-typedef struct {
-    vector_t coords; // 3D mapping
-    float s, t; // Mapping into textures
-} vertex_t;
-
-typedef struct {
-    unsigned int v1, v2, v3;
-} triangle_t;
-
-typedef struct {
-    int w, h;
-    vector_t* color_arr;
-} texture_t;
-
-typedef struct {
-    int vertsN;
-    int trisN;
-    vertex_t* vertices;
-    triangle_t* triangles;
-} model_t;
-
-// --- Macros ---
-#define GET_1D_INDEX(idx_w, idx_h, arr_w) (idx_h*arr_w + idx_w)
-
-// --- Functions ---
-
->>>>>>> new_dynamic_raghuv
 #endif

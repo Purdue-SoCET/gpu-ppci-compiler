@@ -27,11 +27,7 @@ uint8_t* memory_ptr;
 
 #define VERTEX_SHADER_PRINT_DEBUG 1
 #define TRIANGLE_PRINT_DEBUG 0
-<<<<<<< HEAD
-#define PIXEL_PRINT_DEBUG 0
-=======
 #define PIXEL_PRINT_DEBUG 1
->>>>>>> new_dynamic_raghuv
 
 #define INPUT_ARGS_DEBUG 1
 #define OUTPUT_ARGS_DEBUG 1
