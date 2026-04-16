@@ -80,6 +80,25 @@ print('0x20000000')
 # so that diff -w -i never trips over whitespace/case duplicates.
 # Format: 0xADDR 0xDATA per line
 # ==========================================
+# Default: diff -u. Set RELAX_FP_HEX=1 for float-tolerant data compare (CPU vs emu); see tests/hex_mem_compare.py.
+compare_hex_outputs() {
+    local gen="$1"
+    local exp="$2"
+    local error_log="$3"
+    if [ -n "${RELAX_FP_HEX:-}" ]; then
+        if "$PYTHON" tests/hex_mem_compare.py "$gen" "$exp" 2> "$error_log"; then
+            rm -f "$error_log"
+            return 0
+        fi
+        return 1
+    fi
+    if diff -u -w -i "$gen" "$exp" > "$error_log" 2>&1; then
+        rm -f "$error_log"
+        return 0
+    fi
+    return 1
+}
+
 sort_hex_by_addr() {
     local file="$1"
     [ ! -f "$file" ] && return 0
@@ -127,7 +146,7 @@ run_emulator() {
     [ -n "$LOG_THREAD" ] && extra_args+=(--log-thread "$LOG_THREAD")
     [ -n "$STACK_BASE" ]  && extra_args+=(--stack-base "$STACK_BASE")
     [ -n "$STACK_SIZE" ]  && extra_args+=(--stack-size "$STACK_SIZE")
-    "$PYTHON" "$EMULATOR" -t "$threads" -b "$blocks" --start-pc 0 --mem-format hex --arg-pointer "$ARGPTR" "${extra_args[@]}" "$input_path"
+    "$PYTHON" "$EMULATOR" --verbose -t "$threads" -b "$blocks" --start-pc 0 --mem-format hex --arg-pointer "$ARGPTR" "${extra_args[@]}" "$input_path"
 }
 
 # Run emulator and capture output to TEMP_CMD_LOG (trace file). Never prints to terminal.
@@ -144,7 +163,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR" || exit 1
 
 # ==========================================
-# Parse arguments: -t/--threads (1-1024), -a/--argptr, -l/--log-thread, --allow-approx
+# Parse arguments: -t/--threads (1-1024), -a/--argptr, -l/--log-thread
 # ==========================================
 THREADS_OVERRIDE=""
 ARGPTR=""  # default: first data-region addr in input file
@@ -186,7 +205,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [ -z "${HEX_FILE:-}" ]; then
-    echo -e "${RED}Error:${NC} Usage: $0 [options] <path/to/file.hex>"
+    echo -e "${RED}Error:${NC} Usage: $0 [-t N] [-a ADDR] <path/to/file.hex>"
     exit 1
 fi
 
@@ -303,7 +322,7 @@ if [ -n "$THREADS_OVERRIDE" ]; then
         cat "$INSTR_PART" "$exp_file" > "$FINAL_EXPECTED"
         sort_hex_by_addr "$EMU_OUTPUT"
         sort_hex_by_addr "$FINAL_EXPECTED"
-        compare_hex_against_expected "$error_log"
+        compare_hex_outputs "$EMU_OUTPUT" "$FINAL_EXPECTED" "$error_log"
         if [ $? -eq 0 ]; then
             echo -e "${GREEN}[PASS]${NC}     $base_name (t=$THREADS, b=$BLOCKS)"
             rm -f "$error_log"
@@ -362,7 +381,7 @@ else
         sort_hex_by_addr "$EMU_OUTPUT"
         sort_hex_by_addr "$FINAL_EXPECTED"
 
-        compare_hex_against_expected "$error_log"
+        compare_hex_outputs "$EMU_OUTPUT" "$FINAL_EXPECTED" "$error_log"
 
         if [ $? -eq 0 ]; then
             echo -e "${GREEN}[PASS]${NC}     $base_name (t=$THREADS, b=$BLOCKS)"

@@ -51,7 +51,7 @@ API example to compile C code:
     >>> from ppci.api import cc, link
     >>> source_file = io.StringIO("""
     ...  int printf(char* fmt) { }
-    ...  
+    ...
     ...  void main() {
     ...     printf("Hello world!\n");
     ...  }

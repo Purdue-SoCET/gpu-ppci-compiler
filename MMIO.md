@@ -1,4 +1,4 @@
-# MMIO, Global Memory Space, and Launch Protocol 
+# MMIO, Global Memory Space, and Launch Protocol
 
  - Will be:
 
@@ -39,7 +39,7 @@
 
 3. Host polls the status register until the GPU is IDLE, then writes to the control register to start the GPU.
 
-4. GPU reads the control register, then turns the idle bit off. 
+4. GPU reads the control register, then turns the idle bit off.
 
 5. GPU latches MMIO values to hardware registers.
 
