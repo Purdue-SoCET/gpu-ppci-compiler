@@ -29,12 +29,15 @@ extern float isqrt(float);
 extern int blockIdx();
 extern int blockDim();
 extern int threadIdx();
+
 extern void* argPtr();
 
 #define mod(a, b) ((a) - (b)*((a)/(b)))
+
 #define threadIdx (threadIdx())
 #define blockDim (blockDim())
 #define blockIdx (blockIdx())
+
 
 #endif
 

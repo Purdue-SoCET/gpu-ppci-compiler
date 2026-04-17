@@ -3,11 +3,6 @@
 #include "graphics_lib.h"
 
 typedef struct {
-    float s;   /* perspective-corrected s before texel lookup */
-    float t;   /* perspective-corrected t before texel lookup */
-} debug_t;
-
-typedef struct {
     // Transformed Verticies
     vertex_t* verts;
     int num_verts;
@@ -20,15 +15,27 @@ typedef struct {
     int buff_w, buff_h;
     float* depth_buff;
     int* tag_buff;
-    vector_t* color;
+    vec4_t* color;
 
     // Texture Data
     texture_t texture;
-    // debug_t* debug_ptr;
+
+    // Lighting Data
+    vertex_t* threeDVertTrans;
+    vector_t camera;
+    //because we dont store normals just pass in
+    vector_t sphere_center;
+    vector_t light_pos;
+    //overridden by texture
+    vec4_t albedo;
+    vector_t ambient;
+    //diffuse / specular
+    float kd, ks;
+
 } pixel_arg_t;
 
 #ifdef CPU_SIM
-void kernel_pixel(void*);
+void kernel_pixel(void* arg);
 #else
 void kernel_pixel();
 #endif

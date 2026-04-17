@@ -9,128 +9,166 @@ void kernel_pixel()
 #endif
 {
     int u, v;
+
     #ifdef CPU_SIM
     pixel_arg_t* args = (pixel_arg_t*) arg;
     #else
     pixel_arg_t* args = (pixel_arg_t*) argPtr();
     #endif
 
-    u = (((threadIdx)) - (args->buff_w)*(((threadIdx))/(args->buff_w)));
-    // u = mod(threadIdx, args->buff_w);
-    v = (((threadIdx) / args->buff_w) - (args->buff_h)*(((threadIdx) / args->buff_w)/(args->buff_h)));
-    // v = mod(threadIdx / args->buff_w, args->buff_h);
+    int global_id = (blockIdx * blockDim) + threadIdx;
 
-    int tag = args->tag_buff[threadIdx];
+    // 1. Check if global_id is within valid buffer limits
+    if(global_id < ((args->buff_w * args->buff_h)-1)) {
 
-    if(tag < 0){}
-    else {
+        u = (((global_id)) - (args->buff_w)*(((global_id))/(args->buff_w)));
+        // u = mod(threadIdx, args->buff_w);
+        v = (((global_id) / args->buff_w) - (args->buff_h)*(((global_id) / args->buff_w)/(args->buff_h)));
+        // v = mod(threadIdx / args->buff_w, args->buff_h);
 
-    triangle_t tri = args->tris[tag];
+        int pixel_idx = global_id;
+        int tag = args->tag_buff[global_id];
 
-    // Make the pixel a point in screen-space
-    vector_t point;
-    float value_half = 0.5;
-    point.x = itof(u) + value_half;
-    point.y = itof(v) + value_half;
-    point.z = 1.0;
+        // 2. Check if the tag is valid (>= 0)
+        if(tag >= 0) {
 
-    // Get the coords for the known triangle verticies
-    vertex_t pVs[3];
-    pVs[0] = args->verts[tri.v1];
-    pVs[1] = args->verts[tri.v2];
-    pVs[2] = args->verts[tri.v3];
+            triangle_t tri = args->tris[tag];
 
-    vector_t coords[3];
-    coords[0] = pVs[0].coords;
-    coords[1] = pVs[1].coords;
-    coords[2] = pVs[2].coords;
+            // Make the pixel a point in screen-space
+            vector_t point;
+            float value_half = 0.5;
+            point.x = itof(u) + value_half;
+            point.y = itof(v) + value_half;
+            point.z = 1.0;
 
-    // Get Barycentric coordinates
-    // vector_t l;
-    // barycentric_coordinates(&point, coords, &l);
+            // Get the coords for the known triangle verticies
+            vertex_t pVs[3];
+            pVs[0] = args->verts[tri.v1];
+            pVs[1] = args->verts[tri.v2];
+            pVs[2] = args->verts[tri.v3];
 
-    // INSERT THIS (Manually Inlined):
-    float m00 = 1.0; float m01 = 1.0; float m02 = 1.0;
-    float m10 = coords[0].x; float m11 = coords[1].x; float m12 = coords[2].x;
-    float m20 = coords[0].y; float m21 = coords[1].y; float m22 = coords[2].y;
+            vector_t coords[3];
+            coords[0] = pVs[0].coords;
+            coords[1] = pVs[1].coords;
+            coords[2] = pVs[2].coords;
 
-    // Calculate Determinant
-    float det = m00 * (m11 * m22 - m21 * m12) -
-                m01 * (m10 * m22 - m12 * m20) +
-                m02 * (m10 * m21 - m11 * m20);
-    if (det > -0.00001 && det < 0.00001) { // added to render teapot
-        // return;
-    } else {
+            // INSERT THIS (Manually Inlined):
+            float m00 = 1.0; float m01 = 1.0; float m02 = 1.0;
+            float m10 = coords[0].x; float m11 = coords[1].x; float m12 = coords[2].x;
+            float m20 = coords[0].y; float m21 = coords[1].y; float m22 = coords[2].y;
 
-    float invDet = 1.0 / det;
+            // Calculate Determinant
+            float det = m00 * (m11 * m22 - m21 * m12) -
+                        m01 * (m10 * m22 - m12 * m20) +
+                        m02 * (m10 * m21 - m11 * m20);
 
-    // Calculate Inverse Row 0 (only needed for Barycentric x/y/z)
-    float bc00 = (m11 * m22 - m21 * m12) * invDet;
-    float bc01 = (m02 * m21 - m01 * m22) * invDet;
-    float bc02 = (m01 * m12 - m02 * m11) * invDet;
-    float bc10 = (m12 * m20 - m10 * m22) * invDet;
-    float bc11 = (m00 * m22 - m02 * m20) * invDet;
-    float bc12 = (m02 * m10 - m00 * m12) * invDet;
-    float bc20 = (m10 * m21 - m20 * m11) * invDet;
-    float bc21 = (m20 * m01 - m00 * m21) * invDet;
-    float bc22 = (m00 * m11 - m10 * m01) * invDet;
+            // 3. Check if determinant is valid (outside of near-zero bounds)
+            if (det <= -0.00001 || det >= 0.00001) {
 
-    // Calculate 'l' (Barycentric Coords)
-    vector_t l;
-    l.x = bc00 + bc01 * point.x + bc02 * point.y;
-    l.y = bc10 + bc11 * point.x + bc12 * point.y;
-    l.z = bc20 + bc21 * point.x + bc22 * point.y;
+                float invDet = 1.0 / det;
 
-    // Get new texture interpolation
-    float correction_factor = l.x * (pVs[0].coords.z) + l.y * (pVs[1].coords.z) + l.z * (pVs[2].coords.z);
+                // Calculate Inverse Row 0 (only needed for Barycentric x/y/z)
+                float bc00 = (m11 * m22 - m21 * m12) * invDet;
+                float bc01 = (m02 * m21 - m01 * m22) * invDet;
+                float bc02 = (m01 * m12 - m02 * m11) * invDet;
+                float bc10 = (m12 * m20 - m10 * m22) * invDet;
+                float bc11 = (m00 * m22 - m02 * m20) * invDet;
+                float bc12 = (m02 * m10 - m00 * m12) * invDet;
+                float bc20 = (m10 * m21 - m20 * m11) * invDet;
+                float bc21 = (m20 * m01 - m00 * m21) * invDet;
+                float bc22 = (m00 * m11 - m10 * m01) * invDet;
 
-    float s = l.x * (pVs[0].s * pVs[0].coords.z) + l.y * (pVs[1].s * pVs[1].coords.z) + l.z * (pVs[2].s * pVs[2].coords.z);
-    s = s / (correction_factor);
+                // Calculate 'l' (Barycentric Coords)
+                vector_t l;
+                l.x = bc00 + bc01 * point.x + bc02 * point.y;
+                l.y = bc10 + bc11 * point.x + bc12 * point.y;
+                l.z = bc20 + bc21 * point.x + bc22 * point.y;
 
-    float t = l.x * (pVs[0].t * pVs[0].coords.z) + l.y * (pVs[1].t * pVs[1].coords.z) + l.z * (pVs[2].t * pVs[2].coords.z);
-    t = t / (correction_factor);
+                // base color for material
+                vec4_t albedo = args->albedo;
 
+                // map texture if provided
+                if(args->texture.color_arr != 0) {
+                    float correction_factor = l.x * (pVs[0].coords.z) + l.y * (pVs[1].coords.z) + l.z * (pVs[2].coords.z);
 
-    // args->color[threadIdx] = get_texture(args->texture, s, t);
-    // REPLACE WITH INLINED LOGIC:
+                    float s = l.x * (pVs[0].s * pVs[0].coords.z) + l.y * (pVs[1].s * pVs[1].coords.z) + l.z * (pVs[2].s * pVs[2].coords.z);
+                    s = s / (correction_factor);
 
-    // 1. Abs function for s and t
-    float s_abs = 0.0-s;
-    float t_abs = 0.0-t;
+                    float t = l.x * (pVs[0].t * pVs[0].coords.z) + l.y * (pVs[1].t * pVs[1].coords.z) + l.z * (pVs[2].t * pVs[2].coords.z);
+                    t = t / (correction_factor);
 
-    if(s>0.0){
-        s_abs = s;
+                    // 1. Abs function for s and t
+                    float s_abs = 0.0 - s;
+                    float t_abs = 0.0 - t;
+
+                    if(s>0.0){
+                        s_abs = s;
+                    }
+                    if(t>0.0){
+                        t_abs = t;
+                    }
+
+                    // 2. Calculate Texel Coordinates
+                    float w_minus_1 = itof(args->texture.w - 1);
+                    float h_minus_1 = itof(args->texture.h - 1);
+
+                    float s_fract = s_abs - itof(ftoi(s_abs));
+                    float t_fract = t_abs - itof(ftoi(t_abs));
+
+                    int texel_x = ftoi(s_fract * w_minus_1 + 0.5);
+                    int texel_y = ftoi(t_fract * h_minus_1 + 0.5);
+
+                    int idx = texel_y * args->texture.w + texel_x;
+                    albedo = args->texture.color_arr[idx];
+                }
+
+                // 4. Branch based on 3D translation availability (replaces the final return)
+                if(args->threeDVertTrans == 0) {
+                    args->color[pixel_idx] = albedo;
+                } else {
+                    // phong lighting
+
+                    // interpolate between triangel for specific pixel location
+                    vector_t w0 = args->threeDVertTrans[tri.v1].coords;
+                    vector_t w1 = args->threeDVertTrans[tri.v2].coords;
+                    vector_t w2 = args->threeDVertTrans[tri.v3].coords;
+                    float wx = l.x*w0.x + l.y*w1.x + l.z*w2.x;
+                    float wy = l.x*w0.y + l.y*w1.y + l.z*w2.y;
+                    float wz = l.x*w0.z + l.y*w1.z + l.z*w2.z;
+
+                    // normal vector
+                    float nx = wx - args->sphere_center.x, ny = wy - args->sphere_center.y, nz = wz - args->sphere_center.z;
+                    float ni = isqrt(nx*nx + ny*ny + nz*nz);
+                    nx = nx*ni; ny = ny*ni; nz = nz*ni;
+
+                    // light vector
+                    float lx = args->light_pos.x - wx, ly = args->light_pos.y - wy, lz = args->light_pos.z - wz;
+                    float li = isqrt(lx*lx + ly*ly + lz*lz);
+                    lx = lx*li; ly = ly*li; lz = lz*li;
+
+                    // view vector
+                    float vx = args->camera.x - wx, vy = args->camera.y - wy, vz = args->camera.z - wz;
+                    float vi = isqrt(vx*vx + vy*vy + vz*vz);
+                    vx = vx*vi; vy = vy*vi; vz = vz*vi;
+
+                    // diffuse
+                    float diff = nx*lx + ny*ly + nz*lz;
+                    if(diff < 0.0) diff = 0.0;
+
+                    // specular approximation
+                    float hx = lx+vx, hy = ly+vy, hz = lz+vz;
+                    float hi = isqrt(hx*hx + hy*hy + hz*hz);
+                    float ndoth = nx*hx*hi + ny*hy*hi + nz*hz*hi;
+                    if(ndoth < 0.0) ndoth = 0.0;
+                    // no hardware exp
+                    float spec = ndoth*ndoth; spec = spec*spec; spec = spec*spec; spec = spec*spec; spec = spec*spec;
+
+                    // combine color
+                    args->color[pixel_idx].x = args->ambient.x + args->kd * diff * albedo.x + args->ks * spec;
+                    args->color[pixel_idx].y = args->ambient.y + args->kd * diff * albedo.y + args->ks * spec;
+                    args->color[pixel_idx].z = args->ambient.z + args->kd * diff * albedo.z + args->ks * spec;
+                }
+            }
+        }
     }
-    // else{
-    //     s_abs = 0.0-s;
-    // }
-    if(t>0.0){
-        t_abs = t;
-    }
-    // else{
-    //     t_abs = 0.0-t;
-    // }
-    // args->debug_ptr[threadIdx].s = s_abs;
-    // args->debug_ptr[threadIdx].t = t_abs;
-    // 2. Calculate Texel Coordinates
-    // Note: Breaking down math to avoid tree coverage errors
-    float w_minus_1 = itof(args->texture.w - 1);
-    float h_minus_1 = itof(args->texture.h - 1);
-
-    // (s - (int)s)
-    float s_fract = s_abs - itof(ftoi(s_abs));
-    float t_fract = t_abs - itof(ftoi(t_abs));
-
-    int texel_x = ftoi(s_fract * w_minus_1 + 0.5);
-    int texel_y = ftoi(t_fract * h_minus_1 + 0.5);
-
-    // 3. Texture Lookup
-    int idx = texel_y * args->texture.w + texel_x;
-    #ifdef CPU_SIM
-    args->color[threadIdx] = args->texture.color_arr[idx];
-    #else
-    args->color[threadIdx] = args->texture.color_arr[idx];
-    #endif
-}
-}
 }

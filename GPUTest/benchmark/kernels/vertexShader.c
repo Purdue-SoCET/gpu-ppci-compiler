@@ -3,120 +3,145 @@
 #include "include/graphics_lib.h"
 
 
-#ifdef CPU_SIM
-void kernel_vertexShader(void* arg)
+#ifdef GPU_SIM
+void main(void* arg)
 #else
-void kernel_vertexShader()
+void kernel_vertexShader(void* arg)
 #endif
 {
-    #ifdef CPU_SIM
-    vertexShader_arg_t* args = (vertexShader_arg_t*) arg;
-
-    #else
+    #ifdef GPU_SIM
     vertexShader_arg_t* args = (vertexShader_arg_t*) argPtr();
+    int i = blockIdx() * blockDim() + threadIdx();
+    #else
+    vertexShader_arg_t* args = (vertexShader_arg_t*) arg;
+    int i = blockIdx * blockDim + threadIdx;
     #endif
 
-    int i = blockIdx * blockDim + threadIdx;
-    int c = 0;
-    // if(i <= args->num_verts)
-    {
+    if(i < args->num_verts){
 
-    float lcs[9];
-    float selAxis[3] = {0.0, 0.0, 0.0};
+        /****** ThreeD Rotation ******/
+        // assuming radian
+        // V3::RotateThisPointAboutArbitraryAxis and TM::RotateAboutArbitraryAxis
 
-    if((args->a_dist->x*args->a_dist->x) < (args->a_dist->y*args->a_dist->y))
-    {
-        selAxis[0] = 1.0;
-    }
-    else
-    {
+        float lcs[9];
+        float selAxis[3] = {0.0, 0.0, 0.0};
+
+        // Find the dimension with the smallest absolute value in the rotation axis
+        float absX;
+        if(args->a_dist->x < 0){
+            absX = -args->a_dist->x;
+        }
+        else {
+            absX = args->a_dist->x;
+        }
+
+        float absY;
+        if(args->a_dist->y < 0){
+            absY = -args->a_dist->y;
+        }
+        else {
+            absY = args->a_dist->y;
+        }
+
+        float absZ;
+        if(args->a_dist->z < 0){
+            absZ = -args->a_dist->z;
+        }
+        else {
+            absZ = args->a_dist->z;
+        }
+
+        if (absX < absY && absX < absZ) {
+            selAxis[0] = 1.0; // Use X-axis if rotation axis is mostly YZ
+        } else if (absY < absZ) {
+            selAxis[1] = 1.0; // Use Y-axis if rotation axis is mostly XZ
+        } else {
+            selAxis[2] = 1.0; // Use Z-axis if rotation axis is mostly XY
+        }
+
         selAxis[1] = 1.0;
-    }
 
-    selAxis[1] = 1.0;
+        /* Build Local Coordinates System*/
 
-    // Build Local Coordinates System
+        //cross(selAxis, args->a_dist)
+        lcs[0] = selAxis[1] * args->a_dist->z - selAxis[2] * args->a_dist->y;
+        lcs[1] = selAxis[2] * args->a_dist->x - selAxis[0] * args->a_dist->z;
+        lcs[2] = selAxis[0] * args->a_dist->y - selAxis[1] * args->a_dist->x;
 
-    //cross(selAxis, args->a_dist)
-    lcs[0] = selAxis[1] * args->a_dist->z - selAxis[2] * args->a_dist->y;
-    lcs[1] = selAxis[2] * args->a_dist->x - selAxis[0] * args->a_dist->z;
-    lcs[2] = selAxis[0] * args->a_dist->y - selAxis[1] * args->a_dist->x;
-
-    //normalize(lcs[0 to 2])
-    float inv_lcs_dist = isqrt(lcs[0]*lcs[0] + lcs[1]*lcs[1] + lcs[2]*lcs[2]);
-    for(int j = 0; j < 3; j++)
-    {
-        lcs[j] = lcs[j] * inv_lcs_dist;
-    }
-
-    lcs[3] = args->a_dist->x;
-    lcs[4] = args->a_dist->y;
-    lcs[5] = args->a_dist->z;
-
-    lcs[6] = lcs[1] * lcs[5] - lcs[2] * lcs[4];
-    lcs[7] = lcs[2] * lcs[3] - lcs[0] * lcs[5];
-    lcs[8] = lcs[0] * lcs[4] - lcs[1] * lcs[3];
-
-    //normalize(lcs[3 to 5])
-    inv_lcs_dist = isqrt(lcs[3]*lcs[3] + lcs[4]*lcs[4] + lcs[5]*lcs[5]);
-    for(int j = 3; j < 6; j++)
-    {
-        lcs[j] = lcs[j] * inv_lcs_dist;
-    }
-
-    //normalize(lcs[6 to 8])
-    inv_lcs_dist = isqrt(lcs[6]*lcs[6] + lcs[7]*lcs[7] + lcs[8]*lcs[8]);
-    for(int j = 6; j < 9; j++)
-    {
-        lcs[j] = lcs[j] * inv_lcs_dist;
-    }
-
-    // vertex normalized to rotation origin
-    float p_tempAxis[3] = {
-        (args->threeDVert[i].coords.x   - args->Oa->x),
-        (args->threeDVert[i].coords.y - args->Oa->y),
-        (args->threeDVert[i].coords.z - args->Oa->z)
-    };
-
-    // Create Rotation Matrix
-
-    // Y AXIS M33::MakeRotationMatrix
-
-    float rotMat[9] = {
-        cos(*(args->alpha_r)), 0, sin(*(args->alpha_r)),
-        0, 1, 0,
-        -sin(*(args->alpha_r)), 0, cos(*(args->alpha_r))
-    };
-
-
-    // invert LCS where LCS^-1 = LCS.T
-    float lcsInv[9];
-    for (int row = 0; row < 3; ++row) {
-        for (int col = 0; col < 3; ++col) {
-            lcsInv[col*3 + row] = lcs[row*3 + col];
-        }
-    }
-
-
-    // world -> local
-    float p1[3] = {0, 0, 0};
-    for(int j = 0; j < 3; j++)
-    {
-        for(int k = 0; k < 3; k++)
+        //normalize(lcs[0 to 2])
+        float inv_lcs_dist = isqrt(lcs[0]*lcs[0] + lcs[1]*lcs[1] + lcs[2]*lcs[2]);
+        for(int j = 0; j < 3; j++)
         {
-            p1[j] += lcsInv[k*3 + j] * p_tempAxis[k];
+            lcs[j] = lcs[j] * inv_lcs_dist;
         }
-    }
 
-    // rotate in local space
-    float p2[3] = {0, 0, 0};
-    for(int j = 0; j < 3; j++)
-    {
-        for(int k = 0; k < 3; k++)
+        lcs[3] = args->a_dist->x;
+        lcs[4] = args->a_dist->y;
+        lcs[5] = args->a_dist->z;
+
+        lcs[6] = lcs[1] * lcs[5] - lcs[2] * lcs[4];
+        lcs[7] = lcs[2] * lcs[3] - lcs[0] * lcs[5];
+        lcs[8] = lcs[0] * lcs[4] - lcs[1] * lcs[3];
+
+        //normalize(lcs[3 to 5])
+        inv_lcs_dist = isqrt(lcs[3]*lcs[3] + lcs[4]*lcs[4] + lcs[5]*lcs[5]);
+        for(int j = 3; j < 6; j++)
         {
-            p2[j] += rotMat[k*3 + j] * p1[k];
+            lcs[j] = lcs[j] * inv_lcs_dist;
         }
-    }
+
+        //normalize(lcs[6 to 8])
+        inv_lcs_dist = isqrt(lcs[6]*lcs[6] + lcs[7]*lcs[7] + lcs[8]*lcs[8]);
+        for(int j = 6; j < 9; j++)
+        {
+            lcs[j] = lcs[j] * inv_lcs_dist;
+        }
+
+        // vertex normalized to rotation origin
+        float p_tempAxis[3] = {
+            (args->threeDVert[i].coords.x   - args->Oa->x),
+            (args->threeDVert[i].coords.y - args->Oa->y),
+            (args->threeDVert[i].coords.z - args->Oa->z)
+        };
+
+        /*Create Rotation Matrix */
+
+        // Y AXIS M33::MakeRotationMatrix
+
+        float rotMat[9] = {
+            cos(*(args->alpha_r)), 0, sin(*(args->alpha_r)),
+            0, 1, 0,
+            -sin(*(args->alpha_r)), 0, cos(*(args->alpha_r))
+        };
+
+
+        /*invert LCS where LCS^-1 = LCS.T*/
+        float lcsInv[9];
+        for (int row = 0; row < 3; ++row) {
+            for (int col = 0; col < 3; ++col) {
+                lcsInv[col*3 + row] = lcs[row*3 + col];
+            }
+        }
+
+        /*world -> local*/
+        float p1[3] = {0, 0, 0};
+        for(int j = 0; j < 3; j++)
+        {
+            for(int k = 0; k < 3; k++)
+            {
+                p1[j] += lcsInv[k*3 + j] * p_tempAxis[k];
+            }
+        }
+
+        /* rotate in local space */
+        float p2[3] = {0, 0, 0};
+        for(int j = 0; j < 3; j++)
+        {
+            for(int k = 0; k < 3; k++)
+            {
+                p2[j] += rotMat[k*3 + j] * p1[k];
+            }
+        }
 
     // local -> world
     float p_world[3] = {0, 0, 0};
@@ -139,45 +164,44 @@ void kernel_vertexShader()
     args->threeDVertTrans[i].coords.x = p_world[0] + args->Oa->x;
     args->threeDVertTrans[i].coords.y = p_world[1] + args->Oa->y;
     args->threeDVertTrans[i].coords.z = p_world[2] + args->Oa->z;
-    
+
     args->threeDVertTrans[i].s = args->threeDVert[i].s;
     args->threeDVertTrans[i].t = args->threeDVert[i].t;
 
 
-    //PPC::Project
+        /****** Projection ******/
+        //PPC::Project
 
-    // Normalize 3D matrix w.r.t the camera
-    float threeD_norm[3] = {
-        args->threeDVertTrans[i].coords.x - args->camera->x,
-        args->threeDVertTrans[i].coords.y - args->camera->y,
-        args->threeDVertTrans[i].coords.z - args->camera->z
-    };
+        /*Normalize 3D matrix w.r.t the camera*/
+        float threeD_norm[3] = {
+            args->threeDVertTrans[i].coords.x - args->camera->x,
+            args->threeDVertTrans[i].coords.y - args->camera->y,
+            args->threeDVertTrans[i].coords.z - args->camera->z
+        };
 
-    float q[3] = {0.0, 0.0, 0.0};
+        float q[3] = {0.0, 0.0, 0.0};
 
-    // q = 3Dnorm @ trans^-1
-    for(int j = 0; j < 3; j++)
-    {
-        for(int k = 0; k < 3; k++)
+        // q = 3Dnorm @ trans^-1
+        for(int j = 0; j < 3; j++)
         {
-            q[j] += threeD_norm[k] * args->invTrans[j*3 + k];
+            for(int k = 0; k < 3; k++)
+            {
+                q[j] += threeD_norm[k] * args->invTrans[j*3 + k];
+            }
         }
-    }
 
-    // if (q[2] < 0.0){
-    //     return;
-    // }
-    // if (q[2] == 0.0){
-    //     return;
-    // }
-        if(q[2] > 0.0){
+
+        if (q[2] > 0.0){
             args->twoDVert[i].coords.x = q[0] / q[2];
             args->twoDVert[i].coords.y = q[1] / q[2];
             args->twoDVert[i].coords.z = 1.0 / q[2];
 
             args->twoDVert[i].s = args->threeDVert[i].s;
             args->twoDVert[i].t = args->threeDVert[i].t;
+
+            //viewport
+            args->twoDVert[i].coords.x = (args->twoDVert[i].coords.x + 1) * args->viewport_w / 2;
+            args->twoDVert[i].coords.y = (1 - args->twoDVert[i].coords.y) * args->viewport_h / 2;
         }
     }
-    return;
 }
