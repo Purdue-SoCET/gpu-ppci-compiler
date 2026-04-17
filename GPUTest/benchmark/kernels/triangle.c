@@ -15,7 +15,7 @@ void kernel_triangle()
     #endif
     int global_id = (blockIdx * blockDim) + threadIdx;
 
-
+    if(global_id < args->num_threads) {
     int ix = (((global_id)) - (args->bb_size[0])*(((global_id))/(args->bb_size[0])));
     int iy = (((global_id) / args->bb_size[0]) - (args->bb_size[1])*(((global_id) / args->bb_size[0])/(args->bb_size[1])));
 
@@ -47,4 +47,5 @@ void kernel_triangle()
             args->tag_buff[GET_1D_INDEX(u, v, args->buff_w)] = args->tag;
         }
     }
+}
 }

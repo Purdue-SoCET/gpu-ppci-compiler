@@ -22,6 +22,7 @@ typedef struct {
     int buff_w, buff_h;
     float* depth_buff;
     int*    tag_buff;
+    int num_threads;
 } triangle_arg_t;
 
 #ifdef CPU_SIM

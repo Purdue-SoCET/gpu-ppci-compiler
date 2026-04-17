@@ -10,7 +10,7 @@ FORMAT ?= hex
 t ?= 32
 # ULP=1: pass --allow-approx to test_hex.sh (float tolerance in data region). ULP=0: strict.
 ULP ?= 0
-
+b ?= 1
 # The Interface
 run:
 	$(PYTHON) $(EMULATOR) -t $(THREADS) -b $(BLOCKS) --start-pc $(START_PC) --mem-format $(FORMAT) $(INPUT)
@@ -41,8 +41,9 @@ build-%: disasm-%
 
 test-%:
 	@TEST_ARGS=""; \
-	if [ -n "$(t)" ]; then TEST_ARGS="$$TEST_ARGS -t $(t)"; fi; \
+	if [ -n "$(T)" ]; then TEST_ARGS="$$TEST_ARGS -t $(T)"; fi; \
 	if [ -n "$(l)" ]; then TEST_ARGS="$$TEST_ARGS -l $(l)"; fi; \
+	if [ -n "$(B)" ]; then TEST_ARGS="$$TEST_ARGS -b $(B)"; fi; \
 	./test_hex.sh $$TEST_ARGS tests/complex_tests/$*/$*.hex
 
 diffs:
@@ -64,9 +65,9 @@ datacopy:
 		mkdir -p $$outdir; \
 		cp -f "$$infile" $$outdir/$${kernel}_data.hex; \
 		if [ -f "$$bench_dir/$${kernel}Output.txt" ]; then \
-			cp -f "$$bench_dir/$${kernel}Output.txt" $$outdir/$${kernel}_exp_t$(t)_b1.hex; \
+			cp -f "$$bench_dir/$${kernel}Output.txt" $$outdir/$${kernel}_exp_t$(t)_b$(b).hex; \
 		elif [ -f "$$bench_dir/$${kernel}Output0.txt" ]; then \
-			cp -f "$$bench_dir/$${kernel}Output0.txt" $$outdir/$${kernel}_exp_t$(t)_b1.hex; \
+			cp -f "$$bench_dir/$${kernel}Output0.txt" $$outdir/$${kernel}_exp_t$(t)_b$(b).hex; \
 		fi; \
 	done
 

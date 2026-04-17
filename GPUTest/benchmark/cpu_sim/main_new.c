@@ -22,7 +22,7 @@ uint8_t* memory_ptr;
 // Defines
 #define CPU_SIM 1
 
-#define OUTPUT_W 32
+#define OUTPUT_W 64
 #define OUTPUT_H 32
 
 #define VERTEX_DEBUG 0
@@ -371,7 +371,7 @@ int main() {
         triangle_args->bb_start[1] = v_min;
         triangle_args->bb_size[0] = u_max-u_min;
         triangle_args->bb_size[1] = v_max-v_min;
-
+        triangle_args->num_threads = (u_max-u_min)*(v_max-v_min);
         // Find barycentric Matrix
         float m[3][3] = {
             {1, 1, 1},
