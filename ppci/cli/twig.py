@@ -52,6 +52,12 @@ parser.add_argument(
     help="Disable instruction packetization",
 )
 parser.add_argument(
+    "--rfc-size",
+    type=int,
+    default=0,
+    help="Size of the RFC pool",
+)
+parser.add_argument(
     "--bin-output",
     default=None,
     help="Output file for 32-bit binary strings (e.g. 0101...)",
@@ -83,6 +89,7 @@ def twig(args=None):
     with LogSetup(args) as log_setup:
         march = get_arch("twig")
         march.no_packetize = args.no_packetize
+        march.set_rfc_size(args.rfc_size)
         march.reset_packet_histogram()
         coptions = COptions()
         coptions.process_args(args)

@@ -32,6 +32,7 @@ from .irdag import SelectionGraphBuilder
 from .peephole import PeepHoleStream
 from .registerallocator import GraphColoringRegisterAllocator
 from .packetize import PacketizeStream
+from .rfc import RFCStream
 
 
 class CodeGenerator:
@@ -198,11 +199,14 @@ class CodeGenerator:
         output_stream = MasterOutputStream(
             [FunctionOutputStream(instruction_list.append), output_stream]
         )
-        packet_stream = PacketizeStream(output_stream, self.arch)
+        rfc_stream = RFCStream(output_stream, self.arch)
+        packet_stream = PacketizeStream(rfc_stream, self.arch)
         peep_hole_stream = PeepHoleStream(packet_stream)
         self.emit_frame_to_stream(frame, peep_hole_stream, debug=debug)
         peep_hole_stream.flush()
         packet_stream.flush()
+        rfc_stream.flush()
+
 
         # Emit function debug info:
         if self.debug_db.contains(frame) and debug:

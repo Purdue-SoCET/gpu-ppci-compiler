@@ -486,7 +486,7 @@ def make_b(mnemonic, opcode):
         "opcode": opcode,
         "is_mem_read": False,
         "is_mem_write": False,
-        "is_branch": True,
+        "is_branch": True, # TODO: Check if btype instructions are actually branches
     }
     return type(mnemonic + "_ins", (TwigBInstruction,), members)
 
@@ -597,6 +597,7 @@ def make_u_mod(mnemonic, opcode):
     members = {
         "syntax": syntax,
         "rd": rd,
+        "rs1": rd,  # For pattern matching, treat rd as rs1 since it's read and written
         "imm": imm,
         "patterns": patterns,
         "tokens": tokens,

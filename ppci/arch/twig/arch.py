@@ -105,7 +105,8 @@ from .registers import (
     Register,
     TwigRegister,
     gdb_registers,
-    register_classes_swfp,
+    get_register_classes,
+    get_register,
 )
 
 BUILTIN_TABLE = {
@@ -115,6 +116,20 @@ BUILTIN_TABLE = {
     "itof": ItoF,
     "ftoi": FtoI,
 }
+
+RFC_COST_TABLE = {
+    1: (0.002437029, 0.001993157),
+    2: (0.002728214, 0.002473004),
+    3: (0.003019399, 0.002952851),
+    4: (0.003310800, 0.003432910),
+    5: (0.003601770, 0.003912550),
+    6: (0.003892740, 0.004392180),
+    7: (0.004183700, 0.004871800),
+    8: (0.004475760, 0.005352520),
+}
+
+MRF_READ_COST = .020776
+MRF_WRITE_COST = .0322179
 
 # def isinsrange(bits, val) -> bool:
 #     msb = 1 << (bits - 1)
@@ -167,7 +182,12 @@ class TwigArch(Architecture):
         self.isa = isa + data_isa
         self.store = Sw
         self.load = Lw
-        self.regclass = register_classes_swfp
+
+        # Initialize RFC-MRF default (size = 0)
+        self.rfc_size = 0
+        self.regclass = get_register_classes(0)
+        self.rfc_pool = []
+
         self.fp_location = FramePointerLocation.TOP
         self.fp = FP
         # self.isa.sectinst = Section
@@ -899,6 +919,199 @@ class TwigArch(Architecture):
         # Passing the reordered result directly to the downstream stream filter
         instructions[:] = new_instructions
 
+    def set_rfc_size(self, size):
+        """Dynamically rebuilds register pools based on the requested RFC size."""
+        self.rfc_size = size
+        self.regclass = get_register_classes(self.rfc_size)
+
+        self.rfc_pool = []
+        if self.rfc_size > 0:
+            start_num = 62 - self.rfc_size + 1
+            for n in range(start_num, 63):
+                self.rfc_pool.append(get_register(n))
+
+    def rfc_register_renaming(self, instructions):
+        """Perform register renaming for RFC.
+
+        Optimizes energy efficiency by migrating high-savings use-def
+        chains from the standard MRF to the dedicated RFC.
+        """
+        if getattr(self, 'rfc_pool', None) is None or not self.rfc_pool:
+            return
+
+        from ..encoding import Instruction
+        from ..generic_instructions import Label, Global, Alignment
+
+        # --- Energy Cost Model ---
+        # Calculate from a table of cost from RFC-size
+        RFC_WRITE_COST = RFC_COST_TABLE[self.rfc_size][1]
+        RFC_READ_COST = RFC_COST_TABLE[self.rfc_size][0]
+
+
+        standard_reg_names = {r.name for r in self.regclass[0].registers}
+        ASSEMBLER_TEMPS = {'x63'}
+
+        rfc_pool = self.rfc_pool
+        rfc_allocations = {r: [] for r in rfc_pool}
+
+        def is_rfc_available(rfc_reg, start_idx, end_idx):
+            for (alloc_start, alloc_end) in rfc_allocations[rfc_reg]:
+                if not (end_idx < alloc_start or start_idx > alloc_end):
+                    return False
+            return True
+
+        def allocate_rfc(rfc_reg, start_idx, end_idx):
+            rfc_allocations[rfc_reg].append((start_idx, end_idx))
+
+        # --- Phase 1: Partition into Basic Blocks ---
+        blocks = []
+        current_block = []
+        block_start_idx = 0
+
+        for idx, instr in enumerate(instructions):
+            if isinstance(instr, (Label, Global, Alignment)) or not isinstance(instr, Instruction):
+                if current_block:
+                    blocks.append((block_start_idx, current_block))
+                    current_block = []
+                blocks.append((None, [instr]))
+                continue
+
+            if not current_block:
+                block_start_idx = idx
+
+            current_block.append(instr)
+
+            if getattr(instr, "is_branch", False) or getattr(instr, "is_jump", False) or getattr(instr, "is_return", False):
+                blocks.append((block_start_idx, current_block))
+                current_block = []
+
+        if current_block:
+            blocks.append((block_start_idx, current_block))
+
+        # --- Phase 2: Extract Register Instances (Use-Def Chains) ---
+        all_instances = []
+
+        for b_start, block in blocks:
+            if b_start is None:
+                continue
+
+            active_chains = {}
+
+            for i, instr in enumerate(block):
+                global_idx = b_start + i
+                reads, writes, _, _, _ = get_inst_info(instr)
+
+                # Process Reads
+                for r in reads:
+                    # ALLOW standard registers AND assembler temporaries
+                    if r not in standard_reg_names and r not in ASSEMBLER_TEMPS:
+                        continue
+                    if r in active_chains:
+                        active_chains[r]['end'] = global_idx
+                        active_chains[r]['reads'] += 1
+
+                # Process Writes
+                cls_name = instr.__class__.__name__.lower()
+                is_chain_extender = ("lmi" in cls_name) or ("lli" in cls_name)
+
+                for w in writes:
+                    # ALLOW standard registers AND assembler temporaries
+                    if w not in standard_reg_names and w not in ASSEMBLER_TEMPS:
+                        continue
+
+                    # CHAIN EXTENSION EXCEPTION
+                    if is_chain_extender and w in active_chains:
+                        active_chains[w]['end'] = global_idx
+                        active_chains[w]['write_indices'].add(global_idx)
+                    else:
+                        # STANDARD BEHAVIOR: Kill old chain, start new
+                        if w in active_chains:
+                            all_instances.append(active_chains.pop(w))
+
+                        active_chains[w] = {
+                            'old_reg': w,
+                            'start': global_idx,
+                            'end': global_idx,
+                            'reads': 0,
+                            'write_indices': {global_idx}
+                        }
+
+            # --- APPLIED FIX: Safe Harvest for Assembler Temporaries ---
+            # Standard registers are discarded to prevent cross-block Live-Out corruption.
+            # Assembler Temporaries are guaranteed dead locally, so we harvest them!
+            for reg, chain in active_chains.items():
+                if reg in ASSEMBLER_TEMPS:
+                    all_instances.append(chain)
+
+            active_chains.clear()
+
+        # --- Phase 3: Calculate Savings and Prioritize ---
+        priority_queue = []
+        for instance in all_instances:
+            if instance['reads'] == 0:
+                continue
+
+            savings = (MRF_WRITE_COST - RFC_WRITE_COST) + \
+                      (MRF_READ_COST - RFC_READ_COST) * instance['reads']
+
+            live_range = (instance['end'] - instance['start']) + 1
+            avg_savings = savings / live_range
+
+            if avg_savings > 0:
+                instance['avg_savings'] = avg_savings
+                priority_queue.append(instance)
+
+        priority_queue.sort(key=lambda x: x['avg_savings'], reverse=True)
+
+        # --- Phase 4: Allocate from RFC (Independent Read/Write Maps) ---
+        read_rmap = {}
+        write_rmap = {}
+
+        for instance in priority_queue:
+            start = instance['start']
+            end = instance['end']
+            allocated_rfc = None
+
+            for rfc_entry in rfc_pool:
+                if is_rfc_available(rfc_entry, start, end):
+                    allocate_rfc(rfc_entry, start, end)
+                    allocated_rfc = rfc_entry
+                    break
+
+            if allocated_rfc:
+                old_reg = instance['old_reg']
+
+                # Map EVERY index where this chain was specifically written (start + any LMI/LLI extensions)
+                for w_idx in instance['write_indices']:
+                    if w_idx not in write_rmap:
+                        write_rmap[w_idx] = {}
+                    write_rmap[w_idx][old_reg] = allocated_rfc
+
+                # Because strict kill is restored, we don't need 'read_indices'.
+                # We logically own every read of 'old_reg' between start+1 and end.
+                for r_idx in range(start + 1, end + 1):
+                    if r_idx not in read_rmap:
+                        read_rmap[r_idx] = {}
+                    read_rmap[r_idx][old_reg] = allocated_rfc
+
+        # --- Phase 5: Rewrite Instruction Stream ---
+        for idx, instr in enumerate(instructions):
+            w_map = write_rmap.get(idx, {})
+            r_map = read_rmap.get(idx, {})
+
+            if not w_map and not r_map:
+                continue
+
+            for attr in ['rs1', 'rs2', 'rs3']:
+                if hasattr(instr, attr):
+                    reg = getattr(instr, attr)
+                    if str(reg) in r_map:
+                        setattr(instr, attr, r_map[str(reg)])
+
+            if hasattr(instr, 'rd'):
+                reg = getattr(instr, 'rd')
+                if str(reg) in w_map:
+                    setattr(instr, 'rd', w_map[str(reg)])
 
 def round_up(s):
     return s + (16 - s % 16)
@@ -924,6 +1137,10 @@ def get_inst_info(instr):
     add_gpr(reads, "rs1", "rs2", "rs3")
     add_pred(reads, "pred", "prs")
     add_pred(writes, "prd")
+
+    from .instructions import Lui, Lmi, Lli
+    if isinstance(instr, (Lui, Lmi, Lli)):
+        add_gpr(reads, "rd")
 
     is_mem_read = getattr(instr, "is_mem_read", False)
     is_mem_write = getattr(instr, "is_mem_write", False)
