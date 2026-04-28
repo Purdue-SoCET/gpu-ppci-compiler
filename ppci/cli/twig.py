@@ -223,8 +223,7 @@ def twig(args=None):
                     max_threads = _STACK_REGION_SIZE // per_thread_stack_size
                     print(
                         f"WARNING: {per_thread_stack_size} bytes/thread stack "
-                        f"usage -> MAX THREADS = {max_threads:,}",
-                        file=sys.stderr,
+                        f"usage -> MAX THREADS = {max_threads:,}"
                     )
 
                 if args.stack_info_output:

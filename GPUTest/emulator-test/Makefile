@@ -20,16 +20,19 @@ clean:
 	rm -rf test_diffs/* build/*
 
 # compiler commands
-O ?= 0
+O ?= 2
+# P=0: --no-packetize, P=1: no extra packet flags, P=2 (default): --improved-packetize
+P ?= 2
+PACKET_FLAGS := $(if $(filter 0,$(P)),--no-packetize,$(if $(filter 2,$(P)),--improved-packetize,))
 compile-%:
 	mkdir -p build
 	twig ../benchmark/kernels/$*.c \
 		--hex-output build/$*.hex \
 		--bin-output build/$*.bin \
 		--entry kernel_$* -O$(O) \
+		$(PACKET_FLAGS) \
 		--stack-info-output build/$*.stack.json \
-		--packet-histogram build/$*_packets.svg \
-		$(TWIG_ARGS)
+		--packet-histogram build/$*_packets.svg
 
 disasm-%: compile-%
 	tool --disasm build/$*.bin > build/$*_disasm.txt
