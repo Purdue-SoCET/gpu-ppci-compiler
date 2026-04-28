@@ -54,6 +54,7 @@ def packetize_text(asm_text: str, max_packet_size=None) -> str:
 
     f = io.StringIO()
     f.write("       .section code\n")
+    packet_sizes = []
 
     for b in blocks:
         if not b.instructions:
@@ -65,18 +66,19 @@ def packetize_text(asm_text: str, max_packet_size=None) -> str:
 
         for p_idx, packet in enumerate(packets):
             f.write(f";   Packet {p_idx}:\n")
+            packet_sizes.append(len(packet))
             for inst_idx in packet:
                 inst = b.instructions[inst_idx]
                 f.write(f"    {inst.original_text}\n")
 
-    return f.getvalue()
+    return f.getvalue(), packet_sizes
 
 
 def packetize_file(asm_file, max_packet_size=None):
     with open(asm_file, "r") as f:
         asm_text = f.read()
 
-    out_text = packetize_text(asm_text, max_packet_size)
+    out_text, _ = packetize_text(asm_text, max_packet_size)
 
     base_name = os.path.basename(asm_file)
     if base_name.startswith("raw_"):

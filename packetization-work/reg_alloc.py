@@ -556,7 +556,7 @@ def insert_spill_code(blocks, spilled_nodes, spill_state):
 
 
 def allocate_registers_chaitin(blocks, num_registers=64):
-    print("\n--- Live Range Splitting Phase ---")
+    # print("\n--- Live Range Splitting Phase ---")
     split_live_ranges(blocks)
 
     max_iter = 10
@@ -568,26 +568,26 @@ def allocate_registers_chaitin(blocks, num_registers=64):
         adj_list = build_interference_graph(blocks)
 
         # debugging below
-        print("Reserved regs in adj_list (should be empty):")
-        for k in adj_list:
-            if k in RESERVED_REGS:
-                print(f"  {k}: {adj_list[k]}")
+        # print("Reserved regs in adj_list (should be empty):")
+        # for k in adj_list:
+        #     if k in RESERVED_REGS:
+        #         print(f"  {k}: {adj_list[k]}")
         # debugging above
 
-        print(f"--- Register Allocation Phase (Iter {iteration}) ---")
-        print(f"Extracted {len(adj_list)} Virtual Variables")
+        # print(f"--- Register Allocation Phase (Iter {iteration}) ---")
+        # print(f"Extracted {len(adj_list)} Virtual Variables")
 
         allocation, spilled_nodes = color_graph(
             adj_list, num_registers, spill_costs
         )
 
         # debugging below
-        print(
-            "Allocation entries that map to reserved regs (should be empty):"
-        )
-        for web, phys in allocation.items():
-            if phys in RESERVED_REGS:
-                print(f"  {web} -> {phys}")
+        # print(
+        #     "Allocation entries that map to reserved regs (should be empty):"
+        # )
+        # for web, phys in allocation.items():
+        #     if phys in RESERVED_REGS:
+        #         print(f"  {web} -> {phys}")
         # debugging above
 
         if not spilled_nodes:
@@ -604,15 +604,16 @@ def allocate_registers_chaitin(blocks, num_registers=64):
                         valid = False
 
             if valid:
-                print(
-                    "Verification: SUCCESS (No interfering variables share the same physical register)"
-                )
+                pass
+                # print(
+                #     "Verification: SUCCESS (No interfering variables share the same physical register)"
+                # )
 
-            print("Allocation Map: ", allocation)
-            print("--- End Register Allocation ---")
+            # print("Allocation Map: ", allocation)
+            # print("--- End Register Allocation ---")
             break
         else:
-            print(f"Spilling nodes: {spilled_nodes}")
+            # print(f"Spilling nodes: {spilled_nodes}")
             spill_state = insert_spill_code(blocks, spilled_nodes, spill_state)
             iteration += 1
             if iteration > max_iter:

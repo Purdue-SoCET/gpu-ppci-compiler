@@ -138,10 +138,7 @@ def twig(args=None):
                 if getattr(args, "improved_packetize", False):
                     march.no_packetize = True
                     raw_asm_text = api.ir_to_assembly(ir_modules, march)
-
-                    import sys
                     import os
-
                     script_dir = os.path.abspath(
                         os.path.join(
                             os.path.dirname(__file__),
@@ -155,13 +152,61 @@ def twig(args=None):
 
                     from packetization import packetize_text
 
-                    pkt_asm_text = packetize_text(raw_asm_text)
+                    pkt_asm_text, packet_sizes = packetize_text(raw_asm_text)
 
                     import io
+                    from ppci.binutils.objectfile import ObjectFile
+                    from ppci.binutils.outstream import BinaryOutputStream
+                    from ppci.common import DiagnosticsManager
 
                     source_file = io.StringIO(pkt_asm_text)
                     source_file.name = "improved_packetize"
-                    obj = api.asm(source_file, march, debug=args.g)
+
+                    obj = ObjectFile(march)
+                    ostream = BinaryOutputStream(obj)
+                    ostream.select_section("code")
+
+                    class CustomPacketizerStream:
+                        def __init__(self, downstream, sizes):
+                            self.downstream = downstream
+                            self.sizes = sizes
+                            self.size_idx = 0
+                            self.inst_idx = 0
+
+                        def emit(self, item):
+                            from ppci.arch.twig.instructions import TwigInstruction
+                            from ppci.arch.encoding import Instruction
+
+                            if isinstance(item, TwigInstruction):
+                                if self.size_idx < len(self.sizes):
+                                    size = self.sizes[self.size_idx]
+                                    item.is_packet_start = (self.inst_idx == 0)
+                                    item.is_packet_end = (self.inst_idx == size - 1)
+                                    self.inst_idx += 1
+                                    if self.inst_idx == size:
+                                        march._record_packet_size(size)
+                                        self.inst_idx = 0
+                                        self.size_idx += 1
+                                else:
+                                    item.is_packet_start = True
+                                    item.is_packet_end = True
+                            self.downstream.emit(item)
+
+                        def select_section(self, name):
+                            self.downstream.select_section(name)
+
+                    custom_stream = CustomPacketizerStream(ostream, packet_sizes)
+
+                    # Reset histogram — ir_to_assembly already populated it
+                    # from the default code-gen pass; we only want our counts.
+                    march.reset_packet_histogram()
+
+                    diag = DiagnosticsManager()
+                    march.assembler.prepare()
+                    march.assembler.assemble(
+                        source_file, custom_stream, diag, debug=args.g
+                    )
+                    march.assembler.flush()
 
                     for sym in obj.symbols:
                         if sym.name == args.entry:
@@ -342,6 +387,8 @@ def write_meminit_bin(obj, filename):
     if data is None:
         return
 
+    import os
+    os.makedirs(os.path.dirname(filename) or ".", exist_ok=True)
     with open(filename, "w") as f:
         for i in range(0, len(data), 4):
             # Read 4 bytes as a Little-Endian integer
@@ -355,6 +402,8 @@ def write_meminit_hex(obj, filename):
     if data is None:
         return
 
+    import os
+    os.makedirs(os.path.dirname(filename) or ".", exist_ok=True)
     with open(filename, "w") as f:
         for i in range(0, len(data), 4):
             # Read 4 bytes as a Little-Endian integer
