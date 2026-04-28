@@ -159,9 +159,9 @@ class BasicBlock:
                         self.add_edge(reader, i, f"WAR({inst.dest})")
 
                 last_writer[inst.dest] = i
-                last_readers[
-                    inst.dest
-                ] = []  # clear readers for this reg after a write
+                last_readers[inst.dest] = (
+                    []
+                )  # clear readers for this reg after a write
 
             # Control Dependencies: Branches must wait for all prior mathematics to finalize
             if getattr(inst, "is_branch", False):
@@ -219,7 +219,9 @@ def parse_asm_text(text: str):
         if line.startswith("section code") or line.startswith(".section code"):
             in_code_section = True
             continue
-        elif line.startswith("section data") or line.startswith(".section data"):
+        elif line.startswith("section data") or line.startswith(
+            ".section data"
+        ):
             in_code_section = False
             continue
 
@@ -254,10 +256,12 @@ def parse_asm_text(text: str):
 
     return blocks
 
+
 def parse_asm(file_path):
     with open(file_path, "r") as f:
         text = f.read()
     return parse_asm_text(text)
+
 
 def build_cfg(blocks):
     block_map = {b.name: b for b in blocks}
@@ -274,7 +278,9 @@ def build_cfg(blocks):
                     target_name = inst.branch_target
                 else:
                     for name in block_map.keys():
-                        if name.endswith(inst.branch_target) or name.endswith("block" + inst.branch_target):
+                        if name.endswith(inst.branch_target) or name.endswith(
+                            "block" + inst.branch_target
+                        ):
                             target_name = name
                             break
 
@@ -292,7 +298,7 @@ def build_cfg(blocks):
                 break
 
         if not ends_with_unconditional and i + 1 < len(blocks):
-            next_block = blocks[i+1]
+            next_block = blocks[i + 1]
             if next_block not in b.successors:
                 b.successors.append(next_block)
                 next_block.predecessors.append(b)

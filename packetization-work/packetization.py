@@ -35,11 +35,12 @@ def greedy_packetize(block, max_packet_size=None):
     return packets
 
 
-
 import os
+
 
 def packetize_text(asm_text: str, max_packet_size=None) -> str:
     from ddg import parse_asm_text
+
     blocks = parse_asm_text(asm_text)
 
     # Use 32 registers for an apples-to-apples comparison with master's native scheduling
@@ -50,6 +51,7 @@ def packetize_text(asm_text: str, max_packet_size=None) -> str:
         b.build_ddg()
 
     import io
+
     f = io.StringIO()
     f.write("       .section code\n")
 
@@ -66,13 +68,14 @@ def packetize_text(asm_text: str, max_packet_size=None) -> str:
             for inst_idx in packet:
                 inst = b.instructions[inst_idx]
                 f.write(f"    {inst.original_text}\n")
-    
+
     return f.getvalue()
+
 
 def packetize_file(asm_file, max_packet_size=None):
     with open(asm_file, "r") as f:
         asm_text = f.read()
-    
+
     out_text = packetize_text(asm_text, max_packet_size)
 
     base_name = os.path.basename(asm_file)
@@ -87,6 +90,7 @@ def packetize_file(asm_file, max_packet_size=None):
         f.write(out_text)
 
     print(f"Success! Saved packetized assembly to {out_path}")
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

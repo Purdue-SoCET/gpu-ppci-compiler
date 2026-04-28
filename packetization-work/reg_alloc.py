@@ -2,7 +2,23 @@ import sys
 import re
 
 # TWIG Architecture ABI Pinned Variables
-RESERVED_REGS = {"x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x28", "x29", "x30", "x31", "x63"}
+RESERVED_REGS = {
+    "x0",
+    "x1",
+    "x2",
+    "x3",
+    "x4",
+    "x5",
+    "x6",
+    "x7",
+    "x8",
+    "x28",
+    "x29",
+    "x30",
+    "x31",
+    "x63",
+}
+
 
 def compute_liveness(blocks):
     """
@@ -39,6 +55,7 @@ def compute_liveness(blocks):
             if old_in != b.live_in or old_out != b.live_out:
                 changed = True
 
+
 def estimate_loop_depths(blocks):
     """
     Estimates loop nesting depth for each block by counting
@@ -53,10 +70,15 @@ def estimate_loop_depths(blocks):
         for pred in b.predecessors:
             pred_idx = b_idx_map.get(pred.name)
             b_idx = b_idx_map.get(b.name)
-            if pred_idx is not None and b_idx is not None and pred_idx >= b_idx:
+            if (
+                pred_idx is not None
+                and b_idx is not None
+                and pred_idx >= b_idx
+            ):
                 depth += 1
         depths[b.name] = depth
     return depths
+
 
 def calculate_spill_costs(blocks):
     """
@@ -85,14 +107,17 @@ def calculate_spill_costs(blocks):
 
     return costs
 
+
 def build_interference_graph(blocks):
     adj_list = {}
 
     def add_edge(u, v):
         if u in RESERVED_REGS or v in RESERVED_REGS:
             return  # never put reserved regs in the interference graph
-        if u not in adj_list: adj_list[u] = set()
-        if v not in adj_list: adj_list[v] = set()
+        if u not in adj_list:
+            adj_list[u] = set()
+        if v not in adj_list:
+            adj_list[v] = set()
         if u != v:
             adj_list[u].add(v)
             adj_list[v].add(u)
@@ -116,13 +141,15 @@ def build_interference_graph(blocks):
 
     return adj_list
 
+
 def color_graph(adj_list, num_registers, spill_costs=None):
     """
     Chaitin's
     Colors from x1 to x{num_registers-1}. x0 is hardwired.
     """
     colors_available = [
-        f"x{i}" for i in range(1, num_registers)
+        f"x{i}"
+        for i in range(1, num_registers)
         if f"x{i}" not in RESERVED_REGS
     ]
     num_colors = len(colors_available)
@@ -145,8 +172,13 @@ def color_graph(adj_list, num_registers, spill_costs=None):
 
         if node_to_remove is None:
             # spill: pick node that minimizes Cost / Degree
-            spill_node = min(degrees, key=lambda n: (spill_costs.get(n, 1) / float(degrees[n])))
-            print(f"Warning: Potential spill for {spill_node} (Cost: {spill_costs.get(spill_node, 1)}, Degree: {degrees[spill_node]})")
+            spill_node = min(
+                degrees,
+                key=lambda n: (spill_costs.get(n, 1) / float(degrees[n])),
+            )
+            print(
+                f"Warning: Potential spill for {spill_node} (Cost: {spill_costs.get(spill_node, 1)}, Degree: {degrees[spill_node]})"
+            )
             # TODO: iterative spilling phase should be implemented here modifying the block AST
             # optimistic coloring: we push it to the stack anyway; it might get a color if its neighbors share colors.
             node_to_remove = spill_node
@@ -190,13 +222,14 @@ def color_graph(adj_list, num_registers, spill_costs=None):
             if chosen_color:
                 allocation[node] = chosen_color
             else:
-                allocation[node] = possible_colors[0] # Fallback
+                allocation[node] = possible_colors[0]  # Fallback
         else:
             spilled_nodes.append(node)
 
     if spilled_nodes:
         return None, spilled_nodes
     return allocation, []
+
 
 def rewrite_instructions(blocks, allocation):
     """
@@ -206,7 +239,9 @@ def rewrite_instructions(blocks, allocation):
         for inst in b.instructions:
             for old, new in allocation.items():
                 if old in inst.original_text:
-                    inst.original_text = re.sub(rf"\b{old}\b", new, inst.original_text)
+                    inst.original_text = re.sub(
+                        rf"\b{old}\b", new, inst.original_text
+                    )
 
             if inst.dest and inst.dest not in RESERVED_REGS:
                 inst.dest = allocation[inst.dest]
@@ -218,6 +253,7 @@ def rewrite_instructions(blocks, allocation):
                 else:
                     new_srcs.add(allocation[src])
             inst.srcs = new_srcs
+
 
 def split_live_ranges(blocks):
     """
@@ -257,7 +293,8 @@ def split_live_ranges(blocks):
 
             for pred in b.predecessors:
                 for reg, defs in pred.rd_out.items():
-                    if reg not in new_in: new_in[reg] = set()
+                    if reg not in new_in:
+                        new_in[reg] = set()
                     new_in[reg].update(defs)
             b.rd_in = new_in
 
@@ -273,8 +310,10 @@ def split_live_ranges(blocks):
                 changed = True
 
     parent = {}
+
     def find(i):
-        if parent[i] == i: return i
+        if parent[i] == i:
+            return i
         parent[i] = find(parent[i])
         return parent[i]
 
@@ -333,7 +372,12 @@ def split_live_ranges(blocks):
         m = sw_lw_re.match(inst.original_text)
         if not m:
             return None
-        op, reg, offset, base = m.group(1), m.group(2), int(m.group(3)), m.group(4)
+        op, reg, offset, base = (
+            m.group(1),
+            m.group(2),
+            int(m.group(3)),
+            m.group(4),
+        )
         if base not in {"x2", "x8"}:  # only frame-relative
             return None
         return (op, reg, offset, base)
@@ -368,7 +412,10 @@ def split_live_ranges(blocks):
                     # Match against the most recent store to this slot.
                     if slot_key in last_store and reg not in RESERVED_REGS:
                         load_def = f"def_{b.name}_{i}_{reg}"
-                        if load_def in parent and last_store[slot_key] in parent:
+                        if (
+                            load_def in parent
+                            and last_store[slot_key] in parent
+                        ):
                             union(last_store[slot_key], load_def)
 
             # Maintain register-level current_defs for non-mem instructions too,
@@ -405,14 +452,16 @@ def split_live_ranges(blocks):
     for b in blocks:
         current_defs = {reg: set(defs) for reg, defs in b.rd_in.items()}
         for i, inst in enumerate(b.instructions):
-            tokens = re.split(r'(\W+)', inst.original_text)
+            tokens = re.split(r"(\W+)", inst.original_text)
 
             # map old src -> new web name for this specific instruction instance
             src_map = {}
             new_srcs = set()
             for src in inst.srcs:
                 if src in RESERVED_REGS:
-                    new_srcs.add(src)  # keep reserved regs as-is; don't rename, but DO track
+                    new_srcs.add(
+                        src
+                    )  # keep reserved regs as-is; don't rename, but DO track
                     continue
                 reaching = list(current_defs.get(src, []))
                 if reaching:
@@ -473,7 +522,9 @@ def insert_spill_code(blocks, spilled_nodes, spill_state):
                 new_instructions.append(load_inst)
 
                 # Replace the use in the original instruction
-                inst.original_text = re.sub(rf"\b{s}\b", temp_reg, inst.original_text)
+                inst.original_text = re.sub(
+                    rf"\b{s}\b", temp_reg, inst.original_text
+                )
                 inst.srcs.remove(s)
                 inst.srcs.add(temp_reg)
 
@@ -488,7 +539,9 @@ def insert_spill_code(blocks, spilled_nodes, spill_state):
                 offset = spill_offsets[inst.dest]
 
                 # Replace the define in the original instruction
-                inst.original_text = re.sub(rf"\b{inst.dest}\b", temp_reg, inst.original_text)
+                inst.original_text = re.sub(
+                    rf"\b{inst.dest}\b", temp_reg, inst.original_text
+                )
                 inst.dest = temp_reg
 
                 # Create a store instruction AFTER the def
@@ -500,6 +553,7 @@ def insert_spill_code(blocks, spilled_nodes, spill_state):
         b.instructions = new_instructions
 
     return (spill_offsets, next_offset)
+
 
 def allocate_registers_chaitin(blocks, num_registers=64):
     print("\n--- Live Range Splitting Phase ---")
@@ -523,10 +577,14 @@ def allocate_registers_chaitin(blocks, num_registers=64):
         print(f"--- Register Allocation Phase (Iter {iteration}) ---")
         print(f"Extracted {len(adj_list)} Virtual Variables")
 
-        allocation, spilled_nodes = color_graph(adj_list, num_registers, spill_costs)
+        allocation, spilled_nodes = color_graph(
+            adj_list, num_registers, spill_costs
+        )
 
         # debugging below
-        print("Allocation entries that map to reserved regs (should be empty):")
+        print(
+            "Allocation entries that map to reserved regs (should be empty):"
+        )
         for web, phys in allocation.items():
             if phys in RESERVED_REGS:
                 print(f"  {web} -> {phys}")
@@ -540,11 +598,15 @@ def allocate_registers_chaitin(blocks, num_registers=64):
             for u in adj_list:
                 for v in adj_list[u]:
                     if allocation.get(u) == allocation.get(v):
-                        print(f"VERIFICATION FAILED: {u} and {v} interfere but both got {allocation[u]}")
+                        print(
+                            f"VERIFICATION FAILED: {u} and {v} interfere but both got {allocation[u]}"
+                        )
                         valid = False
 
             if valid:
-                print("Verification: SUCCESS (No interfering variables share the same physical register)")
+                print(
+                    "Verification: SUCCESS (No interfering variables share the same physical register)"
+                )
 
             print("Allocation Map: ", allocation)
             print("--- End Register Allocation ---")
@@ -554,4 +616,6 @@ def allocate_registers_chaitin(blocks, num_registers=64):
             spill_state = insert_spill_code(blocks, spilled_nodes, spill_state)
             iteration += 1
             if iteration > max_iter:
-                raise Exception("Exceeded max iterations for spilling. Graph won't color.")
+                raise Exception(
+                    "Exceeded max iterations for spilling. Graph won't color."
+                )

@@ -134,25 +134,35 @@ def twig(args=None):
             else:
                 # 2. Compile IR to Object (in-memory)
                 march.entry_symbol = args.entry
-                
+
                 if getattr(args, "improved_packetize", False):
                     march.no_packetize = True
                     raw_asm_text = api.ir_to_assembly(ir_modules, march)
-                    
+
                     import sys
                     import os
-                    script_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'packetization-work'))
+
+                    script_dir = os.path.abspath(
+                        os.path.join(
+                            os.path.dirname(__file__),
+                            "..",
+                            "..",
+                            "packetization-work",
+                        )
+                    )
                     if script_dir not in sys.path:
                         sys.path.insert(0, script_dir)
-                    
+
                     from packetization import packetize_text
+
                     pkt_asm_text = packetize_text(raw_asm_text)
-                    
+
                     import io
+
                     source_file = io.StringIO(pkt_asm_text)
                     source_file.name = "improved_packetize"
                     obj = api.asm(source_file, march, debug=args.g)
-                    
+
                     for sym in obj.symbols:
                         if sym.name == args.entry:
                             sym.binding = "global"
@@ -205,11 +215,11 @@ def twig(args=None):
                 # 7. Write stack info sidecar for emulator + warn on max threads
                 from ..arch.twig.arch import BASE_STACK
 
-                per_thread_stack_size = getattr(
-                    march, "_entry_totalstack", 0
-                )
+                per_thread_stack_size = getattr(march, "_entry_totalstack", 0)
                 if per_thread_stack_size > 0:
-                    _STACK_REGION_SIZE = 0x0F000000  # 0xFFFFFFFC - 0xF1000000 + 4
+                    _STACK_REGION_SIZE = (
+                        0x0F000000  # 0xFFFFFFFC - 0xF1000000 + 4
+                    )
                     max_threads = _STACK_REGION_SIZE // per_thread_stack_size
                     print(
                         f"WARNING: {per_thread_stack_size} bytes/thread stack "
