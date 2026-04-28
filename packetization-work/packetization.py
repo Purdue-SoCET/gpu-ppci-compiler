@@ -35,13 +35,23 @@ def greedy_packetize(block, max_packet_size=None):
     return packets
 
 
+import os
+from collections import Counter
+from ppci.arch.twig.reporter import write_packet_histogram_svg
+
 def packetize_file(asm_file, max_packet_size=None):
     blocks = parse_asm(asm_file)
 
-    allocate_registers_chaitin(blocks, num_registers=5)
+    # Use 32 registers for an apples-to-apples comparison with master's native scheduling 
+    # (which assumes infinite/all 32 registers are available because it doesn't spill)
+    allocate_registers_chaitin(blocks, num_registers=32)
 
     for b in blocks:
         b.build_ddg()
+
+    counts = Counter()
+    total_packets = 0
+    total_instructions = 0
 
     for b in blocks:
         if not b.instructions:
@@ -52,10 +62,19 @@ def packetize_file(asm_file, max_packet_size=None):
 
         for p_idx, packet in enumerate(packets):
             print(f"  Packet {p_idx}:")
+            packet_size = len(packet)
+            counts[packet_size] += 1
+            total_packets += 1
+            total_instructions += packet_size
             for inst_idx in packet:
                 inst = b.instructions[inst_idx]
                 print(f"    [{inst_idx:2d}] {inst.original_text}")
-
+    
+    # Write the SVG
+    basename = os.path.basename(asm_file).split('.')[0].replace("raw_", "")
+    out_name = f"advay_{basename}.svg"
+    write_packet_histogram_svg(out_name, dict(counts), total_packets, total_instructions)
+    print(f"\nSaved histogram to {out_name}")
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -66,3 +85,4 @@ if __name__ == "__main__":
     max_packet_width = int(sys.argv[2]) if len(sys.argv) > 2 else None
 
     packetize_file(asm_file, max_packet_width)
+
