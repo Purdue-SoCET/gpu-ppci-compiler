@@ -30,6 +30,8 @@ class Instruction:
         if self.opcode in ["lui", "lmi", "lli"]:
             if len(parts) >= 2:
                 self.dest = parts[1]
+                if self.opcode in ["lmi", "lli"]:
+                    self.srcs.add(parts[1])
         elif self.opcode in [
             "add",
             "sub",
@@ -62,6 +64,14 @@ class Instruction:
             if len(parts) >= 3:
                 self.dest = parts[1]
                 self.srcs.add(parts[2])
+        elif self.opcode in ["itof", "ftoi", "isqrt", "cos", "sin"]:
+            if len(parts) >= 3:
+                self.dest = parts[1]
+                self.srcs.add(parts[2])
+        elif self.opcode in ["sltf"]:
+            if len(parts) >= 4:
+                self.dest = parts[1]
+                self.srcs.update([parts[2], parts[3]])
         elif self.opcode == "sw":
             self.is_mem_write = True
             if len(parts) >= 4:
@@ -86,12 +96,15 @@ class Instruction:
             self.is_branch = True
             if len(parts) >= 3:
                 self.dest = parts[1]
-                self.srcs.add(parts[2])
+                self.srcs.add(parts[-1])
         elif self.opcode == "csrr":
             if len(parts) >= 3:
                 self.dest = parts[1]
                 # CSR indices are not general purpose registers
-
+        elif self.opcode in ["slt", "slti", "sltu", "sltiu"]:
+            if len(parts) >= 4:
+                self.dest = parts[1]
+                self.srcs.update([parts[2], parts[3]])
         # register x0 is hardwired to 0, no data dependencies on it
         if self.dest == "x0":
             self.dest = None
@@ -150,6 +163,12 @@ class BasicBlock:
                     inst.dest
                 ] = []  # clear readers for this reg after a write
 
+            # Control Dependencies: Branches must wait for all prior mathematics to finalize
+            if getattr(inst, "is_branch", False):
+                for j in range(i):
+                    if not getattr(self.instructions[j], "is_branch", False):
+                        self.add_edge(j, i, "CTRL")
+
             # memory dependencies (for now we treat memory as a single resource)
             if inst.is_mem_read:
                 if last_mem_write is not None:
@@ -187,47 +206,46 @@ class BasicBlock:
         return ready
 
 
-def parse_asm(file_path):
+def parse_asm_text(text: str):
     blocks = []
     current_block = None
     in_code_section = False
 
-    with open(file_path, "r") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
 
-            if line.startswith("section code") or line.startswith(".section code"):
-                in_code_section = True
-                continue
-            elif line.startswith("section data") or line.startswith(".section data"):
-                in_code_section = False
-                continue
+        if line.startswith("section code") or line.startswith(".section code"):
+            in_code_section = True
+            continue
+        elif line.startswith("section data") or line.startswith(".section data"):
+            in_code_section = False
+            continue
 
-            if not in_code_section:
-                continue
+        if not in_code_section:
+            continue
 
-            if (
-                line.startswith("global ")
-                or line.startswith("type ")
-                or line.startswith(".align")
-            ):
-                continue
+        if (
+            line.startswith("global ")
+            or line.startswith("type ")
+            or line.startswith(".align")
+        ):
+            continue
 
-            if line.endswith(":"):
-                label = line[:-1]
-                current_block = BasicBlock(label)
-                blocks.append(current_block)
-                continue
+        if line.endswith(":"):
+            label = line[:-1]
+            current_block = BasicBlock(label)
+            blocks.append(current_block)
+            continue
 
-            if current_block is None:
-                current_block = BasicBlock("entry")
-                blocks.append(current_block)
+        if current_block is None:
+            current_block = BasicBlock("entry")
+            blocks.append(current_block)
 
-            inst_idx = len(current_block.instructions)
-            inst = Instruction(inst_idx, line)
-            current_block.add_instruction(inst)
+        inst_idx = len(current_block.instructions)
+        inst = Instruction(inst_idx, line)
+        current_block.add_instruction(inst)
 
     for b in blocks:
         b.build_ddg()
@@ -235,6 +253,11 @@ def parse_asm(file_path):
     build_cfg(blocks)
 
     return blocks
+
+def parse_asm(file_path):
+    with open(file_path, "r") as f:
+        text = f.read()
+    return parse_asm_text(text)
 
 def build_cfg(blocks):
     block_map = {b.name: b for b in blocks}

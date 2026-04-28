@@ -52,6 +52,12 @@ parser.add_argument(
     help="Disable instruction packetization",
 )
 parser.add_argument(
+    "--improved-packetize",
+    action="store_true",
+    default=False,
+    help="Use the experimental register allocator and packetizer",
+)
+parser.add_argument(
     "--bin-output",
     default=None,
     help="Output file for 32-bit binary strings (e.g. 0101...)",
@@ -128,12 +134,35 @@ def twig(args=None):
             else:
                 # 2. Compile IR to Object (in-memory)
                 march.entry_symbol = args.entry
-                obj = api.ir_to_object(
-                    ir_modules,
-                    march,
-                    reporter=log_setup.reporter,
-                    debug=args.g,
-                )
+                
+                if getattr(args, "improved_packetize", False):
+                    march.no_packetize = True
+                    raw_asm_text = api.ir_to_assembly(ir_modules, march)
+                    
+                    import sys
+                    import os
+                    script_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'packetization-work'))
+                    if script_dir not in sys.path:
+                        sys.path.insert(0, script_dir)
+                    
+                    from packetization import packetize_text
+                    pkt_asm_text = packetize_text(raw_asm_text)
+                    
+                    import io
+                    source_file = io.StringIO(pkt_asm_text)
+                    source_file.name = "improved_packetize"
+                    obj = api.asm(source_file, march, debug=args.g)
+                    
+                    for sym in obj.symbols:
+                        if sym.name == args.entry:
+                            sym.binding = "global"
+                else:
+                    obj = api.ir_to_object(
+                        ir_modules,
+                        march,
+                        reporter=log_setup.reporter,
+                        debug=args.g,
+                    )
 
                 # 3. Prepare Layout
                 if args.layout:

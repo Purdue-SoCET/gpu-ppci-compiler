@@ -35,46 +35,58 @@ def greedy_packetize(block, max_packet_size=None):
     return packets
 
 
+
 import os
-from collections import Counter
-from ppci.arch.twig.reporter import write_packet_histogram_svg
 
-def packetize_file(asm_file, max_packet_size=None):
-    blocks = parse_asm(asm_file)
+def packetize_text(asm_text: str, max_packet_size=None) -> str:
+    from ddg import parse_asm_text
+    blocks = parse_asm_text(asm_text)
 
-    # Use 32 registers for an apples-to-apples comparison with master's native scheduling 
+    # Use 32 registers for an apples-to-apples comparison with master's native scheduling
     # (which assumes infinite/all 32 registers are available because it doesn't spill)
-    allocate_registers_chaitin(blocks, num_registers=32)
+    allocate_registers_chaitin(blocks, num_registers=64)
 
     for b in blocks:
         b.build_ddg()
 
-    counts = Counter()
-    total_packets = 0
-    total_instructions = 0
+    import io
+    f = io.StringIO()
+    f.write("       .section code\n")
 
     for b in blocks:
         if not b.instructions:
             continue
 
-        print(f"\n=== Basic Block: {b.name} ===")
+        f.write(f"\n{b.name}:\n")
+        f.write(f"; === Basic Block: {b.name} ===\n")
         packets = greedy_packetize(b, max_packet_size)
 
         for p_idx, packet in enumerate(packets):
-            print(f"  Packet {p_idx}:")
-            packet_size = len(packet)
-            counts[packet_size] += 1
-            total_packets += 1
-            total_instructions += packet_size
+            f.write(f";   Packet {p_idx}:\n")
             for inst_idx in packet:
                 inst = b.instructions[inst_idx]
-                print(f"    [{inst_idx:2d}] {inst.original_text}")
+                f.write(f"    {inst.original_text}\n")
     
-    # Write the SVG
-    basename = os.path.basename(asm_file).split('.')[0].replace("raw_", "")
-    out_name = f"advay_{basename}.svg"
-    write_packet_histogram_svg(out_name, dict(counts), total_packets, total_instructions)
-    print(f"\nSaved histogram to {out_name}")
+    return f.getvalue()
+
+def packetize_file(asm_file, max_packet_size=None):
+    with open(asm_file, "r") as f:
+        asm_text = f.read()
+    
+    out_text = packetize_text(asm_text, max_packet_size)
+
+    base_name = os.path.basename(asm_file)
+    if base_name.startswith("raw_"):
+        out_name = base_name.replace("raw_", "pkt_", 1)
+    else:
+        out_name = "pkt_" + base_name
+
+    out_path = os.path.join(os.path.dirname(asm_file) or ".", out_name)
+
+    with open(out_path, "w") as f:
+        f.write(out_text)
+
+    print(f"Success! Saved packetized assembly to {out_path}")
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -85,4 +97,3 @@ if __name__ == "__main__":
     max_packet_width = int(sys.argv[2]) if len(sys.argv) > 2 else None
 
     packetize_file(asm_file, max_packet_width)
-

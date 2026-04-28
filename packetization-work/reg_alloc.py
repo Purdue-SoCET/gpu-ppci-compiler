@@ -1,6 +1,9 @@
 import sys
 import re
 
+# TWIG Architecture ABI Pinned Variables
+RESERVED_REGS = {"x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x28", "x29", "x30", "x31", "x63"}
+
 def compute_liveness(blocks):
     """
     computes DEF and USE sets, then calculates LIVE_IN and LIVE_OUT
@@ -11,9 +14,9 @@ def compute_liveness(blocks):
         b.use_set = set()
         for inst in b.instructions:
             for src in inst.srcs:
-                if src not in b.def_set and src != "x0":
+                if src not in b.def_set and src not in RESERVED_REGS:
                     b.use_set.add(src)
-            if inst.dest and inst.dest != "x0":
+            if inst.dest and inst.dest not in RESERVED_REGS:
                 b.def_set.add(inst.dest)
 
         b.live_in = set()
@@ -75,21 +78,19 @@ def calculate_spill_costs(blocks):
 
         for inst in b.instructions:
             for s in inst.srcs:
-                if s != "x0":
-                    costs[s] = costs.get(s, 0) + 2 * weight  # use = load on spill
-            if inst.dest and inst.dest != "x0":
-                costs[inst.dest] = costs.get(inst.dest, 0) + weight  # def = store on spill
+                if s not in RESERVED_REGS:
+                    costs[s] = costs.get(s, 0) + 2 * weight
+            if inst.dest and inst.dest not in RESERVED_REGS:
+                costs[inst.dest] = costs.get(inst.dest, 0) + weight
 
     return costs
 
 def build_interference_graph(blocks):
-    """
-    constructs the register interference graph using backward traversal
-    within each block
-    """
     adj_list = {}
 
     def add_edge(u, v):
+        if u in RESERVED_REGS or v in RESERVED_REGS:
+            return  # never put reserved regs in the interference graph
         if u not in adj_list: adj_list[u] = set()
         if v not in adj_list: adj_list[v] = set()
         if u != v:
@@ -99,16 +100,16 @@ def build_interference_graph(blocks):
     for b in blocks:
         live = b.live_out.copy()
         for inst in reversed(b.instructions):
-            if inst.dest and inst.dest != "x0":
+            if inst.dest and inst.dest not in RESERVED_REGS:
                 live.discard(inst.dest)
                 if inst.dest not in adj_list:
                     adj_list[inst.dest] = set()
-                # defined register interferes with all currently live registers
                 for lreg in live:
-                    add_edge(inst.dest, lreg)
+                    if lreg not in RESERVED_REGS:
+                        add_edge(inst.dest, lreg)
 
             for src in inst.srcs:
-                if src != "x0":
+                if src not in RESERVED_REGS:
                     live.add(src)
                     if src not in adj_list:
                         adj_list[src] = set()
@@ -120,7 +121,10 @@ def color_graph(adj_list, num_registers, spill_costs=None):
     Chaitin's
     Colors from x1 to x{num_registers-1}. x0 is hardwired.
     """
-    colors_available = [f"x{i}" for i in range(1, num_registers)]
+    colors_available = [
+        f"x{i}" for i in range(1, num_registers)
+        if f"x{i}" not in RESERVED_REGS
+    ]
     num_colors = len(colors_available)
 
     stack = []
@@ -204,12 +208,14 @@ def rewrite_instructions(blocks, allocation):
                 if old in inst.original_text:
                     inst.original_text = re.sub(rf"\b{old}\b", new, inst.original_text)
 
-            if inst.dest and inst.dest != "x0":
+            if inst.dest and inst.dest not in RESERVED_REGS:
                 inst.dest = allocation[inst.dest]
 
             new_srcs = set()
             for src in inst.srcs:
-                if src != "x0":
+                if src in RESERVED_REGS:
+                    new_srcs.add(src)
+                else:
                     new_srcs.add(allocation[src])
             inst.srcs = new_srcs
 
@@ -222,8 +228,8 @@ def split_live_ranges(blocks):
     all_regs = set()
     for b in blocks:
         for inst in b.instructions:
-            all_regs.update([s for s in inst.srcs if s != "x0"])
-            if inst.dest and inst.dest != "x0":
+            all_regs.update([s for s in inst.srcs if s not in RESERVED_REGS])
+            if inst.dest and inst.dest not in RESERVED_REGS:
                 all_regs.add(inst.dest)
 
     # renaming based on liveness
@@ -234,7 +240,7 @@ def split_live_ranges(blocks):
         b.rd_out = {}
         b.rd_gen = {}
         for i, inst in enumerate(b.instructions):
-            if inst.dest and inst.dest != "x0":
+            if inst.dest and inst.dest not in RESERVED_REGS:
                 b.rd_gen[inst.dest] = f"def_{b.name}_{i}_{inst.dest}"
 
     changed = True
@@ -282,7 +288,7 @@ def split_live_ranges(blocks):
         parent[d] = d
     for b in blocks:
         for i, inst in enumerate(b.instructions):
-            if inst.dest and inst.dest != "x0":
+            if inst.dest and inst.dest not in RESERVED_REGS:
                 d = f"def_{b.name}_{i}_{inst.dest}"
                 parent[d] = d
 
@@ -291,16 +297,103 @@ def split_live_ranges(blocks):
         current_defs = {reg: set(defs) for reg, defs in b.rd_in.items()}
         for i, inst in enumerate(b.instructions):
             for src in inst.srcs:
-                if src != "x0":
+                if src not in RESERVED_REGS:
                     reaching = list(current_defs.get(src, []))
                     if reaching:
                         for other_def in reaching[1:]:
                             union(reaching[0], other_def)
 
-            if inst.dest and inst.dest != "x0":
+            if inst.dest and inst.dest not in RESERVED_REGS:
+                d = f"def_{b.name}_{i}_{inst.dest}"
+                current_defs[inst.dest] = {d}
+    # ============================================================
+    # Memory-flow web coalescing
+    # ============================================================
+    # When a value is stored to a memory slot and later loaded back
+    # from the same slot with no intervening store to that slot, the
+    # use feeding the `sw` and the def produced by the `lw` are the
+    # same logical value. Union their webs so the allocator gives
+    # them the same physical register.
+    #
+    # This is a pure dataflow rule - it has no notion of "callee
+    # saved" or "ABI". It just observes that bytes round-trip through
+    # memory unchanged.
+    #
+    # Pattern matched: sw <reg>, <imm>(<base>) ... lw <reg>, <imm>(<base>)
+    # where <base> is x2 (SP) or x8 (FP) so the slot identity is
+    # stable, and the slot is not written between the sw and the lw.
+    # ============================================================
+
+    sw_lw_re = re.compile(
+        r"^\s*(sw|lw)\s+(\w+)\s*,\s*(-?\d+)\s*\(\s*(x\d+)\s*\)"
+    )
+
+    def parse_mem_op(inst):
+        """Returns (op, reg, offset, base) or None for non-stack mem ops."""
+        m = sw_lw_re.match(inst.original_text)
+        if not m:
+            return None
+        op, reg, offset, base = m.group(1), m.group(2), int(m.group(3)), m.group(4)
+        if base not in {"x2", "x8"}:  # only frame-relative
+            return None
+        return (op, reg, offset, base)
+
+    # Walk the program in textual order, tracking the most recent sw
+    # to each (offset, base) slot. When a matching lw is found, union
+    # the sw's source-web with the lw's dest-web.
+    last_store = {}  # (offset, base) -> (src_web, store_index_in_program)
+
+    for b in blocks:
+        current_defs = {reg: set(defs) for reg, defs in b.rd_in.items()}
+        for i, inst in enumerate(b.instructions):
+            mop = parse_mem_op(inst)
+
+            if mop is not None:
+                op, reg, offset, base = mop
+                slot_key = (offset, base)
+
+                if op == "sw":
+                    # Source register's reaching def feeds this store.
+                    reaching = list(current_defs.get(reg, []))
+                    if reaching and reg not in RESERVED_REGS:
+                        last_store[slot_key] = reaching[0]
+                    elif reg in RESERVED_REGS:
+                        # The stored value is the entry-def of a reserved reg.
+                        # Use a synthetic web key for it so we can union later.
+                        last_store[slot_key] = f"def_entry_{reg}"
+                        if last_store[slot_key] not in parent:
+                            parent[last_store[slot_key]] = last_store[slot_key]
+
+                elif op == "lw":
+                    # Match against the most recent store to this slot.
+                    if slot_key in last_store and reg not in RESERVED_REGS:
+                        load_def = f"def_{b.name}_{i}_{reg}"
+                        if load_def in parent and last_store[slot_key] in parent:
+                            union(last_store[slot_key], load_def)
+
+            # Maintain register-level current_defs for non-mem instructions too,
+            # so we can find the right reaching def when an `sw` comes along.
+            if inst.dest and inst.dest not in RESERVED_REGS:
                 d = f"def_{b.name}_{i}_{inst.dest}"
                 current_defs[inst.dest] = {d}
 
+            # If this instruction writes the slot's base register or
+            # stores to the same slot (already handled above), invalidate
+            # tracking. For now, only `sw` to the slot matters - any
+            # intervening `sw` to (offset, base) replaces last_store, which
+            # the `op == "sw"` branch handles. Writes to the base register
+            # x2/x8 itself are rare in user code (only prologue/epilog).
+
+            # If the base register itself is rewritten, all slots become
+            # ambiguous. Conservative: invalidate.
+            if inst.dest in {"x2", "x8"}:
+                last_store = {
+                    k: v for k, v in last_store.items() if k[1] != inst.dest
+                }
+
+    # ============================================================
+    # End memory-flow coalescing
+    # ============================================================
     web_names = {}
     for d in parent:
         root = find(d)
@@ -318,18 +411,20 @@ def split_live_ranges(blocks):
             src_map = {}
             new_srcs = set()
             for src in inst.srcs:
-                if src != "x0":
-                    reaching = list(current_defs.get(src, []))
-                    if reaching:
-                        web = web_names[find(reaching[0])]
-                        new_srcs.add(web)
-                        src_map[src] = web
-                    else:
-                        new_srcs.add(src)
+                if src in RESERVED_REGS:
+                    new_srcs.add(src)  # keep reserved regs as-is; don't rename, but DO track
+                    continue
+                reaching = list(current_defs.get(src, []))
+                if reaching:
+                    web = web_names[find(reaching[0])]
+                    new_srcs.add(web)
+                    src_map[src] = web
+                else:
+                    new_srcs.add(src)
 
             # identify new dest
             new_dest = None
-            if inst.dest and inst.dest != "x0":
+            if inst.dest and inst.dest not in RESERVED_REGS:
                 d = f"def_{b.name}_{i}_{inst.dest}"
                 current_defs[inst.dest] = {d}
                 web = web_names[find(d)]
@@ -406,7 +501,7 @@ def insert_spill_code(blocks, spilled_nodes, spill_state):
 
     return (spill_offsets, next_offset)
 
-def allocate_registers_chaitin(blocks, num_registers=32):
+def allocate_registers_chaitin(blocks, num_registers=64):
     print("\n--- Live Range Splitting Phase ---")
     split_live_ranges(blocks)
 
@@ -418,10 +513,24 @@ def allocate_registers_chaitin(blocks, num_registers=32):
         compute_liveness(blocks)
         adj_list = build_interference_graph(blocks)
 
+        # debugging below
+        print("Reserved regs in adj_list (should be empty):")
+        for k in adj_list:
+            if k in RESERVED_REGS:
+                print(f"  {k}: {adj_list[k]}")
+        # debugging above
+
         print(f"--- Register Allocation Phase (Iter {iteration}) ---")
         print(f"Extracted {len(adj_list)} Virtual Variables")
 
         allocation, spilled_nodes = color_graph(adj_list, num_registers, spill_costs)
+
+        # debugging below
+        print("Allocation entries that map to reserved regs (should be empty):")
+        for web, phys in allocation.items():
+            if phys in RESERVED_REGS:
+                print(f"  {web} -> {phys}")
+        # debugging above
 
         if not spilled_nodes:
             rewrite_instructions(blocks, allocation)
