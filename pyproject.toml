@@ -70,7 +70,7 @@ build-backend = "flit_core.buildapi"
 
 [tool.black]
 line-length = 79
-extend-exclude = "GPUTest/emulator-test/"
+extend-exclude = "GPUTest/"
 
 [tool.ruff]
 line-length = 79

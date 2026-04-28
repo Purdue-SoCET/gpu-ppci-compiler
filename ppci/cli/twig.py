@@ -173,14 +173,14 @@ def twig(args=None):
                 if args.packet_histogram:
                     march.write_packet_histogram(args.packet_histogram)
 
-                # 7. Write stack info sidecar for emulator + warn on max threads
+                # Write stack info sidecar for emulator + warn on max threads
                 from ..arch.twig.arch import BASE_STACK
 
-                per_thread_stack_size = getattr(
-                    march, "_entry_totalstack", 0
-                )
+                per_thread_stack_size = getattr(march, "_entry_totalstack", 0)
                 if per_thread_stack_size > 0:
-                    _STACK_REGION_SIZE = 0x0F000000  # 0xFFFFFFFC - 0xF1000000 + 4
+                    _STACK_REGION_SIZE = (
+                        0x0F000000  # 0xFFFFFFFC - 0xF1000000 + 4
+                    )
                     max_threads = _STACK_REGION_SIZE // per_thread_stack_size
                     print(
                         f"WARNING: {per_thread_stack_size} bytes/thread stack "
